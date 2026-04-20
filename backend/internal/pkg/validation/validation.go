@@ -1,0 +1,34 @@
+// backend/internal/pkg/validation/validation.go
+
+package validation
+
+import (
+	"errors"
+	"regexp"
+	"strings"
+)
+
+var (
+	emailRegex    = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+	usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9-]+$`)
+	slugRegex     = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+)
+
+func IsValidEmail(email string) bool {
+	return emailRegex.MatchString(email)
+}
+
+func IsValidUsername(username string) bool {
+	return usernameRegex.MatchString(username)
+}
+
+func SanitizeSlug(slug string) (string, error) {
+	slug = strings.TrimSpace(slug)
+	if len(slug) == 0 || len(slug) > 100 {
+		return "", errors.New("invalid slug length")
+	}
+	if !slugRegex.MatchString(slug) {
+		return "", errors.New("invalid slug format")
+	}
+	return slug, nil
+}
