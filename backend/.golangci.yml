@@ -1,0 +1,36 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - goconst
+    - unconvert
+    - bodyclose
+    - rowserrcheck
+    - gosec
+    - forcetypeassert
+    - durationcheck
+    - errorlint
+    - fatcontext
+    - wastedassign
+    - copyloopvar
+    - misspell
+    - intrange
+    - loggercheck
+  settings:
+    gosec:
+      excludes:
+        - G107
+        - G101
+        - G404
+
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 10
