@@ -1,0 +1,2122 @@
+asyncapi: 3.0.0
+info:
+  title: Culturae Platform — Real-time WebSocket API
+  version: 1.0.0
+  description: |
+    AsyncAPI specification for Culturae's WebSocket-based real-time game protocol.
+
+    ## Overview
+    The Culturae platform exposes a single persistent WebSocket endpoint. All game
+    modes (solo geography map, flags quiz, country-listing challenge, 1v1) share the
+    same connection and message types.  Third-party clients connect once and can
+    participate in any game mode without reconnecting.
+
+    ## Connection
+    - **Endpoint**: `GET /api/v1/realtime`
+    - **Upgrade**: standard WebSocket handshake
+    - **Auth**: Pass the JWT token as the first `Sec-WebSocket-Protocol` subprotocol
+      value, e.g. `new WebSocket(url, ["Bearer", "<token>"])`.
+      Alternatively, include it as an `Authorization: Bearer <token>` header.
+
+    ## Message envelope
+    Every message (client → server or server → client) **must** contain a top-level
+    `"type"` field that identifies the message kind.
+
+    Server → client game events carry `public_id`, `timestamp` and a `data`
+    object holding event-specific payload (see `GameEventEnvelope`).
+    Non-game server messages (`ack`, `pong`, `hello`, `error`, `presence`,
+    `admin_notification`) are flat and do not use the `data` wrapper.
+
+    ## Game lifecycle (solo / 1v1)
+    ```
+    Client                          Server
+      |--- join_game ----------------->|
+      |<-- ack (join_game, ok) --------|
+      |<-- game_started  --------------|   (after POST /games/:id/start)
+      |<-- question_sent --------------|
+      |--- submit_answer ------------->|
+      |<-- ack (submit_answer, ok) ----|
+      |<-- answer_received ------------|
+      |<-- score_updated --------------|
+      |   [inter-round delay ~1.5 s]
+      |<-- question_sent  -------------|   (next question, or…)
+      |<-- game_completed  ------------|   (if last question)
+    ```
+
+    ## Country-listing game lifecycle
+    ```
+    Client                          Server
+      |--- join_game ----------------->|
+      |<-- ack (join_game, ok) --------|
+      |<-- game_started  --------------|
+      |--- submit_answer (text) ------>|   (repeated, no time limit)
+      |<-- ack (submit_answer, ok) ----|
+      |<-- country_found  -------------|   (correct guess)
+      |<-- score_updated --------------|
+      |   — or —
+      |<-- country_not_found  ---------|   (wrong guess)
+      |<-- country_already_found  -----|   (already guessed)
+      |<-- game_completed  ------------|   (all countries found)
+    ```
+
+    ## Pause / Reconnect lifecycle (1v1 / multi only)
+    ```
+    Client A (disconnects)          Server              Client B (stays)
+      |   [connection drops]           |                    |
+      |                   <-- player_disconnected ----------|
+      |                   <-- game_paused (countdown=N) ----|
+      |   [reconnects within N secs]   |                    |
+      |--- join_game ----------------->|                    |
+      |<-- ack (join_game, ok) --------|                    |
+      |<-- question_sent (resume) -----|                    |
+      |<-- game_state -----------------|                    |
+      |                   <-- player_reconnected -----------|
+      |                   <-- game_resumed (remaining_ms) --|
+      |   [game continues normally]    |                    |
+    ```
+    The grace period (`countdown_secs`) is configurable by admins via
+    `PUT /api/v1/admin/settings/game/countdown` (`reconnect_grace_period_seconds`,
+    default 30 s). If Client A does not reconnect within that window, the server
+    triggers a forfeit — in 1v1 Client B receives `game_completed` as winner; in
+    multi, if 2+ players remain the disconnected player is silently removed and the
+    game continues, otherwise the last standing player wins.
+
+    ## Game invite flow
+    ```
+    Client (invitee, connects)      Server          Client (inviter)
+      |--- [WS handshake] --------->|                    |
+      |<-- hello ------------------|                    |
+      |<-- pending_invites --------|   (only if pending invites exist)
+      |                            |                    |
+      [inviter sends POST /games/:id/invite]
+      |<-- game_invite ------------|                    |
+      |                            |                    |
+      [invitee accepts: POST /invite/:id/accept]
+      |<-- game_invite_updated ----|   (status: accepted, sent to invitee's other sessions)
+      |                            |<-- game_invite_accepted  (sent to inviter)
+      |                            |                    |
+      [invitee rejects: POST /invite/:id/reject]
+      |<-- game_invite_updated ----|   (status: rejected, sent to invitee's other sessions)
+      |                            |<-- game_invite_rejected  (sent to inviter)
+    ```
+    Clients **must not** poll `GET /api/v1/games/invites?status=pending` on a
+    loop — use `pending_invites` on connect and subsequent push events instead.
+
+    ## Multi lobby flow
+    ```
+    Creator                         Server              Joiner
+      |--- POST /games/create ------>|                    |
+      |<-- game_created (REST) ------|                    |
+      |--- join_game (WS) ---------->|                    |
+      |<-- ack (join_game, ok) ------|                    |
+      |                            |                    |
+      [joiner calls POST /games/:id/join]
+      |<-- lobby_updated -----------|   (action: joined, broadcast to room)
+      |                            |--- join_game (WS) ->|
+      |                            |<-- ack (ok) --------|
+      |                            |                    |
+      [creator sends start_game or POST /games/:id/start]
+      |<-- game_starting -----------|<-- game_starting --|
+      |<-- game_started ------------|<-- game_started ---|
+    ```
+    `lobby_updated` is broadcast to all WebSocket connections subscribed to the
+    game room whenever a player joins or leaves during the `waiting` / `ready` phase.
+
+    ## Heartbeat
+    Clients should send a `ping` every ~30 s to keep the connection alive.
+  contact:
+    name: Culturae Team
+    url: https://culturae.me
+  license:
+    name: Proprietary
+
+id: 'urn:culturae:realtime'
+defaultContentType: application/json
+
+servers:
+  production:
+    host: demo.culturae.me
+    pathname: /api/v1/realtime
+    protocol: wss
+    description: Production WebSocket server
+    security:
+      - bearerAuth: []
+      - websocketProtocolAuth: []
+  development:
+    host: localhost:8080
+    pathname: /api/v1/realtime
+    protocol: ws
+    description: Local development WebSocket server
+    security:
+      - bearerAuth: []
+      - websocketProtocolAuth: []
+
+channels:
+  realtime:
+    address: /api/v1/realtime
+    description: Main WebSocket channel — one channel for all real-time features.
+    servers:
+      - $ref: '#/servers/production'
+      - $ref: '#/servers/development'
+    messages:
+      # Utility — Server → Client
+      hello:
+        $ref: '#/components/messages/HelloMessage'
+      ack:
+        $ref: '#/components/messages/AckMessage'
+      pong:
+        $ref: '#/components/messages/PongMessage'
+      error:
+        $ref: '#/components/messages/ErrorMessage'
+      # Game lifecycle — Server → Client
+      game_created:
+        $ref: '#/components/messages/GameCreatedMessage'
+      game_ready:
+        $ref: '#/components/messages/GameReadyMessage'
+      game_starting:
+        $ref: '#/components/messages/GameStartingMessage'
+      game_started:
+        $ref: '#/components/messages/GameStartedMessage'
+      game_completed:
+        $ref: '#/components/messages/GameCompletedMessage'
+      game_cancelled:
+        $ref: '#/components/messages/GameCancelledMessage'
+      game_paused:
+        $ref: '#/components/messages/GamePausedMessage'
+      game_resumed:
+        $ref: '#/components/messages/GameResumedMessage'
+      question_timeout:
+        $ref: '#/components/messages/QuestionTimeoutMessage'
+      # Players — Server → Client
+      player_joined:
+        $ref: '#/components/messages/PlayerJoinedMessage'
+      player_left:
+        $ref: '#/components/messages/PlayerLeftMessage'
+      player_disconnected:
+        $ref: '#/components/messages/PlayerDisconnectedMessage'
+      player_reconnected:
+        $ref: '#/components/messages/PlayerReconnectedMessage'
+      player_ready_update:
+        $ref: '#/components/messages/PlayerReadyUpdateMessage'
+      # Questions & answers — Server → Client
+      question_sent:
+        $ref: '#/components/messages/QuestionSentMessage'
+      answer_received:
+        $ref: '#/components/messages/AnswerReceivedMessage'
+      score_updated:
+        $ref: '#/components/messages/ScoreUpdatedMessage'
+      # Country-listing mode — Server → Client
+      country_found:
+        $ref: '#/components/messages/CountryFoundMessage'
+      country_not_found:
+        $ref: '#/components/messages/CountryNotFoundMessage'
+      country_already_found:
+        $ref: '#/components/messages/CountryAlreadyFoundMessage'
+      # Social — Server → Client
+      pending_invites:
+        $ref: '#/components/messages/PendingInvitesMessage'
+      game_invite:
+        $ref: '#/components/messages/GameInviteMessage'
+      game_invite_accepted:
+        $ref: '#/components/messages/GameInviteAcceptedMessage'
+      game_invite_rejected:
+        $ref: '#/components/messages/GameInviteRejectedMessage'
+      game_invite_updated:
+        $ref: '#/components/messages/GameInviteUpdatedMessage'
+      # Lobby — Server → Client
+      lobby_stats:
+        $ref: '#/components/messages/LobbyStatsMessage'
+      lobby_updated:
+        $ref: '#/components/messages/LobbyUpdatedMessage'
+      # Social / friends — Server → Client
+      friend_request_rejected:
+        $ref: '#/components/messages/FriendRequestRejectedMessage'
+      friend_request_cancelled:
+        $ref: '#/components/messages/FriendRequestCancelledMessage'
+      friend_removed:
+        $ref: '#/components/messages/FriendRemovedMessage'
+      # Presence & admin — Server → Client
+      presence:
+        $ref: '#/components/messages/PresenceMessage'
+      admin_notification:
+        $ref: '#/components/messages/AdminNotificationMessage'
+      # Matchmaking — Server → Client
+      queue_joined:
+        $ref: '#/components/messages/QueueJoinedMessage'
+      queue_left:
+        $ref: '#/components/messages/QueueLeftMessage'
+      match_found:
+        $ref: '#/components/messages/MatchFoundMessage'
+      # Player progression — Server → Client
+      xp_updated:
+        $ref: '#/components/messages/XPUpdatedMessage'
+      elo_updated:
+        $ref: '#/components/messages/ELOUpdatedMessage'
+      # Reconnection — Server → Client
+      game_state:
+        $ref: '#/components/messages/GameStateMessage'
+      # Miscellaneous — Server → Client
+      game_results:
+        $ref: '#/components/messages/GameResultsMessage'
+      game_invite_cancelled:
+        $ref: '#/components/messages/GameInviteCancelledMessage'
+      notification:
+        $ref: '#/components/messages/NotificationMessage'
+      # Client → Server
+      ping:
+        $ref: '#/components/messages/PingMessage'
+      join_game:
+        $ref: '#/components/messages/JoinGameMessage'
+      leave_game:
+        $ref: '#/components/messages/LeaveGameMessage'
+      player_ready_client:
+        $ref: '#/components/messages/PlayerReadyMessage'
+      start_game:
+        $ref: '#/components/messages/StartGameMessage'
+      submit_answer:
+        $ref: '#/components/messages/SubmitAnswerMessage'
+
+operations:
+  receiveMessage:
+    action: receive
+    summary: Messages sent from Server → Client
+    channel:
+      $ref: '#/channels/realtime'
+    messages:
+      # Utility
+      - $ref: '#/channels/realtime/messages/hello'
+      - $ref: '#/channels/realtime/messages/ack'
+      - $ref: '#/channels/realtime/messages/pong'
+      - $ref: '#/channels/realtime/messages/error'
+      # Game lifecycle
+      - $ref: '#/channels/realtime/messages/game_created'
+      - $ref: '#/channels/realtime/messages/game_ready'
+      - $ref: '#/channels/realtime/messages/game_starting'
+      - $ref: '#/channels/realtime/messages/game_started'
+      - $ref: '#/channels/realtime/messages/game_completed'
+      - $ref: '#/channels/realtime/messages/game_cancelled'
+      - $ref: '#/channels/realtime/messages/game_paused'
+      - $ref: '#/channels/realtime/messages/game_resumed'
+      - $ref: '#/channels/realtime/messages/question_timeout'
+      # Players
+      - $ref: '#/channels/realtime/messages/player_joined'
+      - $ref: '#/channels/realtime/messages/player_left'
+      - $ref: '#/channels/realtime/messages/player_disconnected'
+      - $ref: '#/channels/realtime/messages/player_reconnected'
+      - $ref: '#/channels/realtime/messages/player_ready_update'
+      # Questions & answers
+      - $ref: '#/channels/realtime/messages/question_sent'
+      - $ref: '#/channels/realtime/messages/answer_received'
+      - $ref: '#/channels/realtime/messages/score_updated'
+      # Country-listing mode
+      - $ref: '#/channels/realtime/messages/country_found'
+      - $ref: '#/channels/realtime/messages/country_not_found'
+      - $ref: '#/channels/realtime/messages/country_already_found'
+      # Social
+      - $ref: '#/channels/realtime/messages/pending_invites'
+      - $ref: '#/channels/realtime/messages/game_invite'
+      - $ref: '#/channels/realtime/messages/game_invite_accepted'
+      - $ref: '#/channels/realtime/messages/game_invite_rejected'
+      - $ref: '#/channels/realtime/messages/game_invite_updated'
+      # Lobby
+      - $ref: '#/channels/realtime/messages/lobby_stats'
+      - $ref: '#/channels/realtime/messages/lobby_updated'
+      # Social / friends
+      - $ref: '#/channels/realtime/messages/friend_request_rejected'
+      - $ref: '#/channels/realtime/messages/friend_request_cancelled'
+      - $ref: '#/channels/realtime/messages/friend_removed'
+      # Presence & admin
+      - $ref: '#/channels/realtime/messages/presence'
+      - $ref: '#/channels/realtime/messages/admin_notification'
+      # Matchmaking
+      - $ref: '#/channels/realtime/messages/queue_joined'
+      - $ref: '#/channels/realtime/messages/queue_left'
+      - $ref: '#/channels/realtime/messages/match_found'
+      # Player progression
+      - $ref: '#/channels/realtime/messages/xp_updated'
+      - $ref: '#/channels/realtime/messages/elo_updated'
+      # Reconnection
+      - $ref: '#/channels/realtime/messages/game_state'
+      # Miscellaneous
+      - $ref: '#/channels/realtime/messages/game_results'
+      - $ref: '#/channels/realtime/messages/game_invite_cancelled'
+      - $ref: '#/channels/realtime/messages/notification'
+
+  sendMessage:
+    action: send
+    summary: Messages sent from Client → Server
+    channel:
+      $ref: '#/channels/realtime'
+    messages:
+      - $ref: '#/channels/realtime/messages/ping'
+      - $ref: '#/channels/realtime/messages/join_game'
+      - $ref: '#/channels/realtime/messages/leave_game'
+      - $ref: '#/channels/realtime/messages/player_ready_client'
+      - $ref: '#/channels/realtime/messages/start_game'
+      - $ref: '#/channels/realtime/messages/submit_answer'
+
+# =============================================================================
+components:
+# =============================================================================
+
+  securitySchemes:
+    bearerAuth:
+      type: httpApiKey
+      name: Authorization
+      in: header
+      description: |
+        Standard HTTP header — `Authorization: Bearer <jwt_token>`.
+        Preferred for server-to-server or native clients.
+    websocketProtocolAuth:
+      type: httpApiKey
+      name: Sec-WebSocket-Protocol
+      in: header
+      description: |
+        Pass the token as the first subprotocol value in the WebSocket handshake.
+        Example (browser): `new WebSocket(url, ["Bearer", token])`.
+        The server negotiates the `Bearer` subprotocol and extracts the token
+        from the next element.
+
+  # ---------------------------------------------------------------------------
+  schemas:
+  # ---------------------------------------------------------------------------
+
+    UUID:
+      type: string
+      format: uuid
+      example: "550e8400-e29b-41d4-a716-446655440000"
+
+    # ---------- Shared utility ------------------------------------------------
+
+    I18nMap:
+      type: object
+      description: |
+        Localised string map — keys are BCP-47 language tags (`en`, `fr`, `es`, …),
+        values are the translated string.
+      additionalProperties:
+        type: string
+      example:
+        en: "France"
+        fr: "France"
+        es: "Francia"
+
+    # ---------- Question payload (server → client) ---------------------------
+
+    QuestionPayload:
+      type: object
+      description: |
+        A question as broadcast to clients inside `question_sent`.
+        The `qtype` field determines which sub-fields of `data` are populated.
+      required: [id, qtype, variant, stem, points, time_limit, data]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Stable question UUID — echo this back in `submit_answer.answer.question_id`.
+        qtype:
+          type: string
+          enum: [map, flags, text_input]
+          description: |
+            Question category that drives client rendering:
+            - `map`        — click a country on a world map
+            - `flags`      — flag-related multiple-choice or identification
+            - `text_input` — free-text answer (used in country-listing mode)
+        variant:
+          type: string
+          description: |
+            Mode variant within the qtype, e.g. `flag_to_text`, `text_to_flag`, `map`.
+            Clients can use this to choose the right UI widget.
+        stem:
+          $ref: '#/components/schemas/I18nMap'
+          description: |
+            Localised question prompt — pick the key matching the user's language,
+            fall back to `en`.
+        points:
+          type: integer
+          minimum: 0
+          description: Maximum points awarded for a correct answer.
+        time_limit:
+          type: integer
+          minimum: 0
+          description: Seconds the client has to answer. `0` means no timer (country-listing).
+        data:
+          $ref: '#/components/schemas/QuestionDataPayload'
+
+    QuestionDataPayload:
+      type: object
+      description: |
+        Question-type-specific data.  All fields are optional — only the ones
+        relevant to the `qtype`/`variant` combination are included.
+      properties:
+        flag:
+          type: string
+          description: |
+            Flag identifier (emoji or path/code) for `flags` questions.
+            Present when the question shows a flag image.
+          example: "🇫🇷"
+        mode:
+          type: string
+          description: |
+            Sub-mode hint, e.g. `"classic"`.  Informational — clients may use it
+            to adjust rendering but must not rely on it for correctness logic.
+        options:
+          type: array
+          description: |
+            Multiple-choice options for `flags` MCQ variants.
+            Each option has a `slug` the client must echo back as the answer.
+          items:
+            $ref: '#/components/schemas/AnswerOptionPayload'
+        target_name:
+          $ref: '#/components/schemas/I18nMap'
+          description: |
+            Localised name of the target country.  Present for `map` questions
+            (the country the player must locate).  Use `en` for GeoJSON feature
+            matching; use the user's language for the on-screen label.
+        target_capital:
+          $ref: '#/components/schemas/I18nMap'
+          description: |
+            Localised capital name for capital-city question variants.
+
+    AnswerOptionPayload:
+      type: object
+      description: One MCQ answer option.
+      required: [slug]
+      properties:
+        slug:
+          type: string
+          description: |
+            Unique country/entity slug.  This is the value to submit in
+            `submit_answer.answer.answer.slug` when the player selects this option.
+        name:
+          $ref: '#/components/schemas/I18nMap'
+          description: Localised display name for this option.
+        flag:
+          type: string
+          description: Flag identifier, present for `text_to_flag` variants.
+
+    # ---------- Answer result (server → client) ------------------------------
+
+    CorrectAnswerInfo:
+      type: object
+      description: The correct answer revealed after a round ends.
+      required: [slug]
+      properties:
+        slug:
+          type: string
+          description: The authoritative country slug.
+          example: "france"
+        name:
+          $ref: '#/components/schemas/I18nMap'
+          description: Localised names for display.
+        flag:
+          type: string
+          description: Flag identifier, when relevant.
+          example: "🇫🇷"
+
+    # ---------- Game event envelope (server → client) ------------------------
+
+    GameEventEnvelope:
+      type: object
+      description: |
+        Common wrapper around all server-initiated game events.
+        The `data` field holds the event-specific payload documented per message.
+        Only `public_id` is exposed — the internal game UUID is never sent over
+        the wire.
+      required: [type, public_id, data, timestamp]
+      properties:
+        type:
+          type: string
+          description: Event type identifier (snake_case).
+        public_id:
+          type: string
+          description: Public game identifier — use this to reference the game in REST API calls.
+        data:
+          type: object
+          description: Event-specific payload — see individual message definitions.
+        timestamp:
+          type: string
+          format: date-time
+          description: Server-side event emission time (RFC 3339 / ISO 8601).
+
+    # ---------- Client answer payload ----------------------------------------
+
+    ClientAnswerPayload:
+      type: object
+      description: |
+        The `answer` object nested inside `submit_answer`.
+
+        The `type` field is included for routing purposes.
+        The `answer` field carries the actual guess — its shape depends on the
+        question type:
+
+        - **Map / geography** (`qtype: map`):
+          ```json
+          { "slug": "france", "submitted_slug": "france" }
+          ```
+        - **Flags MCQ** (`qtype: flags`, `variant: flag_to_text` / `text_to_flag`):
+          ```json
+          { "slug": "france" }
+          ```
+        - **Free text** (`qtype: text_input`, used in country-listing):
+          ```json
+          { "text": "France", "value": "France" }
+          ```
+      required: [type, answer]
+      properties:
+        type:
+          type: string
+          description: Answer type hint (e.g. `"coordinates"`). Included for routing; servers accept any value.
+        answer:
+          description: The actual answer data — shape is question-type-dependent (see description above).
+          oneOf:
+            - type: object
+              title: SlugAnswer
+              description: Used for map and flags questions.
+              properties:
+                slug:
+                  type: string
+                  description: The selected country slug.
+                submitted_slug:
+                  type: string
+                  description: Optional echo of the submitted slug (may equal `slug`).
+            - type: object
+              title: TextAnswer
+              description: Used for free-text questions (text_input / country-listing).
+              properties:
+                text:
+                  type: string
+                  description: The player's typed answer.
+                value:
+                  type: string
+                  description: Same as `text`; included for compatibility.
+        question_id:
+          type: string
+          format: uuid
+          description: Echo of the question ID from `question_sent.data.question.id`. Recommended.
+        time_spent:
+          type: integer
+          description: |
+            Time the player took to answer, in **milliseconds**.
+            Compute as: `Date.now() - questionReceivedAt`.
+          minimum: 0
+
+  # ---------------------------------------------------------------------------
+  messages:
+  # ---------------------------------------------------------------------------
+
+    # ==========================================================================
+    # Server → Client  (utility)
+    # ==========================================================================
+
+    HelloMessage:
+      name: hello
+      messageId: hello
+      title: Hello
+      summary: Sent immediately after a successful WebSocket handshake.
+      description: |
+        The server sends this once to confirm the connection and convey protocol
+        metadata.  Clients should store `heartbeat_interval` and send `ping` at
+        that cadence (milliseconds).
+      payload:
+        type: object
+        required: [type, protocol_version, server_time, heartbeat_interval]
+        properties:
+          type:
+            type: string
+            enum: [hello]
+          protocol_version:
+            type: integer
+            description: Protocol version number. Currently `1`.
+          server_time:
+            type: string
+            format: date-time
+            description: Current server time — useful for clock skew detection.
+          heartbeat_interval:
+            type: integer
+            description: Recommended ping interval in milliseconds (e.g. `30000`).
+
+    AckMessage:
+      name: ack
+      messageId: ack
+      title: Acknowledgment
+      summary: Response to a client request, confirming success or reporting an error.
+      description: |
+        Every client action (`join_game`, `submit_answer`, etc.) produces an `ack`.
+        The `action` field mirrors the `type` of the original client message.
+        When `success` is `false`, `error` contains a human-readable reason.
+      payload:
+        type: object
+        required: [type, action, success]
+        properties:
+          type:
+            type: string
+            enum: [ack]
+          action:
+            type: string
+            description: The client message type being acknowledged.
+            example: "submit_answer"
+          success:
+            type: boolean
+          error:
+            type: string
+            nullable: true
+            description: Present only when `success` is `false`.
+          correlation_id:
+            type: string
+            description: Echoed from the original client message if provided.
+
+    PongMessage:
+      name: pong
+      messageId: pong
+      title: Pong
+      summary: Response to a `ping` message.
+      payload:
+        type: object
+        required: [type]
+        properties:
+          type:
+            type: string
+            enum: [pong]
+
+    ErrorMessage:
+      name: error
+      messageId: error
+      title: Error
+      summary: Generic error notification not tied to a specific client request.
+      payload:
+        type: object
+        required: [type, error]
+        properties:
+          type:
+            type: string
+            enum: [error]
+          error:
+            type: string
+            description: Human-readable error message.
+
+    # ==========================================================================
+    # Server → Client  (game lifecycle)
+    # ==========================================================================
+
+    GameCreatedMessage:
+      name: game_created
+      messageId: game_created
+      title: Game Created
+      summary: A new game instance has been created (internal / admin use).
+      description: |
+        Broadcast when a game is created via the REST API.  Solo clients typically
+        don't need to handle this — `game_started` is the actionable event.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                required: [mode]
+                properties:
+                  mode:
+                    type: string
+                    enum: [solo, 1v1, multi, country_listing]
+                    description: Game mode that was created.
+
+    GameReadyMessage:
+      name: game_ready
+      messageId: game_ready
+      title: Game Ready
+      summary: |
+        The minimum number of players has joined and the game can now be started.
+      description: |
+        In multiplayer modes, the creator should react to this event by calling
+        `POST /games/:id/start` or by sending `start_game` over WebSocket.
+        In solo mode this event is typically skipped — the client calls start
+        immediately after `game_created`.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                description: Empty — no additional fields.
+
+    GameStartingMessage:
+      name: game_starting
+      messageId: game_starting
+      title: Game Starting
+      summary: Pre-game countdown has begun. The game will start after `countdown_secs` seconds.
+      description: |
+        Emitted when all players are ready, before the game actually starts.
+        Clients should display a countdown screen showing the player roster.
+        `game_started` followed immediately by `question_sent` will arrive once
+        the countdown elapses.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                required: [countdown_secs, players]
+                properties:
+                  countdown_secs:
+                    type: integer
+                    minimum: 0
+                    description: |
+                      Seconds until the game starts. Configurable by admins
+                      (`pre_game_countdown_seconds`, default 3 s).
+                    example: 3
+                  players:
+                    type: array
+                    description: Snapshot of all players entering the game.
+                    items:
+                      type: object
+                      required: [user_public_id, username]
+                      properties:
+                        user_public_id:
+                          type: string
+                        username:
+                          type: string
+
+    GameStartedMessage:
+      name: game_started
+      messageId: game_started
+      title: Game Started
+      summary: The game has started; the first `question_sent` follows immediately.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  players:
+                    type: array
+                    description: Snapshot of all players at game start with their initial scores.
+                    items:
+                      type: object
+                      properties:
+                        user_public_id:
+                          type: string
+                        username:
+                          type: string
+                        score:
+                          type: integer
+
+    GameCompletedMessage:
+      name: game_completed
+      messageId: game_completed
+      title: Game Completed
+      summary: All questions have been answered (or all countries found). The game is over.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                required: [game_id, players_final]
+                properties:
+                  game_id:
+                    type: string
+                    description: Public game identifier (same as envelope `public_id`).
+                  winner_public_id:
+                    type: string
+                    nullable: true
+                    description: |
+                      Public ID of the winning player.  Absent in solo mode or on a draw.
+                  players_final:
+                    type: array
+                    description: Final scores for all players.
+                    items:
+                      type: object
+                      properties:
+                        user_public_id:
+                          type: string
+                        username:
+                          type: string
+                        score:
+                          type: integer
+                          minimum: 0
+
+    GameCancelledMessage:
+      name: game_cancelled
+      messageId: game_cancelled
+      title: Game Cancelled
+      summary: The game was cancelled before completion (player quit, timeout, admin action).
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  reason:
+                    type: string
+                    enum: [player_quit, timeout, admin_action, reconnect_timeout, all_players_left]
+                    description: |
+                      Why the game was cancelled.
+                      - `all_players_left` — every player left voluntarily (no XP awarded to anyone).
+                      - `reconnect_timeout` — a player failed to reconnect within the grace period.
+                      - `player_quit` — a player quit mid-game (winner may be awarded).
+                      - `admin_action` — cancelled by an administrator.
+                  winner_public_id:
+                    type: string
+                    nullable: true
+                    description: Public ID of the winner (if any).
+                  players_final:
+                    type: array
+                    description: Final scores for all players.
+                    items:
+                      type: object
+                      properties:
+                        user_public_id:
+                          type: string
+                        username:
+                          type: string
+                        score:
+                          type: integer
+                          minimum: 0
+
+    GamePausedMessage:
+      name: game_paused
+      messageId: game_paused
+      title: Game Paused
+      summary: |
+        (1v1 / multi only) The game is frozen because a player disconnected.
+        Sent to all remaining players in the room immediately after `player_disconnected`.
+      description: |
+        The game timer is suspended server-side. Clients should display a waiting
+        screen with a countdown based on `data.countdown_secs`.
+        If the disconnected player reconnects before the deadline, a `game_resumed`
+        event is emitted and the game continues from where it stopped.
+        If not, the server auto-forfeits after `countdown_secs` seconds and the
+        remaining player(s) receive `game_completed`.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                required: [countdown_secs]
+                properties:
+                  countdown_secs:
+                    type: integer
+                    description: |
+                      Seconds before the disconnected player is auto-forfeited.
+                      Configurable by admins (default 30 s). Clients should start a
+                      visible countdown from this value.
+                    example: 30
+
+    GameResumedMessage:
+      name: game_resumed
+      messageId: game_resumed
+      title: Game Resumed
+      summary: |
+        (1v1 / multi only) The previously paused game is resuming because the
+        disconnected player has reconnected (or was removed after timeout in multi).
+      description: |
+        The server restarts the question timer from the exact point it was paused.
+        All player timestamps are adjusted server-side so that anti-cheat timing
+        validation remains correct after the pause.
+        Clients should hide the pause screen, re-enable the answer UI, and reset
+        the question countdown to `data.question_remaining_ms` milliseconds.
+        A `player_reconnected` (or `player_left`) event is emitted just before this one.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                required: [question_remaining_ms]
+                properties:
+                  question_remaining_ms:
+                    type: integer
+                    minimum: 0
+                    description: |
+                      Milliseconds remaining on the current question timer.
+                      Use this to reset the client-side countdown — do not rely on
+                      the original `time_limit` from `question_sent` as some time
+                      elapsed before the pause.
+
+    # ==========================================================================
+    # Server → Client  (players)
+    # ==========================================================================
+
+    PlayerJoinedMessage:
+      name: player_joined
+      messageId: player_joined
+      title: Player Joined
+      summary: A player has joined the game lobby.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                required: [user_public_id]
+                properties:
+                  user_public_id:
+                    type: string
+                    description: Public identifier of the player who joined.
+                  username:
+                    type: string
+                    description: Display name of the player.
+
+    PlayerLeftMessage:
+      name: player_left
+      messageId: player_left
+      title: Player Left
+      summary: A player has left the game (voluntarily or after reconnect timeout).
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                required: [user_public_id]
+                properties:
+                  user_public_id:
+                    type: string
+                    description: Public identifier of the player who left.
+                  reason:
+                    type: string
+                    nullable: true
+                    description: |
+                      Why the player left. `reconnect_timeout` means they did not
+                      reconnect in time. Absent for voluntary leaves.
+
+    PlayerDisconnectedMessage:
+      name: player_disconnected
+      messageId: player_disconnected
+      title: Player Disconnected
+      summary: A player's connection dropped. They have a configurable grace period to reconnect before being auto-removed from the game.
+      description: |
+        Emitted immediately when the server detects the WebSocket connection has closed.
+        For 1v1 and multi games, a `game_paused` event follows immediately after this one
+        so that remaining players can display a countdown while waiting for the reconnect.
+        For solo games, no pause is applied — the game continues unaffected.
+      payload:
+        type: object
+        required: [type, public_id, data, timestamp]
+        properties:
+          type:
+            type: string
+            enum: [player_disconnected]
+          public_id:
+            type: string
+          data:
+            type: object
+            required: [user_public_id]
+            properties:
+              user_public_id:
+                type: string
+          timestamp:
+            type: string
+            format: date-time
+
+    PlayerReconnectedMessage:
+      name: player_reconnected
+      messageId: player_reconnected
+      title: Player Reconnected
+      summary: A previously disconnected player has reconnected within the grace period.
+      payload:
+        type: object
+        required: [type, public_id, data, timestamp]
+        properties:
+          type:
+            type: string
+            enum: [player_reconnected]
+          public_id:
+            type: string
+          data:
+            type: object
+            required: [user_public_id]
+            properties:
+              user_public_id:
+                type: string
+          timestamp:
+            type: string
+            format: date-time
+
+    PlayerReadyUpdateMessage:
+      name: player_ready
+      messageId: player_ready
+      title: Player Ready Update
+      summary: A player toggled their ready status.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                required: [user_public_id, ready]
+                properties:
+                  user_public_id:
+                    type: string
+                    description: Public identifier of the player who changed ready state.
+                  ready:
+                    type: boolean
+
+    # ==========================================================================
+    # Server → Client  (questions & answers)
+    # ==========================================================================
+
+    QuestionSentMessage:
+      name: question_sent
+      messageId: question_sent
+      title: Question Sent
+      summary: A new question is broadcast to all players in the game.
+      description: |
+        Clients must start their own countdown based on `data.time_limit`.
+        When `next_question_at` is present in a preceding `answer_received`, the
+        client can use it to display an accurate countdown to the next question.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                required: [question, question_number, total_questions, time_limit]
+                properties:
+                  question:
+                    $ref: '#/components/schemas/QuestionPayload'
+                  question_number:
+                    type: integer
+                    minimum: 1
+                    description: 1-based index of the current question.
+                  total_questions:
+                    type: integer
+                    minimum: 1
+                    description: Total number of questions in the game.
+                  time_limit:
+                    type: integer
+                    minimum: 0
+                    description: |
+                      Seconds allowed for this question. Mirrors
+                      `question.time_limit` — provided at the top level for
+                      convenience.
+
+    AnswerReceivedMessage:
+      name: answer_received
+      messageId: answer_received
+      title: Answer Received
+      summary: Result of a submitted answer, broadcast after each round.
+      description: |
+        Sent after the server validates the player's answer.  The client should
+        transition to a "round-end / feedback" state upon receiving this event.
+
+        If `next_question_at` is present, the server has scheduled the next
+        question to arrive at that exact Unix-millisecond timestamp.  Clients can
+        use this to drive a precise countdown animation.
+
+        **Important timing note**: the server introduces a configurable inter-round
+        delay (~1.5 s by default) between emitting `answer_received` and the
+        subsequent `question_sent`.  This guarantees the two events arrive in
+        separate render cycles so the client can reliably display the feedback
+        screen before the next question appears.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                required: [user_public_id, is_correct, points, time_spent_ms, correct_answer]
+                properties:
+                  user_public_id:
+                    type: string
+                    description: Public identifier of the player who submitted the answer.
+                  question_number:
+                    type: integer
+                    minimum: 1
+                    description: 1-based index of the question this answer applies to.
+                  submitted_slug:
+                    type: string
+                    description: The slug the player submitted (normalised by the server).
+                  is_correct:
+                    type: boolean
+                    description: Whether the submitted answer was correct.
+                  points:
+                    type: integer
+                    minimum: 0
+                    description: Points awarded for this answer (0 if incorrect).
+                  time_spent_ms:
+                    type: integer
+                    minimum: 0
+                    description: Server-measured time from question start to answer receipt, in milliseconds.
+                  correct_answer:
+                    $ref: '#/components/schemas/CorrectAnswerInfo'
+                    description: |
+                      The correct answer.  Always present — even on a correct
+                      submission, so the client can show the canonical name/flag.
+                  next_question_at:
+                    type: integer
+                    format: int64
+                    nullable: true
+                    description: |
+                      Unix timestamp in **milliseconds** at which the next
+                      `question_sent` event will be emitted.  Present only when
+                      there is a next question (i.e. the game is not over) and the
+                      inter-round delay is > 0.
+                      Use this to show a countdown: `nextQuestionAt - Date.now()`.
+
+    ScoreUpdatedMessage:
+      name: score_updated
+      messageId: score_updated
+      title: Score Updated
+      summary: Broadcast after every answer submission to reflect the current score.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                required: [user_public_id, score]
+                properties:
+                  user_public_id:
+                    type: string
+                    description: Public identifier of the player whose score changed.
+                  score:
+                    type: integer
+                    minimum: 0
+                    description: Player's new total score.
+
+    # ==========================================================================
+    # Server → Client  (country-listing mode)
+    # ==========================================================================
+
+    CountryFoundMessage:
+      name: country_found
+      messageId: country_found
+      title: Country Found
+      summary: |
+        (Country-listing mode) The player's guess matched an unfound country.
+      description: |
+        Emitted when a player's text input matches a country that has not yet been
+        found in the current game.  Matching is fuzzy (Levenshtein ≤ 2) so minor
+        typos are accepted.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                required: [user_public_id, iso, points, found_count, total]
+                properties:
+                  user_public_id:
+                    type: string
+                    description: Public identifier of the player who found the country.
+                  iso:
+                    type: string
+                    description: ISO 3166-1 alpha-2 code of the found country (e.g. `"FR"`).
+                    example: "FR"
+                  points:
+                    type: integer
+                    minimum: 0
+                    description: Points awarded for this find.
+                  found_count:
+                    type: integer
+                    minimum: 1
+                    description: Total number of countries found so far in this game.
+                  total:
+                    type: integer
+                    minimum: 1
+                    description: Total number of countries to find to complete the game.
+
+    CountryNotFoundMessage:
+      name: country_not_found
+      messageId: country_not_found
+      title: Country Not Found
+      summary: |
+        (Country-listing mode) The player's guess did not match any unfound country.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                required: [user_public_id, user_input]
+                properties:
+                  user_public_id:
+                    type: string
+                    description: Public identifier of the player who submitted the guess.
+                  user_input:
+                    type: string
+                    description: The raw text the player submitted.
+
+    CountryAlreadyFoundMessage:
+      name: country_already_found
+      messageId: country_already_found
+      title: Country Already Found
+      summary: |
+        (Country-listing mode) The player's guess matched a country that was
+        already found earlier in the game.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                required: [user_public_id, user_input]
+                properties:
+                  user_public_id:
+                    type: string
+                    description: Public identifier of the player who submitted the guess.
+                  user_input:
+                    type: string
+                    description: The raw text the player submitted.
+
+    QuestionTimeoutMessage:
+      name: question_timeout
+      messageId: question_timeout
+      title: Question Timeout
+      summary: |
+        The time limit for the current question expired before all players answered.
+        The server advances to the next question (or ends the game) immediately after.
+      description: |
+        Clients should use this event to dismiss the answer UI and show a
+        "time's up" feedback screen.  A `question_sent` (or `game_completed`)
+        event follows shortly after.
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/GameEventEnvelope'
+          - type: object
+            properties:
+              data:
+                type: object
+                required: [question_number]
+                properties:
+                  question_number:
+                    type: integer
+                    minimum: 1
+                    description: 1-based index of the question that timed out.
+
+    # ==========================================================================
+    # Server → Client  (social / invites)
+    # ==========================================================================
+
+    PendingInvitesMessage:
+      name: pending_invites
+      messageId: pending_invites
+      title: Pending Invites Snapshot
+      summary: |
+        Sent once immediately after a successful WebSocket connection.
+        Contains all game invitations that were sent to the user while they
+        were offline (or before they connected).  Clients should use this
+        to populate their invite inbox on startup instead of polling
+        `GET /api/v1/games/invites?status=pending`.
+      description: |
+        Emitted by the server as soon as the authenticated user upgrades to
+        WebSocket. If the user has no pending invites the message is not sent
+        at all (no empty payload is pushed).
+
+        After this initial snapshot, any new invite or status change is pushed
+        in real-time via `game_invite`, `game_invite_accepted`,
+        `game_invite_rejected`, or `game_invite_cancelled`.
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            enum: [pending_invites]
+          data:
+            type: array
+            description: List of pending invites. Empty array means no pending invites (message not sent in practice).
+            items:
+              type: object
+              required: [invite_id, game_id, game_public_id, from_public_id, from_username, game_mode]
+              properties:
+                invite_id:
+                  $ref: '#/components/schemas/UUID'
+                  description: Unique identifier of the invite.
+                game_id:
+                  $ref: '#/components/schemas/UUID'
+                  description: Internal UUID of the game.
+                game_public_id:
+                  type: string
+                  description: Public identifier of the game — use this for REST API calls.
+                from_public_id:
+                  type: string
+                  description: Public ID of the player who sent the invite.
+                from_username:
+                  type: string
+                  description: Display name of the player who sent the invite.
+                game_mode:
+                  type: string
+                  enum: [solo, 1v1, multi]
+                  description: Game mode of the invited game.
+
+    GameInviteMessage:
+      name: game_invite
+      messageId: game_invite
+      title: Game Invite
+      summary: Another player has sent you a game invitation.
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            enum: [game_invite]
+          data:
+            type: object
+            required: [invite_id, game_id, from_username, game_mode]
+            properties:
+              invite_id:
+                $ref: '#/components/schemas/UUID'
+              game_id:
+                $ref: '#/components/schemas/UUID'
+              from_username:
+                type: string
+              game_mode:
+                type: string
+                enum: [solo, 1v1, multi]
+
+    GameInviteAcceptedMessage:
+      name: game_invite_accepted
+      messageId: game_invite_accepted
+      title: Game Invite Accepted
+      summary: Someone accepted your game invitation. Sent to the original inviter.
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            enum: [game_invite_accepted]
+          data:
+            type: object
+            required: [invite_id, game_public_id]
+            properties:
+              invite_id:
+                $ref: '#/components/schemas/UUID'
+              game_public_id:
+                type: string
+                description: Public ID of the game to navigate to.
+              from_username:
+                type: string
+                description: Display name of the player who accepted.
+              from_public_id:
+                type: string
+                description: Public ID of the player who accepted.
+
+    GameInviteRejectedMessage:
+      name: game_invite_rejected
+      messageId: game_invite_rejected
+      title: Game Invite Rejected
+      summary: Someone rejected your game invitation. Sent to the original inviter.
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            enum: [game_invite_rejected]
+          data:
+            type: object
+            required: [invite_id]
+            properties:
+              invite_id:
+                $ref: '#/components/schemas/UUID'
+
+    GameInviteUpdatedMessage:
+      name: game_invite_updated
+      messageId: game_invite_updated
+      title: Game Invite Updated (self-sync)
+      summary: |
+        Sent to the invitee's other active sessions when they accept or reject an invite.
+      description: |
+        When a user accepts or rejects an invite from one session (tab/device), their
+        other connected sessions receive this event so they can dismiss the pending invite
+        UI without requiring a page refresh or a poll.
+
+        The inviter receives `game_invite_accepted` / `game_invite_rejected` instead.
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            enum: [game_invite_updated]
+          data:
+            type: object
+            required: [invite_id, game_public_id, status]
+            properties:
+              invite_id:
+                $ref: '#/components/schemas/UUID'
+                description: ID of the invite that was acted on.
+              game_public_id:
+                type: string
+                description: Public ID of the related game.
+              status:
+                type: string
+                enum: [accepted, rejected]
+                description: The new status of the invite.
+
+    LobbyUpdatedMessage:
+      name: lobby_updated
+      messageId: lobby_updated
+      title: Lobby Updated
+      summary: |
+        (Multi mode) Broadcast to all players in the game room when the lobby roster changes.
+      description: |
+        Emitted inside the game room whenever a player joins or leaves during the
+        `waiting` or `ready` phase. Clients should use this to keep the lobby
+        player list in sync without polling.
+
+        `action: "joined"` includes `user_public_id` and `username` so the UI can
+        display the new player immediately. `action: "left"` includes `user_id`
+        (internal UUID) for removal lookup.
+      payload:
+        type: object
+        required: [type, game_public_id, data]
+        properties:
+          type:
+            type: string
+            enum: [lobby_updated]
+          game_public_id:
+            type: string
+            description: Public ID of the game whose lobby changed.
+          data:
+            type: object
+            required: [action]
+            properties:
+              action:
+                type: string
+                enum: [joined, left]
+                description: Whether a player joined or left the lobby.
+              user_public_id:
+                type: string
+                description: Public ID of the player. Present when `action` is `joined`.
+              username:
+                type: string
+                description: Display name of the player. Present when `action` is `joined`.
+              user_id:
+                type: string
+                format: uuid
+                description: Internal UUID of the player. Present when `action` is `left`.
+
+    LobbyStatsMessage:
+      name: lobby_stats
+      messageId: lobby_stats
+      title: Lobby Stats
+      summary: |
+        Broadcast to all connected clients every 30 seconds with current platform activity.
+        Also available via REST `GET /api/v1/lobby/stats` (no auth required).
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            enum: [lobby_stats]
+          data:
+            type: object
+            required: [online_users, active_games, in_queue]
+            properties:
+              online_users:
+                type: integer
+                description: Number of unique authenticated users currently connected via WebSocket.
+                example: 42
+              active_games:
+                type: object
+                description: Number of active (in-progress or waiting) games per game mode.
+                additionalProperties:
+                  type: integer
+                example:
+                  solo: 5
+                  1v1: 3
+                  country_listing: 1
+              in_queue:
+                type: object
+                description: Number of players currently waiting in the matchmaking queue per game mode.
+                additionalProperties:
+                  type: integer
+                example:
+                  1v1: 2
+
+    # ==========================================================================
+    # Server → Client  (presence & admin)
+    # ==========================================================================
+
+    PresenceMessage:
+      name: presence
+      messageId: presence
+      title: Presence Update
+      summary: Broadcast to all connected clients when a user connects or disconnects.
+      description: |
+        Emitted by the server after a successful WebSocket upgrade (user online) or
+        after the 2-second grace period following a disconnect (user offline).
+        The grace period prevents transient disconnects (page refresh) from being
+        surfaced as offline events.
+      payload:
+        type: object
+        required: [type, user_public_id, is_online]
+        properties:
+          type:
+            type: string
+            enum: [presence]
+          user_public_id:
+            type: string
+            description: Public ID of the user whose presence changed (never the internal UUID).
+          is_online:
+            type: boolean
+            description: "`true` when the user connected, `false` when disconnected."
+
+    AdminNotificationMessage:
+      name: admin_notification
+      messageId: admin_notification
+      title: Admin Notification
+      summary: Broadcast to all connected clients when an admin performs a notable action.
+      description: |
+        Sent via `BroadcastAdminNotification` after privileged operations such as
+        banning a user, deleting content, or toggling maintenance mode.  The `event`
+        slug identifies the action; `data` carries action-specific details.
+      payload:
+        type: object
+        required: [type, event, data, timestamp]
+        properties:
+          type:
+            type: string
+            enum: [admin_notification]
+          event:
+            type: string
+            description: Slug identifying the admin event (e.g. `user_banned`, `question_deleted`).
+          data:
+            type: object
+            description: Event-specific payload — shape depends on the `event` type.
+            additionalProperties: true
+          timestamp:
+            type: string
+            format: date-time
+            description: Server-side event emission time (RFC 3339 / ISO 8601).
+
+    NotificationMessage:
+      name: notification
+      messageId: notification
+      title: User Notification
+      summary: Push notification sent to a user via WebSocket.
+      description: |
+        Sent when the server wants to push a notification to the user (game invites,
+        friend requests, game completed, etc.). The notification is also stored in the
+        database. The `data` field contains the notification payload with `title`, `message`,
+        and type-specific fields.
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            enum: [notification]
+          data:
+            type: object
+            required: [id, type, title, message]
+            properties:
+              id:
+                type: string
+                format: uuid
+                description: Notification ID.
+              type:
+                type: string
+                enum: [game_invite, friend_request, game_completed, friend_accepted, dataset_update]
+                description: Notification type.
+              title:
+                type: string
+                description: Notification title.
+              message:
+                type: string
+                description: Notification message body.
+              data:
+                type: object
+                description: Additional type-specific data (JSON).
+                additionalProperties: true
+              is_read:
+                type: boolean
+                description: Whether the notification has been read.
+              created_at:
+                type: string
+                format: date-time
+
+    # ==========================================================================
+    # Server → Client  (matchmaking)
+    # ==========================================================================
+
+    QueueJoinedMessage:
+      name: queue_joined
+      messageId: queue_joined
+      title: Queue Joined
+      summary: Sent to the player immediately after they successfully enter the matchmaking queue.
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            enum: [queue_joined]
+          data:
+            type: object
+            required: [mode]
+            properties:
+              mode:
+                type: string
+                enum: [1v1]
+                description: The game mode the player is queued for.
+              params:
+                type: object
+                description: The matchmaking parameters (category, language, etc.) echoed back.
+                additionalProperties: true
+
+    QueueLeftMessage:
+      name: queue_left
+      messageId: queue_left
+      title: Queue Left
+      summary: Sent to the player after they successfully leave the matchmaking queue.
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            enum: [queue_left]
+          data:
+            type: object
+            required: [mode]
+            properties:
+              mode:
+                type: string
+                description: The game mode the player left the queue for.
+
+    MatchFoundMessage:
+      name: match_found
+      messageId: match_found
+      title: Match Found
+      summary: Sent to both matched players when matchmaking pairs them together.
+      description: |
+        Emitted before the game is fully started.  After receiving this event,
+        clients should call `POST /api/v1/games/:id/start` or send `start_game`
+        once they have received `game_created` via the REST response.
+        The `game_public_id` will arrive shortly after via `game_started`.
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            enum: [match_found]
+          data:
+            type: object
+            required: [mode]
+            properties:
+              mode:
+                type: string
+                description: The game mode that was matched.
+
+    # ==========================================================================
+    # Server → Client  (player progression)
+    # ==========================================================================
+
+    XPUpdatedMessage:
+      name: xp_updated
+      messageId: xp_updated
+      title: XP Updated
+      summary: Sent to a player after XP has been awarded following a completed game.
+      description: |
+        Emitted per-player (not broadcast to the room) immediately after
+        `applyPostGameRewards` successfully persists the XP gain.
+        Clients should use this to update the XP bar, detect level-ups by comparing
+        `new_level` to the previously known level, and update the rank badge.
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            enum: [xp_updated]
+          data:
+            type: object
+            required: [xp_gained, is_winner, game_mode, public_id]
+            properties:
+              xp_gained:
+                type: integer
+                minimum: 1
+                description: XP points awarded for this game.
+              is_winner:
+                type: boolean
+                description: Whether the player won (affects the XP multiplier).
+              game_mode:
+                type: string
+                description: The game mode played.
+              public_id:
+                type: string
+                description: Public ID of the completed game.
+              new_level:
+                type: integer
+                minimum: 1
+                description: Player's level after the XP was applied. Use to detect level-ups.
+              new_rank:
+                type: string
+                description: Player's rank name after the XP was applied (e.g. `bronze`, `silver`).
+              total_xp:
+                type: integer
+                minimum: 0
+                description: Player's total accumulated XP after this game.
+
+    ELOUpdatedMessage:
+      name: elo_updated
+      messageId: elo_updated
+      title: ELO Updated
+      summary: Sent to each player after ELO recalculation following a 1v1 game.
+      description: |
+        Emitted per-player (not broadcast to the room) for `1v1` games only.
+        Both players receive this event with their respective delta and new rating.
+        Solo, multi, and country-listing games never trigger ELO recalculation —
+        multi is intentionally unranked.
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            enum: [elo_updated]
+          data:
+            type: object
+            required: [elo_delta, new_elo, result]
+            properties:
+              elo_delta:
+                type: integer
+                description: Change in ELO points (positive for winner, negative for loser).
+              new_elo:
+                type: integer
+                minimum: 0
+                description: The player's new ELO rating after the update.
+              result:
+                type: string
+                enum: [win, loss]
+                description: Outcome of the game from this player's perspective.
+
+    # ==========================================================================
+    # Server → Client  (reconnection)
+    # ==========================================================================
+
+    GameStateMessage:
+      name: game_state
+      messageId: game_state
+      title: Game State
+      summary: Sent to a reconnecting client to restore their in-game UI state.
+      description: |
+        Emitted immediately after `question_sent` when a client sends `join_game`
+        for a game that is already `in_progress`.  Provides the full player
+        roster with current scores and the question progress counters so the
+        client can rebuild its leaderboard and progress bar without extra REST
+        calls.
+      payload:
+        type: object
+        required: [type, public_id, data, timestamp]
+        properties:
+          type:
+            type: string
+            enum: [game_state]
+          public_id:
+            type: string
+            description: Public ID of the game being restored.
+          data:
+            type: object
+            required: [players, question_number, total_questions]
+            properties:
+              players:
+                type: array
+                description: Current player roster with live scores.
+                items:
+                  type: object
+                  required: [user_public_id, username, score]
+                  properties:
+                    user_public_id:
+                      type: string
+                    username:
+                      type: string
+                    score:
+                      type: integer
+                      minimum: 0
+              question_number:
+                type: integer
+                minimum: 1
+                description: 1-based index of the current question.
+              total_questions:
+                type: integer
+                minimum: 1
+                description: Total number of questions in the game.
+              paused:
+                type: boolean
+                description: |
+                  Present and `true` when the game is currently paused waiting for a
+                  disconnected player to reconnect. Use this to show the pause screen.
+              reconnect_countdown_remaining_secs:
+                type: integer
+                minimum: 0
+                description: |
+                  Seconds remaining before the disconnected player is auto-forfeited.
+                  Only present when `paused` is `true`.
+          timestamp:
+            type: string
+            format: date-time
+
+    # ==========================================================================
+    # Server → Client  (social / friends)
+    # ==========================================================================
+
+    FriendRequestRejectedMessage:
+      name: friend_request_rejected
+      messageId: friend_request_rejected
+      title: Friend Request Rejected
+      summary: Sent to the original sender when their friend request is rejected.
+      payload:
+        type: object
+        required: [type, request_id]
+        properties:
+          type:
+            type: string
+            enum: [friend_request_rejected]
+          request_id:
+            type: string
+            format: uuid
+            description: ID of the rejected friend request.
+
+    FriendRequestCancelledMessage:
+      name: friend_request_cancelled
+      messageId: friend_request_cancelled
+      title: Friend Request Cancelled
+      summary: Sent to the recipient when the sender cancels a pending friend request.
+      payload:
+        type: object
+        required: [type, request_id]
+        properties:
+          type:
+            type: string
+            enum: [friend_request_cancelled]
+          request_id:
+            type: string
+            format: uuid
+            description: ID of the cancelled friend request.
+
+    FriendRemovedMessage:
+      name: friend_removed
+      messageId: friend_removed
+      title: Friend Removed
+      summary: Sent to a user when they are removed from someone's friend list.
+      payload:
+        type: object
+        required: [type, removed_by_public_id]
+        properties:
+          type:
+            type: string
+            enum: [friend_removed]
+          removed_by_public_id:
+            type: string
+            description: Public ID of the user who initiated the removal.
+
+    # ==========================================================================
+    # Server → Client  (miscellaneous)
+    # ==========================================================================
+
+    GameResultsMessage:
+      name: game_results
+      messageId: game_results
+      title: Game Results
+      summary: Sent individually to each player after a game ends with their personal results.
+      description: |
+        Unlike `game_completed` which is broadcast to all players, this message is sent
+        privately to each player with their personal outcome (score, XP gained, winner status).
+        Emitted after the game ends and XP rewards are calculated.
+      payload:
+        type: object
+        required: [type, public_id, data]
+        properties:
+          type:
+            type: string
+            enum: [game_results]
+          public_id:
+            type: string
+            description: Public ID of the completed game.
+          data:
+            type: object
+            required: [score, xp_gained, is_winner]
+            properties:
+              score:
+                type: integer
+                minimum: 0
+                description: Player's final score in this game.
+              xp_gained:
+                type: integer
+                description: XP points earned from this game.
+              is_winner:
+                type: boolean
+                description: Whether the player won this game.
+
+    GameInviteCancelledMessage:
+      name: game_invite_cancelled
+      messageId: game_invite_cancelled
+      title: Game Invite Cancelled
+      summary: Sent to a pending invitee when the game is cancelled before they accept.
+      description: |
+        Emitted when the game creator cancels the game or leaves before the invitee accepts.
+        The invitee should remove the pending invite UI/notification.
+      payload:
+        type: object
+        required: [type, data]
+        properties:
+          type:
+            type: string
+            enum: [game_invite_cancelled]
+          data:
+            type: object
+            required: [invite_id, game_id]
+            properties:
+              invite_id:
+                $ref: '#/components/schemas/UUID'
+                description: ID of the cancelled invite.
+              game_id:
+                $ref: '#/components/schemas/UUID'
+                description: ID of the game that was cancelled.
+
+    # ==========================================================================
+    # Client → Server
+    # ==========================================================================
+
+    PingMessage:
+      name: ping
+      messageId: ping
+      title: Ping
+      summary: Keep-alive heartbeat. Send every ~25 s.
+      payload:
+        type: object
+        required: [type]
+        properties:
+          type:
+            type: string
+            enum: [ping]
+
+    JoinGameMessage:
+      name: join_game
+      messageId: join_game
+      title: Join Game
+      summary: |
+        Subscribe to events for a specific game.  Must be sent before any other
+        game action.  The game must have been created first via
+        `POST /api/v1/games/create`.
+      payload:
+        type: object
+        required: [type, game_public_id]
+        properties:
+          type:
+            type: string
+            enum: [join_game]
+          game_public_id:
+            type: string
+            description: The `public_id` returned by `POST /games/create`.
+          correlation_id:
+            type: string
+            description: Optional client-generated ID echoed back in the `ack`.
+
+    LeaveGameMessage:
+      name: leave_game
+      messageId: leave_game
+      title: Leave Game
+      summary: Unsubscribe from game events. Does not cancel the game.
+      payload:
+        type: object
+        required: [type]
+        properties:
+          type:
+            type: string
+            enum: [leave_game]
+          game_public_id:
+            type: string
+            nullable: true
+            description: |
+              Game to leave.  If omitted, the server uses the game the client is
+              currently subscribed to.
+          correlation_id:
+            type: string
+
+    PlayerReadyMessage:
+      name: player_ready
+      messageId: player_ready_client
+      title: Player Ready
+      summary: |
+        (Multiplayer) Toggle this player's ready status.  The game starts
+        automatically when all players are ready (or the creator sends
+        `start_game`).
+      payload:
+        type: object
+        required: [type, game_public_id, ready]
+        properties:
+          type:
+            type: string
+            enum: [player_ready]
+          game_public_id:
+            type: string
+          ready:
+            type: boolean
+          correlation_id:
+            type: string
+
+    StartGameMessage:
+      name: start_game
+      messageId: start_game
+      title: Start Game
+      summary: |
+        Request to start the game. Equivalent to `POST /games/:id/start`.
+        Only the game creator (or an admin) may send this.
+      payload:
+        type: object
+        required: [type, game_public_id]
+        properties:
+          type:
+            type: string
+            enum: [start_game]
+          game_public_id:
+            type: string
+          correlation_id:
+            type: string
+
+    SubmitAnswerMessage:
+      name: submit_answer
+      messageId: submit_answer
+      title: Submit Answer
+      summary: Submit the player's answer for the current question.
+      description: |
+        The server validates the answer, emits `answer_received` (and optionally
+        `score_updated`) to all players in the game, then — after the inter-round
+        delay — emits `question_sent` for the next question (or `game_completed`
+        if there are no more questions).
+
+        Only one answer per question is accepted; subsequent submissions for the
+        same question are ignored.
+      payload:
+        type: object
+        required: [type, game_public_id, answer]
+        properties:
+          type:
+            type: string
+            enum: [submit_answer]
+          game_public_id:
+            type: string
+            description: The active game's `public_id`.
+          answer:
+            $ref: '#/components/schemas/ClientAnswerPayload'
+          correlation_id:
+            type: string
