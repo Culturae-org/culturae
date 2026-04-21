@@ -1,0 +1,66 @@
+version: "3"
+
+tasks:
+  dev:
+    desc: "Start backend in dev mode (infra must be running)"
+    dir: backend
+    cmds:
+      - go run ./cmd/main.go
+
+  dev:infra:
+    desc: "Start only infrastructure (postgres, redis, minio)"
+    cmds:
+      - docker compose up db redis minio -d
+
+  dev:dashboard:
+    desc: "Start dashboard in dev mode (Next.js hot reload)"
+    dir: dashboard
+    cmds:
+      - pnpm dev
+
+  build:dashboard:
+    desc: "Build the admin dashboard (Vite SPA)"
+    dir: dashboard
+    cmds:
+      - pnpm build
+
+  build:embed:
+    desc: "Copy dashboard build into backend embed directory"
+    cmds:
+      - mkdir -p backend/internal/handler/admin/ui
+      - rm -rf backend/internal/handler/admin/ui/dist
+      - cp -r dashboard/ui/dist backend/internal/handler/admin/ui/dist
+
+  build:backend:
+    desc: "Compile the Go binary"
+    dir: backend
+    cmds:
+      - go build -o ../culturae ./cmd/main.go
+
+  build:
+    desc: "Full build: dashboard → embed → Go binary"
+    cmds:
+      - task: build:dashboard
+      - task: build:embed
+      - task: build:backend
+
+  test:
+    desc: "Run all Go tests"
+    dir: backend
+    cmds:
+      - go test ./... -timeout 60s
+
+  docker:up:
+    desc: "Build and start all services (dev compose)"
+    cmds:
+      - docker compose up --build -d
+
+  docker:down:
+    desc: "Stop all services"
+    cmds:
+      - docker compose down
+
+  docker:logs:
+    desc: "Follow backend logs"
+    cmds:
+      - docker compose logs -f backend
