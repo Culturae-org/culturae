@@ -8,6 +8,7 @@ backend/.env
 /dashboard/ui
 /dashboard/out
 dashboard/tsconfig.tsbuildinfo
+/backend/internal/handler/admin/ui/dist/
 
 .direnv
 culturae
