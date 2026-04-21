@@ -1,4 +1,4 @@
-# Culturae - Multi-Client Gaming Platform
+# Culturae - Multi-Client Knowledge Games Platform
 
 > [!IMPORTANT]  
 > Platform development and documentation are currently in progress.
