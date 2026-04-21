@@ -28,6 +28,7 @@ type RedisClientInterface interface {
 	DeleteCache(ctx context.Context, key string) error
 	CheckRateLimit(ctx context.Context, key string, limit int64, window time.Duration) (bool, int64, int64, error)
 	Publish(ctx context.Context, channel string, message interface{}) error
+	PublishRaw(ctx context.Context, channel string, message string) error
 	Subscribe(ctx context.Context, channels ...string) *redis.PubSub
 	GetInfo(ctx context.Context) (map[string]interface{}, error)
 	Scan(ctx context.Context, pattern string) ([]string, error)
@@ -50,6 +51,9 @@ type RedisClientInterface interface {
 	Eval(ctx context.Context, script string, keys []string, args ...interface{}) (interface{}, error)
 
 	NativeClient() redis.UniversalClient
+	HIncrBy(ctx context.Context, key, field string, incr int64) (int64, error)
+	HLen(ctx context.Context, key string) (int64, error)
+	HDel(ctx context.Context, key string, fields ...string) error
 }
 
 type ZSetMember struct {
@@ -191,6 +195,10 @@ func (r *RedisClient) Publish(ctx context.Context, channel string, message inter
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 	return r.client.Publish(ctx, channel, jsonData).Err()
+}
+
+func (r *RedisClient) PublishRaw(ctx context.Context, channel string, message string) error {
+	return r.client.Publish(ctx, channel, message).Err()
 }
 
 func (r *RedisClient) Subscribe(ctx context.Context, channels ...string) *redis.PubSub {
@@ -369,6 +377,21 @@ func (r *RedisClient) Eval(ctx context.Context, script string, keys []string, ar
 
 func (r *RedisClient) NativeClient() redis.UniversalClient {
 	return r.client
+}
+
+func (r *RedisClient) HIncrBy(ctx context.Context, key, field string, incr int64) (int64, error) {
+	return r.client.HIncrBy(ctx, key, field, incr).Result()
+}
+
+func (r *RedisClient) HLen(ctx context.Context, key string) (int64, error) {
+	return r.client.HLen(ctx, key).Result()
+}
+
+func (r *RedisClient) HDel(ctx context.Context, key string, fields ...string) error {
+	if len(fields) == 0 {
+		return nil
+	}
+	return r.client.HDel(ctx, key, fields...).Err()
 }
 
 func (r *RedisClient) MGet(ctx context.Context, keys ...string) ([]string, error) {

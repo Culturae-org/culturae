@@ -50,12 +50,34 @@ type Dependencies interface {
 	GetMaintenanceMiddleware() *middleware.MaintenanceMiddleware
 	GetAdminGameTemplatesHandler() *admin.AdminGameTemplatesHandler
 	GetLobbyHandler() *handler.LobbyHandler
+	GetHealthHandler() *handler.HealthHandler
 }
 
 func RegisterRoutes(r *gin.Engine, deps Dependencies) {
+	mode := deps.GetConfig().AppMode
 
-	r.GET("/health", healthCheck())
+	if deps.GetHealthHandler() != nil {
+		r.GET("/health", deps.GetHealthHandler().Health)
+	} else {
+		r.GET("/health", healthCheck())
+	}
 
+	if mode != config.AppModeHeadless {
+		registerDashboardRoutes(r)
+	}
+
+	rateLimitMiddleware := deps.GetRateLimitMiddleware()
+	maintenanceMiddleware := deps.GetMaintenanceMiddleware()
+
+	registerPublicRoutes(r, deps, rateLimitMiddleware, maintenanceMiddleware)
+	registerProtectedRoutes(r, deps, rateLimitMiddleware, maintenanceMiddleware, mode)
+
+	if mode != config.AppModeHeadless {
+		registerAdminRoutes(r, deps)
+	}
+}
+
+func registerDashboardRoutes(r *gin.Engine) {
 	dashboardHandler := admin.ServeDashboard()
 	r.GET("/console", dashboardHandler)
 	r.GET("/console/*path", dashboardHandler)
@@ -65,14 +87,9 @@ func RegisterRoutes(r *gin.Engine, deps Dependencies) {
 	r.GET("/", func(c *gin.Context) {
 		c.Redirect(http.StatusMovedPermanently, "/console/")
 	})
+}
 
-	rateLimitMiddleware := deps.GetRateLimitMiddleware()
-
-	//----------------------
-	//       ROUTES
-	//----------------------
-	maintenanceMiddleware := deps.GetMaintenanceMiddleware()
-
+func registerPublicRoutes(r *gin.Engine, deps Dependencies, rateLimitMiddleware *middleware.RateLimitMiddleware, maintenanceMiddleware *middleware.MaintenanceMiddleware) {
 	public := r.Group("/api/v1")
 	public.Use(rateLimitMiddleware.RateLimit())
 	public.Use(maintenanceMiddleware.CheckMaintenance())
@@ -82,16 +99,17 @@ func RegisterRoutes(r *gin.Engine, deps Dependencies) {
 		{
 			auth.POST("/register", deps.GetAuthHandler().Register)
 			auth.POST("/login", deps.GetAuthHandler().Login)
-			auth.POST("/login-admin", deps.GetAdminAuthHandler().LoginAdmin)
+			if deps.GetConfig().AppMode != config.AppModeHeadless {
+				auth.POST("/login-admin", deps.GetAdminAuthHandler().LoginAdmin)
+			}
 			auth.POST("/refresh", deps.GetAuthHandler().RefreshToken)
 		}
 
 		public.GET("/lobby/stats", deps.GetLobbyHandler().GetLobbyStats)
 	}
+}
 
-	//-----------------------------------
-	//       PROTECTED ROUTES
-	//-----------------------------------
+func registerProtectedRoutes(r *gin.Engine, deps Dependencies, rateLimitMiddleware *middleware.RateLimitMiddleware, maintenanceMiddleware *middleware.MaintenanceMiddleware, mode string) {
 	protected := r.Group("/api/v1")
 	protected.Use(rateLimitMiddleware.RateLimit())
 	protected.Use(deps.GetAuthMiddleware().JWTAuthWithSessions())
@@ -189,26 +207,30 @@ func RegisterRoutes(r *gin.Engine, deps Dependencies) {
 
 		protected.GET("/leaderboard", deps.GetLeaderboardHandler().GetLeaderboard)
 
-		protected.GET("/realtime", deps.GetWebSocketHandler().HandleWebSocket)
-
+		if mode != config.AppModeAdmin {
+			protected.GET("/realtime", deps.GetWebSocketHandler().HandleWebSocket)
+		}
 	}
+}
 
-	//-----------------------------------
-	//          ADMIN ROUTES
-	// -----------------------------------
-	admin := protected.Group("/admin")
-	admin.Use(deps.GetAuthMiddleware().AdminRequired())
+func registerAdminRoutes(r *gin.Engine, deps Dependencies) {
+	protected := r.Group("/api/v1")
+	protected.Use(deps.GetRateLimitMiddleware().RateLimit())
+	protected.Use(deps.GetAuthMiddleware().JWTAuthWithSessions())
+	protected.Use(deps.GetMaintenanceMiddleware().CheckMaintenance())
+
+	adminGrp := protected.Group("/admin")
+	adminGrp.Use(deps.GetAuthMiddleware().AdminRequired())
 	{
-		admin.GET("/openapi.yaml", serveAdminOpenAPI())
+		adminGrp.GET("/openapi.yaml", serveAdminOpenAPI())
 		// admin.GET("/asyncapi.yaml", serveAdminAsyncAPI()) - waiting for asyncAPI scalar support
 
-		admin.GET("/info", platformInfo(deps.GetConfig().Env))
+		adminGrp.GET("/info", platformInfo(deps.GetConfig().Env))
 
-		// websocket
-		admin.GET("/realtime", deps.GetWebSocketHandler().HandleAdminWebSocket)
-		admin.GET("/me", deps.GetAdminUserHandler().GetCurrentUser)
+		adminGrp.GET("/realtime", deps.GetWebSocketHandler().HandleAdminWebSocket)
+		adminGrp.GET("/me", deps.GetAdminUserHandler().GetCurrentUser)
 
-		users := admin.Group("/users")
+		users := adminGrp.Group("/users")
 		{
 			users.GET("", deps.GetAdminUserHandler().GetAllUsers)
 			users.GET("/count", deps.GetAdminUserHandler().GetUserCount)
@@ -233,14 +255,14 @@ func RegisterRoutes(r *gin.Engine, deps Dependencies) {
 			users.GET("/creation-dates", deps.GetAdminUserHandler().GetUserCreationDates)
 		}
 
-		avatar := admin.Group("/avatar")
+		avatar := adminGrp.Group("/avatar")
 		{
 			avatar.POST("/:userID", deps.GetAdminAvatarHandler().UploadUserAvatar)
 			avatar.DELETE("/:userID", deps.GetAdminAvatarHandler().DeleteUserAvatar)
 			avatar.GET("/:userID", deps.GetAdminAvatarHandler().GetUserAvatar)
 		}
 
-		logs := admin.Group("/logs")
+		logs := adminGrp.Group("/logs")
 		{
 			logs.GET("/connections/:id", deps.GetAdminUserHandler().GetUserConnectionLogs)
 			logs.GET("/user-actions/:id", deps.GetLogsHandler().GetUserActionLogsByID)
@@ -257,10 +279,9 @@ func RegisterRoutes(r *gin.Engine, deps Dependencies) {
 			logs.GET("/api-requests/timestamps", deps.GetLogsHandler().GetAPIRequestTimestamps)
 			logs.GET("/admin-actions/stats", deps.GetLogsHandler().GetAdminActionStats)
 			logs.GET("/user-actions/stats", deps.GetLogsHandler().GetUserActionStats)
-
 		}
 
-		questions := admin.Group("/questions")
+		questions := adminGrp.Group("/questions")
 		{
 			questions.POST("", deps.GetAdminQuestionHandler().CreateQuestion)
 			questions.GET("", deps.GetAdminQuestionHandler().ListQuestions)
@@ -272,13 +293,13 @@ func RegisterRoutes(r *gin.Engine, deps Dependencies) {
 			questions.GET("/export", deps.GetAdminQuestionHandler().ExportQuestionsClean)
 		}
 
-		friendships := admin.Group("/friends")
+		friendships := adminGrp.Group("/friends")
 		{
 			friendships.GET("/requests/:userID", deps.GetAdminFriendsHandler().ListFriendRequestsForUser)
 			friendships.GET("/:userID", deps.GetAdminFriendsHandler().ListFriendsForUser)
 		}
 
-		imports := admin.Group("/imports")
+		imports := adminGrp.Group("/imports")
 		{
 			imports.GET("", deps.GetImportsHandler().ListImportJobs)
 			imports.GET("/stats", deps.GetImportsHandler().GetImportStats)
@@ -286,7 +307,7 @@ func RegisterRoutes(r *gin.Engine, deps Dependencies) {
 			imports.GET("/:id/logs", deps.GetImportsHandler().GetImportJobLogs)
 		}
 
-		datasets := admin.Group("/datasets")
+		datasets := adminGrp.Group("/datasets")
 		{
 			datasets.GET("", deps.GetAdminDatasetsHandler().ListDatasets)
 			datasets.GET("/default", deps.GetAdminDatasetsHandler().GetDefaultDataset)
@@ -304,7 +325,7 @@ func RegisterRoutes(r *gin.Engine, deps Dependencies) {
 			datasets.POST("/:id/update-stats", deps.GetAdminDatasetsHandler().UpdateDatasetStatistics)
 		}
 
-		gameTemplates := admin.Group("/game-templates")
+		gameTemplates := adminGrp.Group("/game-templates")
 		{
 			gameTemplates.GET("", deps.GetAdminGameTemplatesHandler().List)
 			gameTemplates.GET("/:id", deps.GetAdminGameTemplatesHandler().Get)
@@ -314,7 +335,7 @@ func RegisterRoutes(r *gin.Engine, deps Dependencies) {
 			gameTemplates.DELETE("/:id", deps.GetAdminGameTemplatesHandler().Delete)
 		}
 
-		geography := admin.Group("/geography")
+		geography := adminGrp.Group("/geography")
 		{
 			geography.GET("/slug/:slug", deps.GetAdminGeographyHandler().GetGeographyDatasetBySlug)
 			geography.GET("/flags/:country_code", deps.GetAdminGeographyHandler().GetFlag)
@@ -344,7 +365,7 @@ func RegisterRoutes(r *gin.Engine, deps Dependencies) {
 			geography.GET("/:id/flags/:country_code/url", deps.GetAdminGeographyHandler().GetFlagURL)
 		}
 
-		games := admin.Group("/games")
+		games := adminGrp.Group("/games")
 		{
 			games.GET("", deps.GetAdminGamesHandler().ListGames)
 			games.GET("/stats", deps.GetAdminGamesHandler().GetGameStats)
@@ -373,20 +394,20 @@ func RegisterRoutes(r *gin.Engine, deps Dependencies) {
 			games.POST("/maintenance", deps.GetAdminGamesHandler().RunGameMaintenance)
 		}
 
-		reports := admin.Group("/reports")
+		reports := adminGrp.Group("/reports")
 		{
 			reports.GET("", deps.GetAdminReportsHandler().ListReports)
 			reports.GET("/:id", deps.GetAdminReportsHandler().GetReport)
 			reports.PATCH("/:id/status", deps.GetAdminReportsHandler().UpdateReportStatus)
 		}
 
-		matchmaking := admin.Group("/matchmaking")
+		matchmaking := adminGrp.Group("/matchmaking")
 		{
 			matchmaking.GET("/stats", deps.GetAdminMatchmakingHandler().GetQueueStats)
 			matchmaking.DELETE("/queue/:mode", deps.GetAdminMatchmakingHandler().ClearQueue)
 		}
 
-		settings := admin.Group("/settings")
+		settings := adminGrp.Group("/settings")
 		{
 			settings.GET("/maintenance", deps.GetAdminSettingsHandler().GetMaintenanceStatus)
 			settings.POST("/maintenance", deps.GetAdminSettingsHandler().SetMaintenanceMode)

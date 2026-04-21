@@ -51,6 +51,7 @@ func (m *mockRedis) SetCache(_ context.Context, _ string, _ interface{}, _ time.
 func (m *mockRedis) GetCache(_ context.Context, _ string, _ interface{}) error                { return nil }
 func (m *mockRedis) DeleteCache(_ context.Context, _ string) error                            { return nil }
 func (m *mockRedis) Publish(_ context.Context, _ string, _ interface{}) error                 { return nil }
+func (m *mockRedis) PublishRaw(_ context.Context, _ string, _ string) error                      { return nil }
 func (m *mockRedis) Subscribe(_ context.Context, _ ...string) *redis.PubSub                   { return nil }
 func (m *mockRedis) GetInfo(_ context.Context) (map[string]interface{}, error)                { return nil, nil }
 func (m *mockRedis) Scan(_ context.Context, _ string) ([]string, error)                       { return nil, nil }
@@ -70,6 +71,9 @@ func (m *mockRedis) MGet(_ context.Context, _ ...string) ([]string, error)      
 func (m *mockRedis) SetNX(_ context.Context, _ string, _ interface{}, _ time.Duration) (bool, error)     { return true, nil }
 func (m *mockRedis) Eval(_ context.Context, _ string, _ []string, _ ...interface{}) (interface{}, error) { return nil, nil }
 func (m *mockRedis) NativeClient() redis.UniversalClient                                                 { return nil }
+func (m *mockRedis) HIncrBy(_ context.Context, _ string, _ string, _ int64) (int64, error)           { return 1, nil }
+func (m *mockRedis) HLen(_ context.Context, _ string) (int64, error)                                 { return 0, nil }
+func (m *mockRedis) HDel(_ context.Context, _ string, _ ...string) error                             { return nil }
 func (m *mockRedis) CheckRateLimit(_ context.Context, _ string, _ int64, _ time.Duration) (bool, int64, int64, error) {
 	return false, 0, 0, nil
 }
@@ -142,7 +146,7 @@ func (m *mockGameHandler) OnUserConnected(_ uuid.UUID) {}
 
 func newService(t *testing.T, cfg *model.WebSocketConfig) *WebSocketService {
 	t.Helper()
-	return NewWebSocketService(nil, &mockRedis{cfg: cfg}, zap.NewNop())
+	return NewWebSocketServiceWithMode(nil, &mockRedis{cfg: cfg}, zap.NewNop(), false)
 }
 
 // newTestServer creates an httptest.Server that routes /ws (regular) and /admin/ws (admin).

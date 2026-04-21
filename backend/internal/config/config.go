@@ -46,6 +46,7 @@ type Config struct {
 	JWTSecret      string
 	ServerPort     string
 	Env            string
+	AppMode        string
 	ReadTimeout    time.Duration
 	WriteTimeout   time.Duration
 	IdleTimeout    time.Duration
@@ -80,6 +81,12 @@ type Config struct {
 	SeedGameTemplates bool
 }
 
+const (
+	AppModeFull    = "full"
+	AppModeAdmin   = "admin"
+	AppModeHeadless = "headless"
+)
+
 func Load() (*Config, error) {
 	if os.Getenv("ENV") == "" || os.Getenv("ENV") == envDev || os.Getenv("ENV") == "dev" {
 		_ = godotenv.Load()
@@ -106,6 +113,11 @@ func Load() (*Config, error) {
 
 	trustedProxies := parseTrustedProxies(os.Getenv("TRUSTED_PROXIES"))
 
+	appMode := getEnvOrDefault("APP_MODE", AppModeFull)
+	if appMode != AppModeFull && appMode != AppModeAdmin && appMode != AppModeHeadless {
+		return nil, &ConfigError{Field: "APP_MODE", Message: fmt.Sprintf("must be one of: %s, %s, %s", AppModeFull, AppModeAdmin, AppModeHeadless)}
+	}
+
 	cfg := &Config{
 		PostgresHost:     getEnvOrDefault("POSTGRES_HOST", "localhost"),
 		PostgresPort:     getEnvOrDefault("POSTGRES_PORT", "5432"),
@@ -116,6 +128,7 @@ func Load() (*Config, error) {
 		JWTSecret:      getEnvOrDefault("JWT_SECRET", "dev_jwt_secret_change_in_production"),
 		ServerPort:     getEnvOrDefault("PORT", "8080"),
 		Env:            getEnvOrDefault("ENV", envDev),
+		AppMode:        appMode,
 		ReadTimeout:    readTimeout,
 		WriteTimeout:   writeTimeout,
 		IdleTimeout:    idleTimeout,
@@ -235,6 +248,18 @@ func (c *Config) IsProduction() bool {
 
 func (c *Config) IsDevelopment() bool {
 	return c.Env == envDev || c.Env == "dev"
+}
+
+func (c *Config) IsAdmin() bool {
+	return c.AppMode == AppModeAdmin
+}
+
+func (c *Config) IsHeadless() bool {
+	return c.AppMode == AppModeHeadless
+}
+
+func (c *Config) IsFullMode() bool {
+	return c.AppMode == AppModeFull
 }
 
 func (c *Config) Validate() error {

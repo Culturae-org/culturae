@@ -31,6 +31,9 @@ type WebSocketServiceInterface interface {
 	SetGameActionHandler(handler GameActionHandler)
 	BroadcastAdminNotification(notif AdminNotification)
 	BroadcastToAll(message interface{}) error
+	StartRelay(ctx context.Context)
+	StopRelay()
+	IsMultiPod() bool
 }
 
 type UserStatusUpdater interface {
@@ -82,6 +85,8 @@ type WebSocketService struct {
 	logger               *zap.Logger
 	offlineTimers        map[uuid.UUID]*time.Timer
 	gameDisconnectTimers map[uuid.UUID]*time.Timer
+	relay                *PubSubRelay
+	multiPod             bool
 }
 
 func NewWebSocketService(
@@ -89,6 +94,19 @@ func NewWebSocketService(
 	redisService cache.RedisClientInterface,
 	logger *zap.Logger,
 ) *WebSocketService {
+	return NewWebSocketServiceWithMode(userStatusUpdater, redisService, logger, redisService != nil)
+}
+
+func NewWebSocketServiceWithMode(
+	userStatusUpdater UserStatusUpdater,
+	redisService cache.RedisClientInterface,
+	logger *zap.Logger,
+	multiPod bool,
+) *WebSocketService {
+	var relay *PubSubRelay
+	if multiPod && redisService != nil {
+		relay = NewPubSubRelay(uuid.New().String(), redisService, logger)
+	}
 	return &WebSocketService{
 		clients:              make(map[uuid.UUID]*WSClient),
 		userClients:          make(map[uuid.UUID][]*WSClient),
@@ -98,7 +116,34 @@ func NewWebSocketService(
 		userStatusUpdater:    userStatusUpdater,
 		redisService:         redisService,
 		logger:               logger,
+		relay:                relay,
+		multiPod:             multiPod,
 	}
+}
+
+func (ws *WebSocketService) PodID() string {
+	if ws.relay != nil {
+		return ws.relay.PodID()
+	}
+	return ""
+}
+
+func (ws *WebSocketService) StartRelay(ctx context.Context) {
+	if ws.relay == nil {
+		return
+	}
+	ws.relay.Start(ctx, ws.handleRelayMessage)
+}
+
+func (ws *WebSocketService) StopRelay() {
+	if ws.relay == nil {
+		return
+	}
+	ws.relay.Stop()
+}
+
+func (ws *WebSocketService) IsMultiPod() bool {
+	return ws.multiPod
 }
 
 func (ws *WebSocketService) loadWSConfig(ctx context.Context) model.WebSocketConfig {
@@ -177,6 +222,7 @@ func (ws *WebSocketService) upgradeConnectionWithRole(c *gin.Context, userID uui
 	}
 
 	ws.mutex.Lock()
+	isFirstConnection := len(ws.userClients[userID]) == 0
 	ws.clients[clientID] = client
 	ws.userClients[userID] = append(ws.userClients[userID], client)
 	if t, ok := ws.offlineTimers[userID]; ok {
@@ -187,6 +233,10 @@ func (ws *WebSocketService) upgradeConnectionWithRole(c *gin.Context, userID uui
 	}
 	count := len(ws.userClients[userID])
 	ws.mutex.Unlock()
+
+	if isFirstConnection {
+		ws.incrOnlineUser(userID)
+	}
 
 	ws.logger.Info("WebSocket new client added", zap.String("user_id", userID.String()), zap.Int("user_connections", count))
 
@@ -569,6 +619,8 @@ func (ws *WebSocketService) disconnectClient(client *WSClient) {
 		if len(ws.userClients[client.UserID]) == 0 {
 			delete(ws.userClients, client.UserID)
 
+			ws.decrOnlineUser(client.UserID)
+
 			const offlineDelay = 2 * time.Second
 			userID := client.UserID
 			timer := time.AfterFunc(offlineDelay, func() {
@@ -690,6 +742,11 @@ func (ws *WebSocketService) updateUserStatus(userID uuid.UUID, isOnline bool) er
 }
 
 func (ws *WebSocketService) BroadcastToAdmins(message interface{}) error {
+	data, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
+
 	ws.mutex.RLock()
 	clients := make([]*WSClient, 0)
 	for _, c := range ws.clients {
@@ -699,18 +756,17 @@ func (ws *WebSocketService) BroadcastToAdmins(message interface{}) error {
 	}
 	ws.mutex.RUnlock()
 
-	if len(clients) == 0 {
-		return nil
-	}
-
-	data, err := json.Marshal(message)
-	if err != nil {
-		return err
-	}
-
 	for _, client := range clients {
 		if !client.IsClosed.Load() {
 			ws.trySend(client, data)
+		}
+	}
+
+	if ws.relay != nil {
+		pubCtx, pubCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer pubCancel()
+		if err := ws.relay.PublishAdminMessage(pubCtx, data); err != nil {
+			ws.logger.Warn("Failed to publish admin message to relay", zap.Error(err))
 		}
 	}
 
@@ -718,6 +774,11 @@ func (ws *WebSocketService) BroadcastToAdmins(message interface{}) error {
 }
 
 func (ws *WebSocketService) BroadcastToAll(message interface{}) error {
+	data, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
+
 	ws.mutex.RLock()
 	clients := make([]*WSClient, 0, len(ws.clients))
 	for _, c := range ws.clients {
@@ -725,14 +786,17 @@ func (ws *WebSocketService) BroadcastToAll(message interface{}) error {
 	}
 	ws.mutex.RUnlock()
 
-	data, err := json.Marshal(message)
-	if err != nil {
-		return err
-	}
-
 	for _, client := range clients {
 		if !client.IsClosed.Load() {
 			ws.trySend(client, data)
+		}
+	}
+
+	if ws.relay != nil {
+		pubCtx, pubCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer pubCancel()
+		if err := ws.relay.PublishBroadcastMessage(pubCtx, data); err != nil {
+			ws.logger.Warn("Failed to publish broadcast message to relay", zap.Error(err))
 		}
 	}
 
@@ -746,30 +810,82 @@ func (ws *WebSocketService) GetConnectedClients() int {
 }
 
 func (ws *WebSocketService) GetOnlineUsers() int {
+	if ws.multiPod && ws.redisService != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		count, err := ws.redisService.HLen(ctx, onlineUsersRedisKey)
+		if err == nil {
+			return int(count)
+		}
+		ws.logger.Warn("Failed to get online users from Redis, falling back to local", zap.Error(err))
+	}
 	ws.mutex.RLock()
 	defer ws.mutex.RUnlock()
 	return len(ws.userClients)
 }
 
-func (ws *WebSocketService) SendToUser(userID uuid.UUID, message interface{}) error {
-	ws.mutex.RLock()
-	src, exists := ws.userClients[userID]
-	if !exists || len(src) == 0 {
-		ws.mutex.RUnlock()
-		return nil
-	}
-	clients := make([]*WSClient, len(src))
-	copy(clients, src)
-	ws.mutex.RUnlock()
+const onlineUsersRedisKey = "system:online:users"
 
+func (ws *WebSocketService) incrOnlineUser(userID uuid.UUID) {
+	if !ws.multiPod || ws.redisService == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	newCount, err := ws.redisService.HIncrBy(ctx, onlineUsersRedisKey, userID.String(), 1)
+	if err != nil {
+		ws.logger.Warn("Failed to increment online user counter", zap.String("user_id", userID.String()), zap.Error(err))
+		return
+	}
+	if newCount == 1 {
+		ws.logger.Debug("User came online (Redis)", zap.String("user_id", userID.String()))
+	}
+}
+
+func (ws *WebSocketService) decrOnlineUser(userID uuid.UUID) {
+	if !ws.multiPod || ws.redisService == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	newCount, err := ws.redisService.HIncrBy(ctx, onlineUsersRedisKey, userID.String(), -1)
+	if err != nil {
+		ws.logger.Warn("Failed to decrement online user counter", zap.String("user_id", userID.String()), zap.Error(err))
+		return
+	}
+	if newCount <= 0 {
+		_ = ws.redisService.HDel(ctx, onlineUsersRedisKey, userID.String())
+		ws.logger.Debug("User went offline (Redis)", zap.String("user_id", userID.String()))
+	}
+}
+
+func (ws *WebSocketService) SendToUser(userID uuid.UUID, message interface{}) error {
 	data, err := json.Marshal(message)
 	if err != nil {
 		return err
 	}
 
-	for _, client := range clients {
-		if !client.IsClosed.Load() {
-			ws.trySend(client, data)
+	ws.mutex.RLock()
+	src, exists := ws.userClients[userID]
+	if exists && len(src) > 0 {
+		clients := make([]*WSClient, len(src))
+		copy(clients, src)
+		ws.mutex.RUnlock()
+		for _, client := range clients {
+			if !client.IsClosed.Load() {
+				ws.trySend(client, data)
+			}
+		}
+	} else {
+		ws.mutex.RUnlock()
+	}
+
+	if ws.relay != nil {
+		pubCtx, pubCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer pubCancel()
+		if err := ws.relay.PublishUserMessage(pubCtx, userID, data); err != nil {
+			ws.logger.Warn("Failed to publish user message to relay",
+				zap.String("user_id", userID.String()), zap.Error(err))
 		}
 	}
 
@@ -781,27 +897,35 @@ func (ws *WebSocketService) SendToGame(gamePublicID string, message interface{})
 }
 
 func (ws *WebSocketService) BroadcastToGame(gamePublicID string, message interface{}, excludeUserID *uuid.UUID) error {
-	ws.mutex.RLock()
-	src, exists := ws.gameClients[gamePublicID]
-	if !exists || len(src) == 0 {
-		ws.mutex.RUnlock()
-		return nil
-	}
-	clients := make([]*WSClient, len(src))
-	copy(clients, src)
-	ws.mutex.RUnlock()
-
 	data, err := json.Marshal(message)
 	if err != nil {
 		return err
 	}
 
-	for _, client := range clients {
-		if excludeUserID != nil && client.UserID == *excludeUserID {
-			continue
+	ws.mutex.RLock()
+	src, exists := ws.gameClients[gamePublicID]
+	if exists && len(src) > 0 {
+		clients := make([]*WSClient, len(src))
+		copy(clients, src)
+		ws.mutex.RUnlock()
+		for _, client := range clients {
+			if excludeUserID != nil && client.UserID == *excludeUserID {
+				continue
+			}
+			if !client.IsClosed.Load() {
+				ws.trySend(client, data)
+			}
 		}
-		if !client.IsClosed.Load() {
-			ws.trySend(client, data)
+	} else {
+		ws.mutex.RUnlock()
+	}
+
+	if ws.relay != nil {
+		pubCtx, pubCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer pubCancel()
+		if err := ws.relay.PublishGameMessage(pubCtx, gamePublicID, data, excludeUserID); err != nil {
+			ws.logger.Warn("Failed to publish game message to relay",
+				zap.String("game_public_id", gamePublicID), zap.Error(err))
 		}
 	}
 
@@ -889,7 +1013,103 @@ func (ws *WebSocketService) BroadcastAdminNotification(notif AdminNotification) 
 	}
 }
 
-// ginContextString extracts a string value from the Gin context without importing httputil (avoids import cycle).
+func (ws *WebSocketService) handleRelayMessage(msg PubSubRelayMessage) {
+	switch msg.MessageType {
+	case PubSubMsgTypeUser:
+		userID, err := uuid.Parse(msg.TargetID)
+		if err != nil {
+			return
+		}
+		ws.deliverToUserLocally(userID, msg.Payload)
+
+	case PubSubMsgTypeGame:
+		var excludeUserID *uuid.UUID
+		if msg.ExcludeUserID != nil {
+			if uid, err := uuid.Parse(*msg.ExcludeUserID); err == nil {
+				excludeUserID = &uid
+			}
+		}
+		ws.deliverToGameLocally(msg.TargetID, msg.Payload, excludeUserID)
+
+	case PubSubMsgTypeAdmin:
+		ws.deliverToAdminsLocally(msg.Payload)
+
+	case PubSubMsgTypeBroadcast:
+		ws.deliverToAllLocally(msg.Payload)
+	}
+}
+
+func (ws *WebSocketService) deliverToUserLocally(userID uuid.UUID, data json.RawMessage) {
+	ws.mutex.RLock()
+	src, exists := ws.userClients[userID]
+	if !exists || len(src) == 0 {
+		ws.mutex.RUnlock()
+		return
+	}
+	clients := make([]*WSClient, len(src))
+	copy(clients, src)
+	ws.mutex.RUnlock()
+
+	for _, client := range clients {
+		if !client.IsClosed.Load() {
+			ws.trySend(client, data)
+		}
+	}
+}
+
+func (ws *WebSocketService) deliverToGameLocally(gamePublicID string, data json.RawMessage, excludeUserID *uuid.UUID) {
+	ws.mutex.RLock()
+	src, exists := ws.gameClients[gamePublicID]
+	if !exists || len(src) == 0 {
+		ws.mutex.RUnlock()
+		return
+	}
+	clients := make([]*WSClient, len(src))
+	copy(clients, src)
+	ws.mutex.RUnlock()
+
+	for _, client := range clients {
+		if excludeUserID != nil && client.UserID == *excludeUserID {
+			continue
+		}
+		if !client.IsClosed.Load() {
+			ws.trySend(client, data)
+		}
+	}
+}
+
+func (ws *WebSocketService) deliverToAdminsLocally(data json.RawMessage) {
+	ws.mutex.RLock()
+	clients := make([]*WSClient, 0)
+	for _, c := range ws.clients {
+		if c.IsAdmin {
+			clients = append(clients, c)
+		}
+	}
+	ws.mutex.RUnlock()
+
+	for _, client := range clients {
+		if !client.IsClosed.Load() {
+			ws.trySend(client, data)
+		}
+	}
+}
+
+func (ws *WebSocketService) deliverToAllLocally(data json.RawMessage) {
+	ws.mutex.RLock()
+	clients := make([]*WSClient, 0, len(ws.clients))
+	for _, c := range ws.clients {
+		clients = append(clients, c)
+	}
+	ws.mutex.RUnlock()
+
+	for _, client := range clients {
+		if !client.IsClosed.Load() {
+			ws.trySend(client, data)
+		}
+	}
+}
+
 func ginContextString(c *gin.Context, key string) string {
 	val, exists := c.Get(key)
 	if !exists {

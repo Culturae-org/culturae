@@ -123,6 +123,7 @@ type App struct {
 	MatchmakingHandler   *handler.MatchmakingHandler
 	LeaderboardHandler   *handler.LeaderboardHandler
 	LobbyHandler         *handler.LobbyHandler
+	HealthHandler        *handler.HealthHandler
 
 	AuthMiddleware        *middleware.AuthMiddleware
 	APILoggingMiddleware  *middleware.APILoggingMiddleware
@@ -171,7 +172,8 @@ func SetupApp() (*App, error) {
 	}
 
 	logger.Info("--------------------------------------------------")
-	logger.Info("             Culturae Backend OK !                ")
+	logger.Info("             Culturae Platform OK !             ")
+	logger.Info(fmt.Sprintf("             Mode: %s             ", cfg.AppMode))
 	logger.Info("--------------------------------------------------")
 	return app, nil
 }
@@ -301,6 +303,10 @@ func (a *App) GetLobbyHandler() *handler.LobbyHandler {
 	return a.LobbyHandler
 }
 
+func (a *App) GetHealthHandler() *handler.HealthHandler {
+	return a.HealthHandler
+}
+
 func (a *App) Run() {
 	a.Server = &http.Server{
 		Addr:         ":" + a.Config.ServerPort,
@@ -344,6 +350,11 @@ func (a *App) Shutdown() {
 }
 
 func (a *App) Close() {
+
+	if a.Deps.WebSocketService != nil {
+		a.Deps.WebSocketService.StopRelay()
+		a.Logger.Info("WebSocket Pub/Sub relay stopped")
+	}
 
 	if a.GameEventBroadcaster != nil {
 		a.GameEventBroadcaster.Stop()
@@ -751,6 +762,7 @@ type AppComponents struct {
 		Matchmaking        *handler.MatchmakingHandler
 		Leaderboard        *handler.LeaderboardHandler
 		Lobby              *handler.LobbyHandler
+		Health             *handler.HealthHandler
 		AdminAuth          *admin.AdminAuthHandler
 		AdminUser          *admin.AdminUserHandler
 		AdminAvatar        *admin.AdminAvatarHandler
@@ -843,6 +855,7 @@ func buildApp(appCtx context.Context, cfg *config.Config, db *gorm.DB, deps *Dep
 		MatchmakingHandler:        components.Handlers.Matchmaking,
 		LeaderboardHandler:        components.Handlers.Leaderboard,
 		LobbyHandler:              components.Handlers.Lobby,
+		HealthHandler:             components.Handlers.Health,
 		LobbyBroadcaster:          components.LobbyBroadcaster,
 		AdminFriendsHandler:       components.Handlers.AdminFriends,
 		AdminReportsHandler:       components.Handlers.AdminReports,
@@ -1265,6 +1278,8 @@ func setupHandlersAndMiddlewares(
 		deps.WebSocketService,
 	)
 
+	components.Handlers.Health = handler.NewHealthHandler()
+
 	components.Handlers.AdminSettings = admin.NewAdminSettingsHandler(
 		deps.RedisService,
 		cfg,
@@ -1308,17 +1323,34 @@ func (a *App) initialize() error {
 	}
 
 	routes.RegisterRoutes(a.Router, a)
-	a.StartQuestionTimeoutChecker()
-	a.RestartSchedulers()
+
+	mode := a.Config.AppMode
+	isAdmin := mode == config.AppModeAdmin
+	isHeadless := mode == config.AppModeHeadless
+
+	if a.Deps.WebSocketService != nil {
+		a.Deps.WebSocketService.StartRelay(a.appCtx)
+		a.Logger.Info("WebSocket Pub/Sub relay started", zap.String("mode", mode))
+	}
+
+	if !isAdmin {
+		a.StartQuestionTimeoutChecker()
+	}
+
+	if !isHeadless {
+		a.RestartSchedulers()
+	}
 
 	if a.GameEventBroadcaster != nil {
 		a.GameEventBroadcaster.Start()
 		a.Logger.Info("Game event broadcaster started")
 	}
 
-	if a.LobbyBroadcaster != nil {
-		a.LobbyBroadcaster.Start()
-		a.Logger.Info("Lobby broadcaster started")
+	if !isAdmin {
+		if a.LobbyBroadcaster != nil {
+			a.LobbyBroadcaster.Start()
+			a.Logger.Info("Lobby broadcaster started")
+		}
 	}
 
 	if err := a.setupDefaultAdmin(); err != nil {
