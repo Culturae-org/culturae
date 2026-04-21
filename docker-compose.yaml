@@ -1,0 +1,214 @@
+# ============================================================================
+#                 CULTURAE - Production Docker Compose
+# ============================================================================
+# Main production setup with Traefik as reverse proxy
+#
+# Usage:
+#   cp .env.example .env          # Configure credentials
+#   docker compose -f docker-compose.yaml up -d
+#
+# ============================================================================
+
+services:
+  # --------------------------------------------------------------------------
+  #                              Traefik Reverse Proxy
+  # --------------------------------------------------------------------------
+  traefik:
+    image: traefik:v3.6.13
+    restart: unless-stopped
+    container_name: culturae_traefik
+    ports:
+      - "80:80"
+      - "443:443"
+    #  - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - "--entrypoints.web.address=:80"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.dashboard.entrypoints=web"
+      - "traefik.http.routers.dashboard.service=api@internal"
+    networks:
+      - culturae-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # --------------------------------------------------------------------------
+  #                         PostgreSQL Database
+  # --------------------------------------------------------------------------
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    container_name: culturae_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB_NAME:-culturae}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-culturae}
+      POSTGRES_USER: ${POSTGRES_USER:-culturae}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - culturae-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-culturae} -d ${POSTGRES_DB_NAME:-culturae}"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+
+  # --------------------------------------------------------------------------
+  #                              Redis Cache
+  # --------------------------------------------------------------------------
+  redis:
+    image: redis:8.6-alpine
+    restart: unless-stopped
+    container_name: culturae_redis
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+    volumes:
+      - redis_data:/data
+    networks:
+      - culturae-network
+    healthcheck:
+      test: ["CMD-SHELL", 'if [ -z "${REDIS_PASSWORD}" ]; then redis-cli ping; else redis-cli -a "$REDIS_PASSWORD" ping; fi']
+      interval: 10s
+      retries: 5
+      timeout: 3s
+
+  # --------------------------------------------------------------------------
+  #                         MinIO Object Storage
+  # --------------------------------------------------------------------------
+  minio:
+    image: quay.io/minio/minio:latest
+    restart: unless-stopped
+    container_name: culturae_minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - culturae-network
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      retries: 3
+      timeout: 20s
+
+  # --------------------------------------------------------------------------
+  #                      Culturae Server (full mode)
+  # --------------------------------------------------------------------------
+  culturae:
+    build: .
+    restart: unless-stopped
+    container_name: culturae_server
+    environment:
+      APP_MODE: ${APP_MODE:-full}
+
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: culturae
+      POSTGRES_PASSWORD: culturae
+      POSTGRES_DB_NAME: culturae
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+
+      # Server
+      PORT: 8080
+      ENV: ${ENV:-development}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      JWT_SECRET: ${JWT_SECRET}
+      COOKIE_SECURE: "true"
+      TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+
+      DATASET_CHECK_INTERVAL: 12h
+      SEED_GAME_TEMPLATES: "true"
+
+      # Rate limiting
+      # RATE_LIMIT_ENABLED: "true"
+      # RATE_LIMIT_REQUESTS: 1000
+      # RATE_LIMIT_WINDOW: 1m
+    networks:
+      - culturae-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`localhost`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.routers.api.service=api-svc"
+      - "traefik.http.services.api-svc.loadbalancer.server.port=8080"
+      - "traefik.http.services.api-svc.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.api-svc.loadbalancer.sticky.cookie.name=culturae_sticky"
+      - "traefik.http.services.api-svc.loadbalancer.sticky.cookie.secure=false"
+      - "traefik.http.services.api-svc.loadbalancer.sticky.cookie.httpOnly=true"
+      - "traefik.http.services.api-svc.loadbalancer.sticky.cookie.samesite=lax"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ============================================================================
+  #         HEADLESS PODS
+  # ============================================================================
+  # Usage:
+  #   docker compose -f docker-compose.yaml up -d --scale culturae-headless=3
+  #
+  # culturae-headless:
+  #   build: .
+  #   restart: unless-stopped
+  #   environment:
+  #     APP_MODE: headless
+  #     POSTGRES_HOST: postgres
+  #     POSTGRES_USER: culturae
+  #     POSTGRES_PASSWORD: culturae
+  #     POSTGRES_DB_NAME: culturae
+  #     REDIS_HOST: redis
+  #     REDIS_PASSWORD: ${REDIS_PASSWORD:-redis}
+  #     MINIO_ENDPOINT: minio:9000
+  #     MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+  #     MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+  #     PORT: 8080
+  #     ENV: ${ENV:-production}
+  #     ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+  #     JWT_SECRET: ${JWT_SECRET}
+  #     COOKIE_SECURE: "true"
+  #     # TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+  #     RATE_LIMIT_ENABLED: "true"
+  #     RATE_LIMIT_REQUESTS: 1000
+  #     RATE_LIMIT_WINDOW: 1m
+  #   networks:
+  #     - culturae-network
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.headless.rule=Host(`localhost`)"
+  #     - "traefik.http.routers.headless.entrypoints=web"
+  #     - "traefik.http.routers.headless.service=headless-svc"
+  #     - "traefik.http.services.headless-svc.loadbalancer.server.port=8080"
+  #     - "traefik.http.services.headless-svc.loadbalancer.sticky.cookie=true"
+  #     - "traefik.http.services.headless-svc.loadbalancer.sticky.cookie.name=culturae_sticky"
+  #     - "traefik.http.services.headless-svc.loadbalancer.sticky.cookie.secure=false"
+  #     - "traefik.http.services.headless-svc.loadbalancer.sticky.cookie.httpOnly=true"
+  #     - "traefik.http.services.headless-svc.loadbalancer.sticky.cookie.samesite=lax"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  # ============================================================================
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+
+networks:
+  culturae-network:
+    driver: bridge
