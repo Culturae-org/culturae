@@ -9,20 +9,21 @@ tasks:
 
   dev:infra:
     desc: "Start only infrastructure (postgres, redis, minio)"
+    dir : backend
     cmds:
-      - docker compose up db redis minio -d
+      - docker compose up -d
 
   dev:dashboard:
-    desc: "Start dashboard in dev mode (Next.js hot reload)"
+    desc: "Start dashboard in dev mode"
     dir: dashboard
     cmds:
-      - pnpm dev
+      - pnpm run dev
 
   build:dashboard:
     desc: "Build the admin dashboard (Vite SPA)"
     dir: dashboard
     cmds:
-      - pnpm build
+      - pnpm run build
 
   build:embed:
     desc: "Copy dashboard build into backend embed directory"
@@ -45,13 +46,14 @@ tasks:
       - task: build:backend
 
   test:
-    desc: "Run all Go tests"
+    desc: "Run all Go tests & golangci-lint"
     dir: backend
     cmds:
       - go test ./... -timeout 60s
+      - golangci-lint run
 
   docker:up:
-    desc: "Build and start all services (dev compose)"
+    desc: "Build and start all services"
     cmds:
       - docker compose up --build -d
 
