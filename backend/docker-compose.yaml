@@ -1,0 +1,111 @@
+# ============================================================================
+#                 CULTURAE - Docker Compose (Development)
+# ============================================================================
+# Launches database services for local development.
+#
+# Usage:
+#   cp .env.example .env          # Configure credentials
+#   docker-compose up -d          # Start services
+#   go run ./cmd/main.go          # Launch backend
+#   
+#   or you can build the backend and run the executable
+#
+#   go build cmd/main.go
+#   ./main
+#
+#   or view tasks in Taskfile.yml (root of the repo) for more commands
+#
+# Services expose their ports on localhost:
+#   - PostgreSQL: localhost:5432
+#   - Redis:      localhost:6379
+#   - API MinIO:            localhost:9000
+#   - Dashboard MinIO:      localhost:9001
+# ============================================================================
+
+services:
+  # --------------------------------------------------------------------------
+  #                         PostgreSQL Database
+  # --------------------------------------------------------------------------
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    container_name: culturae_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB_NAME:-culturae}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-culturae}
+      POSTGRES_USER: ${POSTGRES_USER:-culturae}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - culturae-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-culturae} -d ${POSTGRES_DB_NAME:-culturae}",
+        ]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+
+  # --------------------------------------------------------------------------
+  #                              Redis Cache
+  # --------------------------------------------------------------------------
+  redis:
+    image: redis:8.6-alpine
+    restart: unless-stopped
+    container_name: culturae_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - culturae-network
+    command: >
+      redis-server
+      --appendonly yes
+      ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'if [ -z "${REDIS_PASSWORD}" ]; then redis-cli ping; else redis-cli -a "$REDIS_PASSWORD" ping; fi',
+        ]
+      interval: 10s
+      retries: 5
+      timeout: 3s
+
+  # --------------------------------------------------------------------------
+  #                         MinIO Object Storage
+  # --------------------------------------------------------------------------
+  minio:
+    image: quay.io/minio/minio:latest
+    restart: unless-stopped
+    container_name: culturae_minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - culturae-network
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      retries: 3
+      timeout: 20s
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+
+networks:
+  culturae-network:
+    driver: bridge
