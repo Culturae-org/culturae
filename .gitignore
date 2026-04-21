@@ -1,0 +1,13 @@
+backend/.env
+
+.env
+
+.DS_Store
+
+/dashboard/node_modules
+/dashboard/ui
+/dashboard/out
+dashboard/tsconfig.tsbuildinfo
+
+.direnv
+culturae
