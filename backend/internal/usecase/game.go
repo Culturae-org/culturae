@@ -448,6 +448,18 @@ func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.
 		return nil, err
 	}
 
+	gameCreationSucceeded := false
+	defer func() {
+		if !gameCreationSucceeded {
+			if delErr := u.gameRepo.DeleteGameRecord(gameModel); delErr != nil {
+				u.logger.Warn("Failed to clean up game record after creation error",
+					zap.String("game_id", gameModel.ID.String()),
+					zap.Error(delErr),
+				)
+			}
+		}
+	}()
+
 	gamePlayer := &model.GamePlayer{
 		GameID:   gameModel.ID,
 		UserID:   creatorID,
@@ -602,6 +614,8 @@ func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.
 			_ = u.gameRepo.UpdateGame(gameModel)
 		}
 	}
+
+	gameCreationSucceeded = true
 
 	_ = u.loggingService.LogUserAction(creatorID, "create_game", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{
 		"game_id": gameModel.ID,
@@ -1441,6 +1455,8 @@ func (u *GameUsecase) finalizeGame(c *gin.Context, gameID uuid.UUID) error {
 		})
 	}
 
+	u.emitGameCompletedEvent(gameModel, players, winnerID)
+
 	if err := u.gameManager.RemoveGame(gameID); err != nil {
 		u.logger.Warn("Failed to remove finalized game from Redis",
 			zap.String("game_id", gameID.String()),
@@ -1868,6 +1884,40 @@ func (u *GameUsecase) validateGameCanBeModified(gameModel *model.Game) error {
 
 func (u *GameUsecase) emitEvent(gameID uuid.UUID, eventType string, data map[string]interface{}) {
 	u.logger.Info("Game event emitted", zap.String("game_id", gameID.String()), zap.String("event", eventType), zap.Any("data", data))
+}
+
+func (u *GameUsecase) emitGameCompletedEvent(gameModel *model.Game, players []game.Player, winnerID *uuid.UUID) {
+	if u.wsService == nil {
+		return
+	}
+
+	playersFinal := make([]map[string]interface{}, 0, len(players))
+	for _, p := range players {
+		playersFinal = append(playersFinal, map[string]interface{}{
+			"user_public_id": p.PublicID,
+			"username":       p.Username,
+			"score":          p.Score,
+		})
+	}
+
+	eventData := map[string]interface{}{
+		"game_id":          gameModel.ID,
+		"players_final":    playersFinal,
+	}
+	if winnerID != nil {
+		for _, p := range players {
+			if p.UserID == *winnerID {
+				eventData["winner_public_id"] = p.PublicID
+				break
+			}
+		}
+	}
+
+	_ = u.wsService.SendToGame(gameModel.PublicID, map[string]interface{}{
+		"type":      "game_completed",
+		"public_id": gameModel.PublicID,
+		"data":      eventData,
+	})
 }
 
 func (u *GameUsecase) HandleSubmitAnswer(userID uuid.UUID, gamePublicID string, answerData map[string]interface{}) error {
