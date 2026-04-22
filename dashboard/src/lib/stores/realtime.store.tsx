@@ -23,12 +23,22 @@ const RealtimeContext = createContext<RealtimeContextValue | undefined>(
   undefined,
 );
 
-const REALTIME_URL =
-  typeof window !== "undefined"
-    ? process.env.NODE_ENV === "production"
-      ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/api/v1/realtime`
-      : "ws://localhost:8080/api/v1/realtime"
-    : "";
+const getRealtimeUrl = () => {
+  if (typeof window === "undefined") return "";
+  
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const host = window.location.host;
+  
+  const isAdmin = window.location.pathname.startsWith("/console");
+  const endpoint = isAdmin ? "/api/v1/admin/realtime" : "/api/v1/realtime";
+  
+  if (process.env.NODE_ENV === "production") {
+    return `${protocol}//${host}${endpoint}`;
+  }
+  return `ws://localhost:8080${endpoint}`;
+};
+
+const REALTIME_URL = getRealtimeUrl();
 
 export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
