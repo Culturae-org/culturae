@@ -73,7 +73,11 @@ func (m *mockRedis) Eval(_ context.Context, _ string, _ []string, _ ...interface
 func (m *mockRedis) NativeClient() redis.UniversalClient                                                 { return nil }
 func (m *mockRedis) HIncrBy(_ context.Context, _ string, _ string, _ int64) (int64, error)           { return 1, nil }
 func (m *mockRedis) HLen(_ context.Context, _ string) (int64, error)                                 { return 0, nil }
-func (m *mockRedis) HDel(_ context.Context, _ string, _ ...string) error                             { return nil }
+func (m *mockRedis) HDel(_ context.Context, _ string, _ ...string) error                                    { return nil }
+func (m *mockRedis) HSet(_ context.Context, _, _ string, _ interface{}) error                               { return nil }
+func (m *mockRedis) HGetAll(_ context.Context, _ string) (map[string]string, error)                         { return nil, nil }
+func (m *mockRedis) HGet(_ context.Context, _, _ string) (string, error)                                    { return "", nil }
+func (m *mockRedis) HDelete(_ context.Context, _ string, _ ...string) error                                 { return nil }
 func (m *mockRedis) CheckRateLimit(_ context.Context, _ string, _ int64, _ time.Duration) (bool, int64, int64, error) {
 	return false, 0, 0, nil
 }

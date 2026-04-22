@@ -34,6 +34,7 @@ type WebSocketServiceInterface interface {
 	StartRelay(ctx context.Context)
 	StopRelay()
 	IsMultiPod() bool
+	PodID() (string, error)
 }
 
 type UserStatusUpdater interface {
@@ -121,11 +122,11 @@ func NewWebSocketServiceWithMode(
 	}
 }
 
-func (ws *WebSocketService) PodID() string {
+func (ws *WebSocketService) PodID() (string, error) {
 	if ws.relay != nil {
-		return ws.relay.PodID()
+		return ws.relay.PodID(), nil
 	}
-	return ""
+	return "", nil
 }
 
 func (ws *WebSocketService) StartRelay(ctx context.Context) {

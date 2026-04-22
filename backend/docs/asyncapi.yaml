@@ -27,7 +27,7 @@ info:
     Non-game server messages (`ack`, `pong`, `hello`, `error`, `presence`,
     `admin_notification`) are flat and do not use the `data` wrapper.
 
-    ## Game lifecycle (solo / 1v1)
+    ## Game lifecycle (solo)
     ```
     Client                          Server
       |--- join_game ----------------->|
@@ -37,11 +37,34 @@ info:
       |--- submit_answer ------------->|
       |<-- ack (submit_answer, ok) ----|
       |<-- answer_received ------------|
-      |<-- score_updated --------------|
+      |<-- score_updated --------------|   (emitted once per player after evaluation)
       |   [inter-round delay ~1.5 s]
       |<-- question_sent  -------------|   (next question, or…)
       |<-- game_completed  ------------|   (if last question)
     ```
+
+    ## Game lifecycle (1v1)
+    ```
+    Client A                        Server                 Client B
+      |--- submit_answer (A) -------->|
+      |<-- ack (submit_answer, ok) ---|
+      |<-- answer_received (A) -------|<-- answer_received (A) --|
+      |                               |                          |
+      |--- submit_answer (B) -------->|<-- submit_answer (B) ----|
+      |<-- ack (submit_answer, ok) ---|
+      |<-- answer_received (B) -------|<-- answer_received (B) --|
+      |<-- score_updated (A) ---------|<-- score_updated (A) ----|   (after all players answered)
+      |<-- score_updated (B) ---------|<-- score_updated (B) ----|
+      |   [inter-round delay ~1.5 s]
+      |<-- question_sent -------------|<-- question_sent ---------|   (next question, or…)
+      |<-- game_completed  ------------|<-- game_completed --------|   (if last question)
+    ```
+    **Important**: `score_updated` is broadcast to all players **only after the round
+    evaluates** (i.e. all active players have submitted, or the timer expired).
+    In multi-player modes this means `score_updated` events arrive after *all*
+    `answer_received` events for that round, not after each individual submission.
+    In solo mode the round evaluates immediately so `score_updated` follows
+    `answer_received` with no delay.
 
     ## Country-listing game lifecycle
     ```
@@ -1173,7 +1196,12 @@ components:
       name: score_updated
       messageId: score_updated
       title: Score Updated
-      summary: Broadcast after every answer submission to reflect the current score.
+      summary: |
+        Broadcast to all players after a round evaluates (all active players answered
+        or the question timer expired). In solo mode this follows the single
+        `answer_received` immediately. In multi-player (1v1 / multi), all
+        `answer_received` events for the round are emitted first, then one
+        `score_updated` per player is broadcast with their updated totals.
       payload:
         allOf:
           - $ref: '#/components/schemas/GameEventEnvelope'
@@ -2099,10 +2127,11 @@ components:
       title: Submit Answer
       summary: Submit the player's answer for the current question.
       description: |
-        The server validates the answer, emits `answer_received` (and optionally
-        `score_updated`) to all players in the game, then — after the inter-round
-        delay — emits `question_sent` for the next question (or `game_completed`
-        if there are no more questions).
+        The server validates the answer and emits `answer_received` immediately.
+        Once all active players in the round have answered (or the question timer
+        expires), the server evaluates scores and broadcasts one `score_updated`
+        per player. After the inter-round delay, `question_sent` follows for the
+        next question (or `game_completed` if there are no more questions).
 
         Only one answer per question is accepted; subsequent submissions for the
         same question are ignored.

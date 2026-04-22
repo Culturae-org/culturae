@@ -625,7 +625,12 @@ func (rgm *RedisGameManager) MarkPlayerReconnected(gameID, userID uuid.UUID) err
 					remaining = time.Second
 				}
 				questionRemainingMs = remaining.Milliseconds()
-				_ = rgm.RegisterQuestionTimeout(gameID, time.Now().Add(remaining))
+				if err := rgm.RegisterQuestionTimeout(gameID, time.Now().Add(remaining)); err != nil {
+					rgm.logger.Warn("Failed to re-register question timeout after reconnect",
+						zap.String("game_id", gameID.String()),
+						zap.Error(err),
+					)
+				}
 			}
 		}
 	}
@@ -740,7 +745,12 @@ func (rgm *RedisGameManager) doHandleReconnectTimeout(gameID, disconnectedUserID
 						remaining = time.Second
 					}
 					questionRemainingMs = remaining.Milliseconds()
-					_ = rgm.RegisterQuestionTimeout(gameID, time.Now().Add(remaining))
+					if err := rgm.RegisterQuestionTimeout(gameID, time.Now().Add(remaining)); err != nil {
+						rgm.logger.Error("Failed to re-register question timeout after reconnect timeout",
+							zap.String("game_id", gameID.String()),
+							zap.Error(err),
+						)
+					}
 				}
 			}
 
@@ -894,8 +904,17 @@ func (rgm *RedisGameManager) doStartGame(gameID uuid.UUID, game GameEngine) erro
 
 	question, err := game.GetCurrentQuestion()
 	if err == nil && question != nil {
-		expiresAt := time.Now().Add(time.Duration(question.EstimatedSeconds) * time.Second)
-		_ = rgm.RegisterQuestionTimeout(gameID, expiresAt)
+		estimatedSecs := question.EstimatedSeconds
+		if estimatedSecs <= 0 {
+			estimatedSecs = 30
+		}
+		expiresAt := time.Now().Add(time.Duration(estimatedSecs) * time.Second)
+		if err := rgm.RegisterQuestionTimeout(gameID, expiresAt); err != nil {
+			rgm.logger.Warn("Failed to register question timeout",
+				zap.String("game_id", gameID.String()),
+				zap.Error(err),
+			)
+		}
 
 		rgm.EmitEvent(GameEvent{
 			Type:     EventQuestionSent,
@@ -905,7 +924,7 @@ func (rgm *RedisGameManager) doStartGame(gameID uuid.UUID, game GameEngine) erro
 				"question":        QuestionToPayload(question),
 				"question_number": game.GetQuestionNumber(),
 				"total_questions": game.GetTotalQuestions(),
-				"time_limit":      question.EstimatedSeconds,
+				"time_limit":      estimatedSecs,
 			},
 		})
 	}
@@ -1007,8 +1026,17 @@ func (rgm *RedisGameManager) doSubmitAnswer(gameID, userID uuid.UUID, answer Ans
 		doAdvance := func(g GameEngine) {
 			nextQuestion, qErr := g.GetCurrentQuestion()
 			if qErr == nil {
-				expiresAt := time.Now().Add(time.Duration(nextQuestion.EstimatedSeconds) * time.Second)
-				_ = rgm.RegisterQuestionTimeout(gameID, expiresAt)
+				nextEstimatedSecs := nextQuestion.EstimatedSeconds
+				if nextEstimatedSecs <= 0 {
+					nextEstimatedSecs = 30
+				}
+				expiresAt := time.Now().Add(time.Duration(nextEstimatedSecs) * time.Second)
+				if err := rgm.RegisterQuestionTimeout(gameID, expiresAt); err != nil {
+					rgm.logger.Warn("Failed to register question timeout",
+						zap.String("game_id", gameID.String()),
+						zap.Error(err),
+					)
+				}
 
 				rgm.EmitEvent(GameEvent{
 					Type:     EventQuestionSent,
@@ -1018,7 +1046,7 @@ func (rgm *RedisGameManager) doSubmitAnswer(gameID, userID uuid.UUID, answer Ans
 						"question":        QuestionToPayload(nextQuestion),
 						"question_number": g.GetQuestionNumber(),
 						"total_questions": g.GetTotalQuestions(),
-						"time_limit":      nextQuestion.EstimatedSeconds,
+						"time_limit":      nextEstimatedSecs,
 					},
 				})
 			} else {
@@ -1375,7 +1403,12 @@ func (rgm *RedisGameManager) doHandleSingleGameTimeout(gameID uuid.UUID, now tim
 
 	if !gameOver {
 		expiresAt := time.Now().Add(time.Duration(nextQuestion.EstimatedSeconds) * time.Second)
-		_ = rgm.RegisterQuestionTimeout(gameID, expiresAt)
+		if err := rgm.RegisterQuestionTimeout(gameID, expiresAt); err != nil {
+			rgm.logger.Error("Failed to register question timeout on advance",
+				zap.String("game_id", gameID.String()),
+				zap.Error(err),
+			)
+		}
 
 		rgm.EmitEvent(GameEvent{
 			Type:     EventQuestionSent,

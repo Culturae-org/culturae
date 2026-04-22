@@ -192,6 +192,9 @@ func (g *BaseGame) AllPlayersFinished() bool {
 			return true
 		}
 		for _, p := range g.players {
+			if p.Status == model.PlayerStatusLeft || p.Status == model.PlayerStatusDisconnected {
+				continue
+			}
 			if len(p.Answers) < len(g.questions) {
 				return false
 			}
@@ -200,6 +203,36 @@ func (g *BaseGame) AllPlayersFinished() bool {
 	}
 
 	return false
+}
+
+func (g *BaseGame) determineWinner() *uuid.UUID {
+	if g.mode == model.GameModeSolo {
+		return nil
+	}
+	g.mutex.RLock()
+	defer g.mutex.RUnlock()
+	return g.determineWinnerLocked()
+}
+
+func (g *BaseGame) determineWinnerLocked() *uuid.UUID {
+	if g.mode == model.GameModeSolo {
+		return nil
+	}
+	bestScore := -1
+	var winnerID *uuid.UUID
+	for _, p := range g.players {
+		if p.Status == model.PlayerStatusLeft {
+			continue
+		}
+		if p.Score > bestScore {
+			bestScore = p.Score
+			id := p.UserID
+			winnerID = &id
+		} else if p.Score == bestScore {
+			winnerID = nil
+		}
+	}
+	return winnerID
 }
 
 func (g *BaseGame) GetWinnerID() *uuid.UUID {
@@ -443,12 +476,13 @@ func (g *BaseGame) finalizeWithWinner() {
 	if winner != nil {
 		g.endLocked(&winner.UserID)
 		winnerPublicID := winner.PublicID
+		playersFinal := g.buildPlayersFinalLocked()
 		g.emitEvent(GameEvent{
 			Type: EventGameCompleted,
 			Data: map[string]interface{}{
 				"game_id":          g.publicID,
 				"winner_public_id": winnerPublicID,
-				"players_final":    g.buildPlayersFinal(),
+				"players_final":    playersFinal,
 			},
 		})
 	} else {
@@ -470,6 +504,10 @@ func (g *BaseGame) SubmitAnswer(userID uuid.UUID, answer Answer) error {
 
 	if g.status != model.GameStatusInProgress {
 		return errors.New("game is not in progress")
+	}
+
+	if g.currentQ >= len(g.questions) {
+		return errors.New("no more questions")
 	}
 
 	player, exists := g.players[userID]
@@ -728,7 +766,11 @@ func (g *BaseGame) handleStartGame() {
 		g.ticker.Stop()
 	}
 	firstQuestion := g.questions[g.currentQ]
-	g.ticker = time.NewTicker(time.Duration(firstQuestion.EstimatedSeconds) * time.Second)
+	estimatedSecs := firstQuestion.EstimatedSeconds
+	if estimatedSecs <= 0 {
+		estimatedSecs = 30
+	}
+	g.ticker = time.NewTicker(time.Duration(estimatedSecs) * time.Second)
 
 	questionSentAt := time.Now()
 	for _, p := range g.players {
@@ -861,14 +903,19 @@ func (g *BaseGame) handleSubmitAnswer(payload interface{}) {
 		},
 	})
 
-	if playerExists {
-		g.emitEvent(GameEvent{
-			Type: EventScoreUpdated,
-			Data: map[string]interface{}{
-				"user_public_id": userPublicID,
-				"score":          player.Score,
-			},
-		})
+	if currentQ != prevQ {
+		g.mutex.RLock()
+		scoreUpdates := make([]map[string]interface{}, 0, len(g.players))
+		for _, p := range g.players {
+			scoreUpdates = append(scoreUpdates, map[string]interface{}{
+				"user_public_id": p.PublicID,
+				"score":          p.Score,
+			})
+		}
+		g.mutex.RUnlock()
+		for _, su := range scoreUpdates {
+			g.emitEvent(GameEvent{Type: EventScoreUpdated, Data: su})
+		}
 	}
 
 	if currentQ != prevQ && currentQ < questionsLen {
@@ -882,21 +929,7 @@ func (g *BaseGame) handleSubmitAnswer(payload interface{}) {
 	}
 
 	if currentQ >= questionsLen {
-		var winnerID *uuid.UUID
-		if g.mode != model.GameModeSolo {
-			bestScore := -1
-			g.mutex.RLock()
-			for _, p := range g.players {
-				if p.Score > bestScore {
-					bestScore = p.Score
-					id := p.UserID
-					winnerID = &id
-				} else if p.Score == bestScore {
-					winnerID = nil
-				}
-			}
-			g.mutex.RUnlock()
-		}
+		winnerID := g.determineWinner()
 
 		g.mutex.Lock()
 		if g.ticker != nil {
@@ -947,6 +980,9 @@ func (g *BaseGame) handleTimer() {
 	now := time.Now()
 
 	for _, p := range g.players {
+		if p.Status == model.PlayerStatusLeft {
+			continue
+		}
 		if len(p.Answers) <= g.currentQ {
 			answer := NewMCQAnswer(
 				currentQuestion.ID,
@@ -971,17 +1007,7 @@ func (g *BaseGame) handleTimer() {
 	}
 
 	if g.currentQ >= len(g.questions) {
-		var winnerID *uuid.UUID
-		if g.mode != model.GameModeSolo {
-			bestScore := -1
-			for _, p := range g.players {
-				if p.Score > bestScore {
-					bestScore = p.Score
-					id := p.UserID
-					winnerID = &id
-				}
-			}
-		}
+		winnerID := g.determineWinnerLocked()
 		g.endLocked(winnerID)
 		g.mutex.Unlock()
 
@@ -1159,7 +1185,11 @@ func (g *BaseGame) handleNextQuestion(payload interface{}) {
 		g.ticker.Stop()
 	}
 	nextQuestion := g.questions[g.currentQ]
-	g.ticker = time.NewTicker(time.Duration(nextQuestion.EstimatedSeconds) * time.Second)
+	nextEstimatedSecs := nextQuestion.EstimatedSeconds
+	if nextEstimatedSecs <= 0 {
+		nextEstimatedSecs = 30
+	}
+	g.ticker = time.NewTicker(time.Duration(nextEstimatedSecs) * time.Second)
 
 	questionSentAt := time.Now()
 	for _, p := range g.players {
@@ -1224,35 +1254,46 @@ func (g *BaseGame) handleReconnectTimeout() {
 	g.mutex.Lock()
 	g.reconnectTimer = nil
 
-	var winner *Player
 	for _, p := range g.players {
-		if p.Status == model.PlayerStatusActive {
-			winner = p
-			break
+		if p.Status == model.PlayerStatusDisconnected {
+			p.Status = model.PlayerStatusLeft
 		}
 	}
+
+	activeCount := 0
+	for _, p := range g.players {
+		if p.Status == model.PlayerStatusActive {
+			activeCount++
+		}
+	}
+
+	winnerID := g.determineWinnerLocked()
 	g.mutex.Unlock()
 
-	if winner != nil {
-		winnerID := winner.UserID
-		winnerPublicID := winner.PublicID
-		_ = g.End(&winnerID)
-		g.emitEvent(GameEvent{
-			Type: EventGameCompleted,
-			Data: map[string]interface{}{
-				"game_id":          g.publicID,
-				"winner_public_id": winnerPublicID,
-				"players_final":    g.buildPlayersFinal(),
-				"reason":           "reconnect_timeout",
-			},
-		})
-	} else {
+	if activeCount == 0 {
 		_ = g.Cancel()
 		g.emitEvent(GameEvent{
 			Type: EventGameCancelled,
 			Data: map[string]interface{}{"reason": "reconnect_timeout"},
 		})
+		return
 	}
+
+	_ = g.End(winnerID)
+	var winnerPublicID *string
+	if winnerID != nil {
+		pid := g.playerPublicID(*winnerID)
+		winnerPublicID = &pid
+	}
+	g.emitEvent(GameEvent{
+		Type: EventGameCompleted,
+		Data: map[string]interface{}{
+			"game_id":          g.publicID,
+			"winner_public_id": winnerPublicID,
+			"players_final":    g.buildPlayersFinal(),
+			"reason":           "reconnect_timeout",
+		},
+	})
 }
 
 func (g *BaseGame) handlePlayerReconnected(payload interface{}) {
@@ -1291,9 +1332,7 @@ func (g *BaseGame) playerPublicID(userID uuid.UUID) string {
 	return ""
 }
 
-func (g *BaseGame) buildPlayersFinal() []map[string]interface{} {
-	g.mutex.RLock()
-	defer g.mutex.RUnlock()
+func (g *BaseGame) buildPlayersFinalLocked() []map[string]interface{} {
 	result := make([]map[string]interface{}, 0, len(g.players))
 	for _, p := range g.players {
 		result = append(result, map[string]interface{}{
@@ -1306,6 +1345,12 @@ func (g *BaseGame) buildPlayersFinal() []map[string]interface{} {
 	return result
 }
 
+func (g *BaseGame) buildPlayersFinal() []map[string]interface{} {
+	g.mutex.RLock()
+	defer g.mutex.RUnlock()
+	return g.buildPlayersFinalLocked()
+}
+
 func (g *BaseGame) emitEvent(event GameEvent) {
 	event.GameID = g.id
 	event.PublicID = g.publicID
@@ -1314,6 +1359,12 @@ func (g *BaseGame) emitEvent(event GameEvent) {
 	select {
 	case g.eventChan <- event:
 	default:
+		if g.logger != nil {
+			g.logger.Warn("Game event channel full, dropping event",
+				zap.String("event_type", event.Type),
+				zap.String("game_id", g.id.String()),
+			)
+		}
 	}
 }
 
