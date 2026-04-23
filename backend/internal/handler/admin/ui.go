@@ -84,7 +84,11 @@ func serveWithContentType(c *gin.Context, filePath string, stat fs.FileInfo, r i
 	}
 
 	c.Header("Content-Type", contentType)
-	c.Header("Cache-Control", "public, max-age=31536000")
+	if ext == ".html" {
+		c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+	} else {
+		c.Header("Cache-Control", "public, max-age=31536000, immutable")
+	}
 	http.ServeContent(c.Writer, c.Request, stat.Name(), stat.ModTime(), r)
 }
 
@@ -105,6 +109,7 @@ func serveDashboardFile(c *gin.Context, name string) {
 	}
 
 	c.Header("Content-Type", "text/html")
+	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 	if rs, ok := f.(io.ReadSeeker); ok {
 		http.ServeContent(c.Writer, c.Request, stat.Name(), stat.ModTime(), rs)
 	}
