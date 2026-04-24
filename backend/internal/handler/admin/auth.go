@@ -162,7 +162,7 @@ func (ac *AdminAuthHandler) LoginAdmin(c *gin.Context) {
 	}
 
 	httputil.SetAuthCookie(c, accessToken, ac.SessionConfig.AccessTokenDuration, ac.Config.CookieSecure)
-	httputil.SetRefreshCookie(c, session.RefreshToken, ac.SessionConfig.RefreshTokenDuration)
+	httputil.SetRefreshCookie(c, session.RefreshToken, ac.SessionConfig.RefreshTokenDuration, ac.Config.CookieSecure)
 
 	response := model.SessionResponse{
 		Created:        session.Created,

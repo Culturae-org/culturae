@@ -199,7 +199,7 @@ func (ac *AuthHandler) Register(c *gin.Context) {
 	}
 
 	httputil.SetAuthCookie(c, accessToken, ac.SessionConfig.AccessTokenDuration, ac.Config.CookieSecure)
-	httputil.SetRefreshCookie(c, session.RefreshToken, ac.SessionConfig.RefreshTokenDuration)
+	httputil.SetRefreshCookie(c, session.RefreshToken, ac.SessionConfig.RefreshTokenDuration, ac.Config.CookieSecure)
 
 	response := model.SessionResponse{
 		Created:        session.Created,
@@ -326,7 +326,7 @@ func (ac *AuthHandler) Login(c *gin.Context) {
 	}
 
 	httputil.SetAuthCookie(c, accessToken, ac.SessionConfig.AccessTokenDuration, ac.Config.CookieSecure)
-	httputil.SetRefreshCookie(c, session.RefreshToken, ac.SessionConfig.RefreshTokenDuration)
+	httputil.SetRefreshCookie(c, session.RefreshToken, ac.SessionConfig.RefreshTokenDuration, ac.Config.CookieSecure)
 
 	response := model.SessionResponse{
 		Created:        session.Created,
@@ -418,7 +418,7 @@ func (ac *AuthHandler) RefreshToken(c *gin.Context) {
 	}
 
 	httputil.SetAuthCookie(c, accessToken, ac.SessionConfig.AccessTokenDuration, ac.Config.CookieSecure)
-	httputil.SetRefreshCookie(c, session.RefreshToken, ac.SessionConfig.RefreshTokenDuration)
+	httputil.SetRefreshCookie(c, session.RefreshToken, ac.SessionConfig.RefreshTokenDuration, ac.Config.CookieSecure)
 
 	response := model.SessionResponse{
 		Created:        session.Created,
@@ -460,8 +460,8 @@ func (ac *AuthHandler) Logout(c *gin.Context) {
 		}
 	}
 
-	httputil.ClearAuthCookie(c)
-	httputil.ClearRefreshCookie(c)
+		httputil.ClearAuthCookie(c, ac.Config.CookieSecure)
+	httputil.ClearRefreshCookie(c, ac.Config.CookieSecure)
 
 	httputil.SuccessWithMessage(c, http.StatusOK, "Logged out successfully", nil)
 }
