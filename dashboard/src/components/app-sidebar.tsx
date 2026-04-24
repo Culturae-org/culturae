@@ -25,6 +25,7 @@ import {
   IconFileSad,
   IconQuestionMark,
   IconReport,
+  IconServer,
   IconSettings,
   IconTemplate,
   IconUsers,
@@ -80,6 +81,11 @@ const NAV_MAIN = [
     title: "Logs",
     url: "/logs",
     icon: IconReport,
+  },
+  {
+    title: "Pods",
+    url: "/pods",
+    icon: IconServer,
   },
   {
     title: "Reports",

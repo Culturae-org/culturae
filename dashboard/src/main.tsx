@@ -10,6 +10,7 @@ import GeographyPage from "@/app/(dashboard)/geography/page";
 import LogsPage from "@/app/(dashboard)/logs/page";
 import HomePage from "@/app/(dashboard)/page";
 import QuestionsPage from "@/app/(dashboard)/questions/page";
+import PodsPage from "@/app/(dashboard)/pods/page";
 import ReportsPage from "@/app/(dashboard)/reports/page";
 import SettingsPage from "@/app/(dashboard)/settings/page";
 import UserDetailPage from "@/app/(dashboard)/users/[id]/page";
@@ -61,6 +62,7 @@ createRoot(root).render(
               <Route path="/geography" element={<GeographyPage />} />
               <Route path="/game-templates" element={<GameTemplatesPage />} />
               <Route path="/logs" element={<LogsPage />} />
+              <Route path="/pods" element={<PodsPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/api-explorer" element={<ApiExplorerPage />} />

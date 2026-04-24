@@ -219,4 +219,8 @@ export const SETTINGS_ENDPOINTS = {
   VERSION_STATUS: `${API_BASE}/admin/settings/version-status`,
 } as const;
 
+export const PODS_ENDPOINTS = {
+  LIST: `${API_BASE}/admin/pods`,
+} as const;
+
 export const INFO_ENDPOINT = `${API_BASE}/admin/info`;
