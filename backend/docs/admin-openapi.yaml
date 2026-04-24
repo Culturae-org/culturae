@@ -53,6 +53,8 @@ tags:
   description: System settings (maintenance mode, rate limiting, cache)
 - name: Admin Game Templates
   description: Game template management for admins
+- name: Admin Pods
+  description: Pod discovery and multi-instance monitoring
 - name: Geography
   description: Public geography data (countries, continents, regions, flags)
 - name: Reports
@@ -459,6 +461,96 @@ components:
       schema:
         type: string
   schemas:
+    PodInfo:
+      type: object
+      description: Real-time snapshot of a running pod, published via Redis heartbeat every 5 seconds.
+      required:
+      - pod_id
+      - pod_type
+      - status
+      - is_current
+      - connected_clients
+      - online_users
+      - active_games
+      - last_heartbeat
+      - started_at
+      properties:
+        pod_id:
+          type: string
+          format: uuid
+          description: Unique identifier assigned at pod startup.
+          example: 3f6a1b2c-dead-beef-0000-aabbccddeeff
+        pod_type:
+          type: string
+          enum: [main, headless]
+          description: |
+            `main` — serves both REST and WebSocket traffic.
+            `headless` — background worker pod (game engine, matchmaking); no WebSocket clients.
+        status:
+          type: string
+          enum: [healthy, degraded, offline]
+          description: Self-reported health status included in the heartbeat payload.
+        is_current:
+          type: boolean
+          description: "`true` when this pod handled the current HTTP request."
+        connected_clients:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Number of open WebSocket connections on this pod (0 for headless pods).
+        online_users:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Number of distinct authenticated users connected via WebSocket on this pod.
+        active_games:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Number of in-progress or waiting games managed by this pod.
+        last_heartbeat:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent heartbeat published to Redis (RFC 3339).
+        started_at:
+          type: string
+          format: date-time
+          description: Timestamp when the pod process started (RFC 3339).
+    PodsMeta:
+      type: object
+      description: Aggregated counters across all discovered pods.
+      required:
+      - total_pods
+      - main_pods
+      - headless_pods
+      - total_clients
+      - total_users
+      properties:
+        total_pods:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Total number of live pods (heartbeat TTL not expired).
+        main_pods:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Number of pods with `pod_type: main`.
+        headless_pods:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Number of pods with `pod_type: headless`.
+        total_clients:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Sum of `connected_clients` across all pods.
+        total_users:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Sum of `online_users` across all pods.
     Error:
       type: object
       required:
@@ -9676,6 +9768,70 @@ has_more: false
           $ref: '#/components/responses/Unauthorized'
         403:
           $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/pods:
+    get:
+      operationId: adminGetAllPods
+      summary: List all pods
+      description: |
+        Returns the list of all running pods discovered via Redis heartbeats, along with
+        aggregated metadata (total clients, online users, active games, pod type counts).
+        Each pod publishes a heartbeat every 5 seconds with a 15-second TTL; pods that
+        miss three consecutive heartbeats are automatically evicted from the list.
+        The `is_current` flag identifies the pod that handled this HTTP request.
+      tags:
+      - Admin Pods
+      security:
+      - BearerAuth: []
+      responses:
+        200:
+          description: Pod list with aggregated metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      pods:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PodInfo'
+                      meta:
+                        $ref: '#/components/schemas/PodsMeta'
+              example:
+                data:
+                  pods:
+                  - pod_id: 88e4f348-e5c7-4259-a661-59dc22f0e872
+                    pod_type: main
+                    status: healthy
+                    is_current: false
+                    connected_clients: 1
+                    online_users: 1
+                    active_games: 0
+                    last_heartbeat: '2026-04-24T09:30:36.394930651Z'
+                    started_at: '2026-04-24T09:09:06.389483275Z'
+                  - pod_id: 82747620-4692-42ee-b0ac-2591632696f3
+                    pod_type: headless
+                    status: healthy
+                    is_current: false
+                    connected_clients: 0
+                    online_users: 0
+                    active_games: 0
+                    last_heartbeat: '2026-04-24T09:30:36.637710577Z'
+                    started_at: '2026-04-24T09:09:06.636588936Z'
+                  meta:
+                    total_pods: 2
+                    main_pods: 1
+                    headless_pods: 1
+                    total_clients: 1
+                    total_users: 1
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        500:
+          $ref: '#/components/responses/InternalError'
   /api/v1/geography/flags/{country_code}/png/{format}:
     get:
       operationId: getFlagPNG

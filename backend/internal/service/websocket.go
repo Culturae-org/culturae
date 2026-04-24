@@ -23,6 +23,7 @@ type WebSocketServiceInterface interface {
 	UpgradeAdminConnection(c *gin.Context, userID uuid.UUID) error
 	GetConnectedClients() int
 	GetOnlineUsers() int
+	GetLocalOnlineUsers() int
 	SendToUser(userID uuid.UUID, message interface{}) error
 	SendToGame(gamePublicID string, message interface{}) error
 	BroadcastToGame(gamePublicID string, message interface{}, excludeUserID *uuid.UUID) error
@@ -820,6 +821,10 @@ func (ws *WebSocketService) GetOnlineUsers() int {
 		}
 		ws.logger.Warn("Failed to get online users from Redis, falling back to local", zap.Error(err))
 	}
+	return ws.GetLocalOnlineUsers()
+}
+
+func (ws *WebSocketService) GetLocalOnlineUsers() int {
 	ws.mutex.RLock()
 	defer ws.mutex.RUnlock()
 	return len(ws.userClients)

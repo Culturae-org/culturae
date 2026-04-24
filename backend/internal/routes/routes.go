@@ -26,6 +26,7 @@ type Dependencies interface {
 	GetFriendsHandler() *handler.FriendsHandler
 	GetWebSocketHandler() *handler.WebSocketHandler
 	GetLogsHandler() *admin.AdminLogsHandler
+	GetPodsHandler() *admin.PodsHandler
 	GetServicesHandler() *admin.AdminServicesHandler
 	GetImportsHandler() *admin.AdminImportsHandler
 	GetGeographyHandler() *handler.GeographyHandler
@@ -279,6 +280,11 @@ func registerAdminRoutes(r *gin.Engine, deps Dependencies) {
 			logs.GET("/api-requests/timestamps", deps.GetLogsHandler().GetAPIRequestTimestamps)
 			logs.GET("/admin-actions/stats", deps.GetLogsHandler().GetAdminActionStats)
 			logs.GET("/user-actions/stats", deps.GetLogsHandler().GetUserActionStats)
+		}
+
+		pods := adminGrp.Group("/pods")
+		{
+			pods.GET("", deps.GetPodsHandler().GetAllPods)
 		}
 
 		questions := adminGrp.Group("/questions")

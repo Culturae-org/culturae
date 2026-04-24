@@ -46,13 +46,14 @@ import (
 )
 
 type Deps struct {
-	RedisService     cache.RedisClientInterface
-	MinIOService     storage.MinIOClientInterface
-	UserCacheService service.UserCacheServiceInterface
-	SessionService   service.SessionServiceInterface
-	WebSocketService service.WebSocketServiceInterface
-	JWTService       *token.JWTService
-	SessionConfig    *model.SessionConfig
+	RedisService        cache.RedisClientInterface
+	MinIOService        storage.MinIOClientInterface
+	UserCacheService    service.UserCacheServiceInterface
+	SessionService      service.SessionServiceInterface
+	WebSocketService    service.WebSocketServiceInterface
+	JWTService          *token.JWTService
+	SessionConfig       *model.SessionConfig
+	PodDiscoveryService *service.PodDiscoveryService
 }
 
 type App struct {
@@ -85,6 +86,7 @@ type App struct {
 	AdminGameTemplatesUsecase *adminUsecase.AdminGameTemplatesUsecase
 
 	GameManager          game.GameManagerInterface
+	MatchmakingService   *game.MatchmakingService
 	GameEventBroadcaster *service.GameEventBroadcaster
 
 	LobbyBroadcaster *service.LobbyBroadcaster
@@ -109,6 +111,7 @@ type App struct {
 	AdminReportsHandler       *admin.AdminReportsHandler
 	AdminMatchmakingHandler   *admin.AdminMatchmakingHandler
 	AdminSettingsHandler      *admin.AdminSettingsHandler
+	PodsHandler               *admin.PodsHandler
 
 	AuthHandler          *handler.AuthHandler
 	AvatarHandler        *handler.AvatarHandler
@@ -290,6 +293,9 @@ func (a *App) GetAdminSettingsHandler() *admin.AdminSettingsHandler {
 	return a.AdminSettingsHandler
 }
 
+func (a *App) GetPodsHandler() *admin.PodsHandler {
+	return a.PodsHandler
+}
 
 func (a *App) GetMaintenanceMiddleware() *middleware.MaintenanceMiddleware {
 	return a.MaintenanceMiddleware
@@ -354,6 +360,11 @@ func (a *App) Close() {
 	if a.Deps.WebSocketService != nil {
 		a.Deps.WebSocketService.StopRelay()
 		a.Logger.Info("WebSocket Pub/Sub relay stopped")
+	}
+
+	if a.Deps.PodDiscoveryService != nil {
+		a.Deps.PodDiscoveryService.Stop()
+		a.Logger.Info("Pod discovery service stopped")
 	}
 
 	if a.GameEventBroadcaster != nil {
@@ -777,6 +788,7 @@ type AppComponents struct {
 		AdminMatchmaking   *admin.AdminMatchmakingHandler
 		AdminSettings      *admin.AdminSettingsHandler
 		AdminFriends       *admin.AdminFriendsHandler
+		Pods               *admin.PodsHandler
 	}
 	Middlewares struct {
 		Auth        *middleware.AuthMiddleware
@@ -832,6 +844,7 @@ func buildApp(appCtx context.Context, cfg *config.Config, db *gorm.DB, deps *Dep
 		AdminGameUsecase:          components.UseCases.AdminGame,
 		AdminGameTemplatesUsecase: components.UseCases.AdminGameTemplates,
 		GameManager:               components.GameManager,
+		MatchmakingService:        components.MatchmakingService,
 		GameEventBroadcaster:      components.GameEventBroadcaster,
 		AuthHandler:               components.Handlers.Auth,
 		AvatarHandler:             components.Handlers.Avatar,
@@ -862,6 +875,7 @@ func buildApp(appCtx context.Context, cfg *config.Config, db *gorm.DB, deps *Dep
 		AdminMatchmakingHandler:   components.Handlers.AdminMatchmaking,
 		AdminSettingsHandler:      components.Handlers.AdminSettings,
 		AdminServicesHandler:      components.Handlers.Services,
+		PodsHandler:               components.Handlers.Pods,
 		AuthMiddleware:            components.Middlewares.Auth,
 		APILoggingMiddleware:      components.Middlewares.APILogging,
 		RateLimitMiddleware:       components.Middlewares.RateLimit,
@@ -1292,6 +1306,29 @@ func setupHandlersAndMiddlewares(
 		deps.RedisService,
 	)
 
+	var podDiscoveryService *service.PodDiscoveryService
+	if deps.RedisService != nil {
+		podType := "main"
+		if cfg.AppMode == config.AppModeHeadless {
+			podType = "headless"
+		}
+		podDiscoveryService = service.NewPodDiscoveryService(
+			podType,
+			deps.RedisService,
+			logger,
+			deps.WebSocketService,
+			components.GameManager,
+		)
+		deps.PodDiscoveryService = podDiscoveryService
+
+		components.MatchmakingService.SetPodDiscovery(podDiscoveryService, podDiscoveryService.PodID())
+	}
+
+	components.Handlers.Pods = admin.NewPodsHandler(
+		podDiscoveryService,
+		deps.WebSocketService,
+	)
+
 	components.Middlewares.Auth = middleware.NewAuthMiddleware(
 		deps.JWTService,
 		deps.SessionService,
@@ -1331,6 +1368,19 @@ func (a *App) initialize() error {
 	if a.Deps.WebSocketService != nil {
 		a.Deps.WebSocketService.StartRelay(a.appCtx)
 		a.Logger.Info("WebSocket Pub/Sub relay started", zap.String("mode", mode))
+	}
+
+	if a.Deps.PodDiscoveryService != nil {
+		go a.Deps.PodDiscoveryService.Start(a.appCtx)
+		a.Logger.Info("Pod discovery service started",
+			zap.String("pod_id", a.Deps.PodDiscoveryService.PodID()),
+			zap.String("pod_type", a.Deps.PodDiscoveryService.PodType()),
+		)
+	}
+
+	if a.MatchmakingService != nil {
+		go a.MatchmakingService.Start(a.appCtx)
+		a.Logger.Info("Matchmaking delegate poller started")
 	}
 
 	if !isAdmin {

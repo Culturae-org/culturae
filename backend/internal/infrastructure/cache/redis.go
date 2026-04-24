@@ -47,6 +47,11 @@ type RedisClientInterface interface {
 
 	MGet(ctx context.Context, keys ...string) ([]string, error)
 
+	HSet(ctx context.Context, key, field string, value interface{}) error
+	HGetAll(ctx context.Context, key string) (map[string]string, error)
+	HGet(ctx context.Context, key, field string) (string, error)
+	HDelete(ctx context.Context, key string, fields ...string) error
+
 	SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) (bool, error)
 	Eval(ctx context.Context, script string, keys []string, args ...interface{}) (interface{}, error)
 
@@ -156,31 +161,36 @@ func (r *RedisClient) DeleteCache(ctx context.Context, key string) error {
 	return r.client.Del(ctx, cacheKey).Err()
 }
 
+const rateLimitScript = `
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+    redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+local ttl = redis.call('TTL', KEYS[1])
+return {count, ttl}
+`
+
 func (r *RedisClient) CheckRateLimit(ctx context.Context, key string, limit int64, window time.Duration) (bool, int64, int64, error) {
 	rateLimitKey := fmt.Sprintf("rate_limit:%s", key)
+	windowSecs := int64(window.Seconds())
 
-	count, err := r.client.Incr(ctx, rateLimitKey).Result()
+	result, err := r.client.Eval(ctx, rateLimitScript, []string{rateLimitKey}, windowSecs).Result()
 	if err != nil {
 		return false, 0, 0, err
 	}
 
-	ttl, err := r.client.TTL(ctx, rateLimitKey).Result()
-	if err != nil {
-		_ = r.client.Expire(ctx, rateLimitKey, window).Err()
-		resetAt := time.Now().Add(window).Unix()
-		remaining := limit - count
-		if remaining < 0 {
-			remaining = 0
-		}
-		return count <= limit, remaining, resetAt, nil
+	vals, ok := result.([]interface{})
+	if !ok || len(vals) < 2 {
+		return false, 0, 0, fmt.Errorf("unexpected rate limit script result")
 	}
 
-	if ttl <= 0 {
-		_ = r.client.Expire(ctx, rateLimitKey, window).Err()
-		ttl = window
+	count, _ := vals[0].(int64)
+	ttlSecs, _ := vals[1].(int64)
+	if ttlSecs <= 0 {
+		ttlSecs = windowSecs
 	}
 
-	resetAt := time.Now().Add(ttl).Unix()
+	resetAt := time.Now().Add(time.Duration(ttlSecs) * time.Second).Unix()
 	remaining := limit - count
 	if remaining < 0 {
 		remaining = 0
@@ -406,4 +416,27 @@ func (r *RedisClient) MGet(ctx context.Context, keys ...string) ([]string, error
 		}
 	}
 	return strs, nil
+}
+
+func (r *RedisClient) HSet(ctx context.Context, key, field string, value interface{}) error {
+	return r.client.HSet(ctx, key, field, value).Err()
+}
+
+func (r *RedisClient) HGetAll(ctx context.Context, key string) (map[string]string, error) {
+	return r.client.HGetAll(ctx, key).Result()
+}
+
+func (r *RedisClient) HGet(ctx context.Context, key, field string) (string, error) {
+	val, err := r.client.HGet(ctx, key, field).Result()
+	if errors.Is(err, redis.Nil) {
+		return "", nil
+	}
+	return val, err
+}
+
+func (r *RedisClient) HDelete(ctx context.Context, key string, fields ...string) error {
+	if len(fields) == 0 {
+		return nil
+	}
+	return r.client.HDel(ctx, key, fields...).Err()
 }

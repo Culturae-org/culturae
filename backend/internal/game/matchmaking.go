@@ -7,12 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Culturae-org/culturae/internal/infrastructure/cache"
 	"github.com/Culturae-org/culturae/internal/model"
 	"github.com/Culturae-org/culturae/internal/repository"
+	"github.com/Culturae-org/culturae/internal/service"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -26,8 +26,9 @@ type MatchmakingService struct {
 	logger             *zap.Logger
 	appCtx             context.Context
 	matchFoundCallback MatchFoundCallback
-	processingMu       sync.Mutex
 	userNotifier       UserNotifier
+	podDiscovery       service.PodDiscoveryServiceInterface
+	podID              string
 }
 
 func NewMatchmakingService(
@@ -58,6 +59,11 @@ func (s *MatchmakingService) SetMatchFoundCallback(cb MatchFoundCallback) {
 
 func (s *MatchmakingService) SetUserNotifier(n UserNotifier) {
 	s.userNotifier = n
+}
+
+func (s *MatchmakingService) SetPodDiscovery(podDiscovery service.PodDiscoveryServiceInterface, podID string) {
+	s.podDiscovery = podDiscovery
+	s.podID = podID
 }
 
 func (s *MatchmakingService) queueKeyForParams(mode model.GameMode, params map[string]interface{}) string {
@@ -165,11 +171,7 @@ func (s *MatchmakingService) JoinQueue(userID uuid.UUID, mode model.GameMode, ga
 			},
 		})
 	}
-	go func() {
-		s.processingMu.Lock()
-		defer s.processingMu.Unlock()
-		s.ProcessQueueForParams(mode, gameParams)
-	}()
+	go s.ProcessQueueForParams(mode, gameParams)
 
 	return nil
 }
@@ -277,6 +279,45 @@ func (s *MatchmakingService) createMatchWithParams(user1, user2 uuid.UUID, mode 
 		return
 	}
 
+	bestPodID := ""
+	if s.podDiscovery != nil {
+		bestPod, err := s.podDiscovery.GetBestPodForGame(mode, "")
+		if err != nil {
+			s.logger.Warn("Failed to get best pod for game, falling back to local",
+				zap.Error(err),
+			)
+		} else {
+			bestPodID = bestPod.PodID
+			s.logger.Info("Selected best pod for matchmaking game",
+				zap.String("best_pod", bestPodID),
+				zap.String("current_pod", s.podID),
+				zap.Int64("clients", bestPod.ConnectedClients),
+			)
+		}
+	}
+
+	if bestPodID != "" && bestPodID != s.podID {
+		s.logger.Info("Delegating game creation to better pod",
+			zap.String("target_pod", bestPodID),
+			zap.String("current_pod", s.podID),
+			zap.String("u1", user1.String()),
+			zap.String("u2", user2.String()),
+		)
+		delegateReq := DelegateGameRequest{
+			User1:      user1,
+			User2:      user2,
+			Mode:       mode,
+			GameParams: gameParams,
+		}
+		delegateJSON, _ := json.Marshal(delegateReq)
+		delegateKey := fmt.Sprintf("game:delegate:%s", bestPodID)
+		ctx, cancel := context.WithTimeout(s.appCtx, 2*time.Second)
+		_ = s.redisService.RPush(ctx, delegateKey, string(delegateJSON))
+		_ = s.redisService.Expire(ctx, delegateKey, 30*time.Second)
+		cancel()
+		return
+	}
+
 	if err := s.matchFoundCallback(user1, user2, mode, gameParams); err != nil {
 		s.logger.Error("Failed to create matchmaked game — re-queuing players",
 			zap.String("u1", user1.String()),
@@ -379,4 +420,72 @@ func (s *MatchmakingService) ClearQueue(mode model.GameMode) error {
 	}
 	s.logger.Info("Matchmaking queue cleared", zap.String("mode", string(mode)), zap.Int("keys_deleted", len(keys)))
 	return nil
+}
+
+type DelegateGameRequest struct {
+	User1       uuid.UUID                `json:"user1"`
+	User2       uuid.UUID                `json:"user2"`
+	Mode        model.GameMode           `json:"mode"`
+	GameParams  map[string]interface{} `json:"game_params"`
+}
+
+func (s *MatchmakingService) Start(ctx context.Context) {
+	if s.podID == "" {
+		return
+	}
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.drainDelegateQueue(ctx)
+		}
+	}
+}
+
+func (s *MatchmakingService) drainDelegateQueue(ctx context.Context) {
+	delegateKey := fmt.Sprintf("game:delegate:%s", s.podID)
+	for {
+		popCtx, popCancel := context.WithTimeout(ctx, 2*time.Second)
+		delegateJSON, err := s.redisService.LPop(popCtx, delegateKey)
+		popCancel()
+		if err != nil || delegateJSON == "" {
+			return
+		}
+
+		var req DelegateGameRequest
+		if err := json.Unmarshal([]byte(delegateJSON), &req); err != nil {
+			s.logger.Warn("Failed to unmarshal delegate request", zap.Error(err))
+			continue
+		}
+
+		s.logger.Info("Processing delegated game creation",
+			zap.String("user1", req.User1.String()),
+			zap.String("user2", req.User2.String()),
+			zap.String("mode", string(req.Mode)),
+		)
+
+		if s.matchFoundCallback == nil {
+			s.logger.Error("matchFoundCallback not set for delegated game — dropping")
+			continue
+		}
+
+		if err := s.matchFoundCallback(req.User1, req.User2, req.Mode, req.GameParams); err != nil {
+			s.logger.Error("Failed to create delegated game", zap.Error(err))
+			continue
+		}
+
+		if s.userNotifier != nil {
+			matchEvent := map[string]interface{}{
+				"type": "match_found",
+				"data": map[string]interface{}{
+					"mode": string(req.Mode),
+				},
+			}
+			_ = s.userNotifier.SendToUser(req.User1, matchEvent)
+			_ = s.userNotifier.SendToUser(req.User2, matchEvent)
+		}
+	}
 }
