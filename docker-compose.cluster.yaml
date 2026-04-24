@@ -1,0 +1,212 @@
+# =========================================================================================
+#                 CULTURAE - Cluster Deployment
+# =========================================================================================
+# Multi-pod deployment: Main pod (dashboard + API) + N Headless pods (API + WebSocket)
+#
+# Usage:
+#   cp .env.example .env
+#   docker compose -f docker-compose.cluster.yaml up -d --scale culturae-headless=1
+#
+# To scale headless pods for example 3 pods:
+#   docker compose -f docker-compose.cluster.yaml up -d --scale culturae-headless=3
+#
+# =========================================================================================
+
+services:
+  traefik:
+    image: traefik:v3.6.13
+    restart: unless-stopped
+    container_name: culturae_traefik
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - "--entrypoints.web.address=:80"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=PathPrefix(`/traefik`)"
+      - "traefik.http.routers.traefik.entrypoints=web"
+      - "traefik.http.routers.traefik.service=api@internal"
+    networks:
+      - culturae-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    container_name: culturae_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB_NAME:-culturae}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-culturae}
+      POSTGRES_USER: ${POSTGRES_USER:-culturae}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - culturae-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-culturae} -d ${POSTGRES_DB_NAME:-culturae}"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+
+  redis:
+    image: redis:8.6-alpine
+    restart: unless-stopped
+    container_name: culturae_redis
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+    volumes:
+      - redis_data:/data
+    networks:
+      - culturae-network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"]
+      interval: 10s
+      retries: 5
+      timeout: 2s
+
+  minio:
+    image: quay.io/minio/minio:latest
+    restart: unless-stopped
+    container_name: culturae_minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - culturae-network
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      retries: 2
+      timeout: 20s
+
+  culturae-main:
+    build: .
+    restart: unless-stopped
+    environment:
+      APP_MODE: full
+
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-culturae}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-culturae}
+      POSTGRES_DB_NAME: ${POSTGRES_DB_NAME:-culturae}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-change_me_in_production}
+      REDIS_DB: ${REDIS_DB:-0}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-culturae}
+
+      PORT: 8080
+      ENV: ${ENV:-production}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      JWT_SECRET: ${JWT_SECRET}
+      COOKIE_SECURE: "true"
+      TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+
+      DATASET_CHECK_INTERVAL: 12h
+      SEED_GAME_TEMPLATES: "true"
+    networks:
+      - culturae-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.main-dashboard.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.main-dashboard.entrypoints=web"
+      - "traefik.http.routers.main-dashboard.service=main-svc"
+      - "traefik.http.routers.main-dashboard.priority=1"
+      - "traefik.http.routers.main-api.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.main-api.entrypoints=web"
+      - "traefik.http.routers.main-api.service=main-svc"
+      - "traefik.http.routers.main-api.priority=100"
+      - "traefik.http.routers.main-ws-admin.rule=PathPrefix(`/api/v1/admin/realtime`)"
+      - "traefik.http.routers.main-ws-admin.entrypoints=web"
+      - "traefik.http.routers.main-ws-admin.service=main-svc"
+      - "traefik.http.routers.main-ws-admin.priority=200"
+      - "traefik.http.services.main-svc.loadbalancer.server.port=8080"
+      - "traefik.http.services.main-svc.loadbalancer.healthcheck.path=/health"
+      - "traefik.http.services.main-svc.loadbalancer.healthcheck.interval=2s"
+      - "traefik.http.services.main-svc.loadbalancer.healthcheck.timeout=1s"
+      - "traefik.http.services.player-ws-svc.loadbalancer.server.port=8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 3s
+      timeout: 2s
+      retries: 2
+      start_period: 5s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  culturae-headless:
+    build: .
+    restart: unless-stopped
+    environment:
+      APP_MODE: headless
+
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-culturae}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-culturae}
+      POSTGRES_DB_NAME: ${POSTGRES_DB_NAME:-culturae}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-change_me_in_production}
+      REDIS_DB: ${REDIS_DB:-0}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-culturae}
+
+      PORT: 8080
+      ENV: ${ENV:-production}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      JWT_SECRET: ${JWT_SECRET}
+      COOKIE_SECURE: "true"
+      TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+
+      DATASET_CHECK_INTERVAL: 12h
+      SEED_GAME_TEMPLATES: "true"
+    networks:
+      - culturae-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.headless-ws.rule=PathPrefix(`/api/v1/realtime`)"
+      - "traefik.http.routers.headless-ws.entrypoints=web"
+      - "traefik.http.routers.headless-ws.service=player-ws-svc"
+      - "traefik.http.routers.headless-ws.priority=150"
+      - "traefik.http.services.player-ws-svc.loadbalancer.server.port=8080"
+      - "traefik.http.services.player-ws-svc.loadbalancer.healthcheck.path=/health"
+      - "traefik.http.services.player-ws-svc.loadbalancer.healthcheck.interval=2s"
+      - "traefik.http.services.player-ws-svc.loadbalancer.healthcheck.timeout=1s"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 3s
+      timeout: 2s
+      retries: 2
+      start_period: 5s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+
+networks:
+  culturae-network:
+    driver: bridge
