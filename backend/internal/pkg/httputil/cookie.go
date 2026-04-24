@@ -21,8 +21,7 @@ func SetAuthCookie(c *gin.Context, token string, maxAge time.Duration, secure bo
 	})
 }
 
-func SetRefreshCookie(c *gin.Context, token string, maxAge time.Duration) {
-	secure := c.Request.TLS != nil
+func SetRefreshCookie(c *gin.Context, token string, maxAge time.Duration, secure bool) {
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "culturae_refresh",
 		Value:    token,
@@ -34,7 +33,7 @@ func SetRefreshCookie(c *gin.Context, token string, maxAge time.Duration) {
 	})
 }
 
-func ClearAuthCookie(c *gin.Context) {
+func ClearAuthCookie(c *gin.Context, secure bool) {
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "culturae_token",
 		Value:    "",
@@ -42,16 +41,18 @@ func ClearAuthCookie(c *gin.Context) {
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
+		Secure:   secure,
 	})
 }
 
-func ClearRefreshCookie(c *gin.Context) {
+func ClearRefreshCookie(c *gin.Context, secure bool) {
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "culturae_refresh",
 		Value:    "",
 		Path:     "/",
-		HttpOnly: false,
+		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   -1,
+		Secure:   secure,
 	})
 }
