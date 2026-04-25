@@ -59,10 +59,9 @@ type XPConfig struct {
 	BaseXP     float64 `json:"base_xp"`
 	GrowthRate float64 `json:"growth_rate"`
 
-	SoloMultiplier       float64 `json:"solo_multiplier"`
-	OneVsOneMultiplier   float64 `json:"onevone_multiplier"`
-	MultiMultiplier      float64 `json:"multi_multiplier"`
-	TournamentMultiplier float64 `json:"tournament_multiplier"`
+	SoloMultiplier     float64 `json:"solo_multiplier"`
+	OneVsOneMultiplier float64 `json:"onevone_multiplier"`
+	MultiMultiplier    float64 `json:"multi_multiplier"`
 
 	WinnerBonus int64 `json:"winner_bonus"`
 
@@ -73,11 +72,10 @@ func DefaultXPConfig() XPConfig {
 	return XPConfig{
 		BaseXP:                   2000,
 		GrowthRate:               1.5,
-		SoloMultiplier:       	  0.5,
-		OneVsOneMultiplier:  	  1.0,
-		MultiMultiplier:          1.0,
-		TournamentMultiplier: 	  2.0,
-		WinnerBonus:              100,
+		SoloMultiplier:       0.5,
+		OneVsOneMultiplier:   1.0,
+		MultiMultiplier:      1.0,
+		WinnerBonus:          100,
 		Ranks: []RankDefinition{
 			{Name: "Beginner", MinLevel: 0},
 			{Name: "Intermediate", MinLevel: 5},

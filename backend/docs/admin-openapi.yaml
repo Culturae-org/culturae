@@ -287,8 +287,6 @@ components:
         enum:
         - solo
         - 1v1
-        - tournament
-        - team
     type:
       name: type
       in: query
@@ -1819,12 +1817,6 @@ components:
         onevone_multiplier:
           type: number
           example: 1.0
-        tournament_multiplier:
-          type: number
-          example: 2.0
-        team_multiplier:
-          type: number
-          example: 1.2
         multi_multiplier:
           type: number
           example: 1.0
@@ -2329,8 +2321,6 @@ components:
           enum:
           - solo
           - 1v1
-          - tournament
-          - team
         total_games:
           type: integer
     RecentGameInfo:
@@ -2346,8 +2336,6 @@ components:
           enum:
           - solo
           - 1v1
-          - tournament
-          - team
         status:
           type: string
           enum:
@@ -9601,9 +9589,6 @@ has_more: false
                   onevone:
                     games: 800
                     avg_score: 780
-                  tournament:
-                    games: 150
-                    avg_score: 820
         401:
           $ref: '#/components/responses/Unauthorized'
         403:

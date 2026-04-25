@@ -19,7 +19,6 @@ export interface XPConfig extends Record<string, unknown> {
   solo_multiplier: number;
   onevone_multiplier: number;
   multi_multiplier: number;
-  tournament_multiplier: number;
   winner_bonus: number;
   ranks: RankDefinition[];
 }

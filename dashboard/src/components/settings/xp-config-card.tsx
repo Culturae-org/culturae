@@ -28,7 +28,6 @@ const DEFAULTS: XPConfig = {
   solo_multiplier: 0.5,
   onevone_multiplier: 1.0,
   multi_multiplier: 1.0,
-  tournament_multiplier: 2.0,
   winner_bonus: 100,
   ranks: [
     { name: "Beginner", min_level: 0 },

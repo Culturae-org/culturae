@@ -49,8 +49,6 @@ const GAME_MODES = [
   { value: "all", label: "All Modes" },
   { value: "solo", label: "Solo" },
   { value: "1v1", label: "1v1" },
-  { value: "tournament", label: "Tournament" },
-  { value: "team", label: "Team" },
 ];
 
 function ChartSkeleton() {

@@ -506,7 +506,7 @@ export function GamesDataTable() {
                 ))}
                 <DropdownMenuSeparator />
                 <div className="px-2 py-1.5 text-sm font-semibold">Mode</div>
-                {["solo", "1v1", "tournament", "team"].map((m) => (
+                {["solo", "1v1"].map((m) => (
                   <DropdownMenuItem
                     key={m}
                     onSelect={(e) => e.preventDefault()}

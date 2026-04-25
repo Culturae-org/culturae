@@ -101,11 +101,7 @@ function GameStatusCell({ status }: { status: string | undefined }) {
 function GameModeCell({ mode }: { mode: string | undefined }) {
   const modeColors: Record<string, string> = {
     solo: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-    "1v1":
-      "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
-    tournament:
-      "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
-    team: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+    "1v1": "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
   };
   if (!mode) return <Badge variant="outline">Unknown</Badge>;
   return (
@@ -412,7 +408,7 @@ export function UserGamesDataTable({ userId }: UserGamesDataTableProps) {
                   <div className="px-2 py-1.5 text-sm font-semibold">
                     Mode
                   </div>
-                  {["solo", "1v1", "tournament", "team"].map((m) => (
+                  {["solo", "1v1"].map((m) => (
                     <DropdownMenuItem
                       key={`mode-${m}`}
                       onSelect={(e) => {
