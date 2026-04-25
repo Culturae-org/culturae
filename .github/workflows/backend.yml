@@ -1,0 +1,39 @@
+name: Backend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "!backend/docs/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "!backend/docs/**"
+
+jobs:
+  build_backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-go@v6.4
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Create ui/dist stub
+        # for //go:embed all:ui/dist lint errors (case path does not exist | I have to fix it later)
+        run: mkdir -p backend/internal/handler/admin/ui/dist && touch backend/internal/handler/admin/ui/dist/.gitkeep
+
+      - name: Golangci-lint
+        uses: golangci/golangci-lint-action@v9.2.0
+        with:
+          working-directory: backend
+
+      - name: Build
+        working-directory: backend
+        run: go build -v ./cmd/main.go
