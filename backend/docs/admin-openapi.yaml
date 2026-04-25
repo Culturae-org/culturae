@@ -4462,11 +4462,11 @@ paths:
                     rank: Master
         '401':
           $ref: '#/components/responses/Unauthorized'
-  /api/v1/friends/request/{id}:
+  /api/v1/friends/request/{toUserPublicID}:
     post:
       operationId: sendFriendRequest
       summary: Send friend request
-      description: 'Sends a friend request to the target user. The `{id}` path parameter
+      description: 'Sends a friend request to the target user. The `{toUserPublicID}` path parameter
 
         is the **target user''s public ID** (e.g. `#20483-18393`).
 
@@ -4477,7 +4477,7 @@ paths:
       - BearerAuth: []
       parameters:
       - in: path
-        name: id
+        name: toUserPublicID
         required: true
         schema:
           type: string
@@ -4512,11 +4512,12 @@ paths:
                   from_user_public_id: 40093-6544
                   to_user_public_id: 12345-6789
                   status: pending
-                  created_at: '2026-04-11T12:00:00Z'
+                   created_at: '2026-04-11T12:00:00Z'
+  /api/v1/friends/request/{requestID}:
     delete:
       operationId: cancelFriendRequest
       summary: Cancel friend request
-      description: 'Cancels a pending outgoing friend request. The `{id}` path parameter
+      description: 'Cancels a pending outgoing friend request. The `{requestID}` path parameter
 
         is the **friend request UUID** (from `GET /friends/requests`).
 
@@ -4527,7 +4528,7 @@ paths:
       - BearerAuth: []
       parameters:
       - in: path
-        name: id
+        name: requestID
         required: true
         schema:
           type: string
