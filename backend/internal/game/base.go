@@ -206,9 +206,6 @@ func (g *BaseGame) AllPlayersFinished() bool {
 }
 
 func (g *BaseGame) determineWinner() *uuid.UUID {
-	if g.mode == model.GameModeSolo {
-		return nil
-	}
 	g.mutex.RLock()
 	defer g.mutex.RUnlock()
 	return g.determineWinnerLocked()
@@ -216,8 +213,15 @@ func (g *BaseGame) determineWinner() *uuid.UUID {
 
 func (g *BaseGame) determineWinnerLocked() *uuid.UUID {
 	if g.mode == model.GameModeSolo {
+		for _, p := range g.players {
+			if p.Status != model.PlayerStatusLeft {
+				id := p.UserID
+				return &id
+			}
+		}
 		return nil
 	}
+	
 	bestScore := -1
 	var winnerID *uuid.UUID
 	for _, p := range g.players {
