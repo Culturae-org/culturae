@@ -1,0 +1,20 @@
+name: Bump AsyncAPI Date
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/asyncapi.yaml'
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - run: |
+          sed -i "s/x-last-updated:.*/x-last-updated: \"$(date +%Y-%m-%d)\"/" docs/asyncapi.yaml
+      - uses: stefanzweifel/git-auto-commit-action@v7.1.0
+        with:
+          commit_message: "docs: bump asyncapi last-updated date"
