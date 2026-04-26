@@ -38,8 +38,8 @@ jobs:
         run: |
           VERSION="${{ inputs.version }}"
           echo "$VERSION" > VERSION
-          sed -i "s/version:.*/version: $VERSION/" docs/admin-openapi.yaml
-          sed -i "s/version:.*/version: $VERSION/" docs/asyncapi.yaml
+          sed -i "s/version:.*/version: $VERSION/" backend/docs/admin-openapi.yaml
+          sed -i "s/version:.*/version: $VERSION/" backend/docs/asyncapi.yaml
           sed -i "s/Version   = .*/Version   = \"v$VERSION\"/" backend/internal/version/version.go
 
       - name: Set up Docker Buildx
