@@ -23,11 +23,13 @@ COPY --from=dashboard-builder /app/ui/dist ./internal/handler/admin/ui/dist
 
 ENV CGO_ENABLED=0
 
+ARG TARGETOS
+ARG TARGETARCH
 ARG VERSION=dev
 ARG BUILD_TIME=unknown
 ARG VCS_REF=unknown
 
-RUN go build -p 1 \
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -p 1 \
     -ldflags "-X github.com/Culturae-org/culturae/internal/version.Version=${VERSION} -X github.com/Culturae-org/culturae/internal/version.BuildTime=${BUILD_TIME} -X github.com/Culturae-org/culturae/internal/version.VcsRef=${VCS_REF}" \
     -o culturae ./cmd/main.go
 
