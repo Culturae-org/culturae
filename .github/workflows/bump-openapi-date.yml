@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'docs/admin-openapi.yaml'
+      - 'backend/docs/admin-openapi.yaml'
 
 jobs:
   bump:
