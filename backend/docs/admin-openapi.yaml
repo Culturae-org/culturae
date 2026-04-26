@@ -3,11 +3,14 @@ info:
   title: Culturae API
   description: Complete API documentation for Culturae administration and management.
   version: 1.0.0
+  x-last-updated: "2026-04-26"
 servers:
 - url: https://demo.culturae.me
   description: Production
 - url: http://localhost:8080
-  description: Local Development Server
+  description: Local Development Backend Server
+- url: http://localhost:80
+  description: Local Development with Docker
 security:
 - BearerAuth: []
 tags:
