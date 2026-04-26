@@ -1,0 +1,111 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver version to release'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run (skip docker push and git tag)'
+        default: false
+        required: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Validate version format
+        run: |
+          if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "ERROR: version must be in semver format (X.Y.Z)"
+            exit 1
+          fi
+
+      - name: Update version in all files
+        run: |
+          VERSION="${{ inputs.version }}"
+          echo "$VERSION" > VERSION
+          sed -i "s/version:.*/version: $VERSION/" docs/admin-openapi.yaml
+          sed -i "s/version:.*/version: $VERSION/" docs/asyncapi.yaml
+          sed -i "s/Version   = .*/Version   = \"v$VERSION\"/" backend/internal/version/version.go
+
+      - name: Set up Docker Buildx
+        if: ${{ !inputs.dry_run }}
+        uses: docker/setup-buildx-action@v4.0.0
+
+      - name: Log in to GHCR
+        if: ${{ !inputs.dry_run }}
+        uses: docker/login-action@v4.1.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        if: ${{ !inputs.dry_run }}
+        id: meta
+        uses: docker/metadata-action@v6.0.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ inputs.version }}
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        if: ${{ !inputs.dry_run }}
+        uses: docker/build-push-action@v7.1.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ inputs.version }}
+            BUILD_TIME=${{ github.event.repository.updated_at }}
+            VCS_REF=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Commit version bump
+        if: ${{ !inputs.dry_run }}
+        uses: stefanzweifel/git-auto-commit-action@v7.1.0
+        with:
+          commit_message: "release: v${{ inputs.version }}"
+
+      - name: Create git tag
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
+          git push origin "v${{ inputs.version }}"
+
+      - name: Create GitHub Release
+        if: ${{ !inputs.dry_run }}
+        uses: softprops/action-gh-release@v3.0.0
+        with:
+          tag_name: v${{ inputs.version }}
+          name: v${{ inputs.version }}
+          generate_release_notes: true
+          make_latest: true
+
+      - name: Dry run summary
+        if: ${{ inputs.dry_run }}
+        run: |
+          echo "## Dry Run Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Version: **${{ inputs.version }}**" >> $GITHUB_STEP_SUMMARY
+          echo "- Files updated: VERSION, docs/admin-openapi.yaml, docs/asyncapi.yaml, backend/internal/version/version.go" >> $GITHUB_STEP_SUMMARY
+          echo "- Docker image: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- No push, no tag, no release (dry run)" >> $GITHUB_STEP_SUMMARY
