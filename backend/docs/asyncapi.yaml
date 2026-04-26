@@ -2,6 +2,7 @@ asyncapi: 3.0.0
 info:
   title: Culturae Platform — Real-time WebSocket API
   version: 1.0.0
+  x-last-updated: "2026-04-26"
   description: |
     AsyncAPI specification for Culturae's WebSocket-based real-time game protocol.
 
@@ -146,7 +147,197 @@ info:
     game room whenever a player joins or leaves during the `waiting` / `ready` phase.
 
     ## Heartbeat
-    Clients should send a `ping` every ~30 s to keep the connection alive.
+    Clients **must** send a `ping` frame every **30 s**.  The server responds
+    with a `pong`.  Clients should also implement a **90-second dead-man timer**:
+    if no frame is received from the server (any type) for 90 s, assume the
+    connection is silently broken and force-close it (close code `4000`) before
+    reconnecting.  This catches TCP half-open connections that never fire
+    `onclose`.
+
+    ## Client implementation guide
+
+    This section documents every non-obvious behavior that client developers
+    must implement correctly.  It is derived from the server source and the
+    reference dashboard implementation.
+
+    ### Authentication
+
+    Two methods are supported for the WebSocket upgrade request:
+
+    | Method | How |
+    |--------|-----|
+    | Header | `Authorization: Bearer <jwt>` — preferred for native/server clients |
+    | Subprotocol | `new WebSocket(url, ["Bearer", "<jwt>"])` — use when custom headers are not available (plain browser) |
+
+    The server negotiates the `Bearer` subprotocol and reads the token from the
+    second element of the protocol list.
+
+    ### Endpoints
+
+    | Client type | Endpoint |
+    |-------------|----------|
+    | Regular player | `GET /api/v1/realtime` |
+    | Admin console | `GET /api/v1/admin/realtime` |
+
+    **Important**: evaluate which endpoint to use at connection time, not at
+    module-load time.  If your router can navigate between admin and non-admin
+    pages without a full page reload, re-evaluate the endpoint on each
+    `connect()` call.
+
+    ### Multi-pod architecture
+
+    The platform runs multiple backend pods behind a reverse proxy (Traefik).
+    Admin connections are pinned to the main pod; player connections are routed
+    to the least-loaded headless pod.  Clients are **unaware** of which pod they
+    land on — the protocol is identical.  However, after a reconnect the client
+    may land on a **different pod**.  The server handles cross-pod state
+    transparently via Redis pub/sub, so the client just needs to send
+    `join_game` again (see Reconnection below).
+
+    ### Connection lifecycle
+
+    ```
+    Client boot / auth change
+      → connect()                  // if already authenticated
+      → ws.onopen                  // start heartbeat timer, drain send queue
+      → ping every 30 s
+      → ws.onmessage               // reset 90-s dead-man timer on every frame
+      → ws.onclose (code ≠ 1000)  // schedule reconnect
+      → reconnect with back-off
+    ```
+
+    Call `disconnect()` (close code `1000`) only on explicit user logout or page
+    unload.  Do **not** call disconnect on a transient network error — let the
+    back-off reconnect logic handle it.
+
+    ### Reconnection back-off
+
+    The reference implementation uses this formula:
+
+    ```
+    delay = min(100 × (2^attempt − 1) + 100, 3000)  [milliseconds]
+
+    attempt 1 →  100 ms
+    attempt 2 →  300 ms
+    attempt 3 →  700 ms
+    attempt 4 → 1500 ms
+    attempt 5+ → 3000 ms (cap)
+    ```
+
+    Maximum attempts: **10**.  After the 10th failure fire a
+    `websocket-reconnect-failed` event so the UI can show an error banner.
+
+    Reset `attempt` to `0` on:
+    - successful `onopen`
+    - receipt of the `online` browser event (network restored)
+
+    ### Network change detection (mobile / PWA)
+
+    Subscribe to the browser `online` event and call `connect()` immediately
+    when it fires.  Reset the attempt counter first so reconnection starts with
+    the shortest delay:
+
+    ```js
+    window.addEventListener('online', () => {
+      reconnectAttempts = 0;
+      connect();
+    });
+    ```
+
+    ### Send queue
+
+    If `send()` is called while the socket is not in `OPEN` state, **buffer**
+    the serialised message in a queue.  On `onopen`, flush the queue before
+    calling reconnect handlers.  This preserves message ordering and prevents
+    silent drops during the reconnect window.
+
+    Discard the queue on explicit `disconnect()` — buffered messages for a
+    session the user just ended are meaningless.
+
+    ### Reconnection restore flow
+
+    After a successful reconnect, call `join_game` for any active game the
+    client was participating in.  The server will restore state:
+
+    ```
+    Client                              Server
+      |--- join_game (game_public_id) --->|
+      |<-- ack (join_game, ok) -----------|
+      |<-- question_sent (current Q) -----|  ← always sent when game is active
+      |<-- game_state (scores / timer) ---|  ← only if game has saved state
+      |   [game continues normally]       |
+    ```
+
+    **`game_state` is conditional**: it is only sent if there is an explicit
+    saved game state (round in progress with scores to restore).  On a fresh
+    first join (new player, first connection) only `question_sent` is sent —
+    not `game_state`.  Your `join_game` handler must handle both cases.
+
+    In multi-player games the server also broadcasts `player_reconnected` to the
+    other players, and (if the game had been paused) `game_resumed` with the
+    remaining timer value.
+
+    ### Grace period (multi-player only)
+
+    When a player disconnects mid-game, the server starts a grace-period timer
+    (default **30 s**, configurable by admins).  Other players receive
+    `game_paused` with a `countdown_secs` field.  If the disconnected player
+    does not reconnect and call `join_game` within that window, they forfeit:
+
+    - **1v1**: the remaining player receives `game_completed` as winner.
+    - **Multi (≥ 3 players)**: the disconnected player is removed; the game
+      continues for the remaining players.
+
+    ### Heartbeat timeout (dead-man switch)
+
+    After `onopen`, start a 90-second timer that fires `ws.close(4000)`.
+    Reset the timer on **every** incoming frame (`onmessage`).  This detects
+    TCP half-open connections where the OS reports the socket as open but no
+    data flows.
+
+    ```
+    onopen  → startDeadManTimer(90s)
+    onmessage → resetDeadManTimer(90s)
+    timer fires → ws.close(4000, "heartbeat timeout")  → triggers onclose → reconnect
+    ```
+
+    ### Error codes
+
+    | Close code | Meaning | Client action |
+    |------------|---------|---------------|
+    | `1000` | Normal closure (logout, page unload) | No reconnect |
+    | `1001` | Going away (server restart) | Reconnect with back-off |
+    | `1008` | Auth error (token expired) | Refresh token, then reconnect |
+    | `4000` | Heartbeat timeout (client-initiated) | Reconnect immediately |
+    | `4001` | Rate limited | Wait ≥ 5 s before reconnecting |
+    | Any other | Network / server error | Reconnect with back-off |
+
+    ### Rate limiting
+
+    The server enforces a per-connection rate limit on `submit_answer` messages
+    (enforced atomically in Redis).  If the limit is exceeded the connection
+    receives an `error` message with `code: "rate_limit_exceeded"`.  The
+    connection is **not** closed — the client should simply wait before sending
+    the next answer.
+
+    ### Message ordering guarantees
+
+    - Within a single game round: `answer_received` events for each player are
+      sent before `score_updated`.
+    - `question_sent` for the next round is sent after all `score_updated`
+      events for the previous round.
+    - The reconnection restore sequence is always: `ack` → `question_sent` →
+      `game_state` (if present).  Never process `game_state` before
+      `question_sent`.
+
+    ### Correlation / idempotency
+
+    The `ping` message accepts an optional `correlation_id` string that the
+    server echoes back in `pong.correlation_id`.  Use this to measure round-trip
+    time.  Other client→server messages do not currently support correlation IDs
+    — use the `timestamp` field of server→client events to detect duplicate
+    delivery after reconnect.
+
   contact:
     name: Culturae Team
     url: https://culturae.me
