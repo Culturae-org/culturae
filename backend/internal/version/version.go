@@ -3,7 +3,7 @@
 package version
 
 var (
-	Version   = "v0.1.0"
+	Version   = "v1.0.0"
 	BuildTime = "unknown"
 	VcsRef    = "unknown"
 )
