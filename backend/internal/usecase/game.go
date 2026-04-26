@@ -1051,6 +1051,9 @@ func (u *GameUsecase) LeaveGame(c *gin.Context, gameID, userID uuid.UUID) error 
 			})
 		}
 		if wasCancelled {
+			if err := u.gameManager.CancelGame(gameID); err != nil {
+				u.logger.Warn("Failed to cancel game in manager", zap.Error(err))
+			}
 			_ = u.wsService.SendToGame(gameModel.PublicID, map[string]interface{}{
 				"type":      "game_cancelled",
 				"public_id": gameModel.PublicID,
@@ -1398,8 +1401,8 @@ func (u *GameUsecase) finalizeGame(c *gin.Context, gameID uuid.UUID) error {
 			winnerID = nil
 		}
 	}
-	if gameModel.Mode == model.GameModeSolo {
-		winnerID = nil
+	if gameModel.Mode == model.GameModeSolo && len(players) > 0 {
+		winnerID = &players[0].UserID
 	}
 	gameModel.WinnerID = winnerID
 	gameModel.UpdatedAt = now
