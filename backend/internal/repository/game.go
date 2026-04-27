@@ -67,6 +67,7 @@ type GameRepositoryInterface interface {
 	GetGameAnswers(gameID uuid.UUID) ([]model.GameAnswer, error)
 	GetUserGamesByMode(userID uuid.UUID) ([]model.GameModeStats, error)
 	GetUserRecentGames(userID uuid.UUID, limit int) ([]model.RecentGameInfo, error)
+	GetUserStatsByPeriod(userID uuid.UUID, since time.Time, limit int) (*model.UserStatsByPeriod, error)
 	GetLeaderboardByTimeRange(since time.Time, mode string, limit, offset int) ([]model.LeaderboardEntry, error)
 
 	WithTransaction(fn func(txRepo GameRepositoryInterface) error) error
@@ -587,6 +588,61 @@ func (r *GameRepository) GetUserRecentGames(userID uuid.UUID, limit int) ([]mode
 		LIMIT ?
 	`, userID, userID, limit).Scan(&games).Error
 	return games, err
+}
+
+func (r *GameRepository) GetUserStatsByPeriod(userID uuid.UUID, since time.Time, limit int) (*model.UserStatsByPeriod, error) {
+	type periodRow struct {
+		TotalGames   int     `db:"total_games"`
+		GamesWon     int     `db:"games_won"`
+		GamesLost    int     `db:"games_lost"`
+		GamesDrawn   int     `db:"games_drawn"`
+		TotalScore   int64   `db:"total_score"`
+		AverageScore float64 `db:"average_score"`
+		PlayTime     int64   `db:"play_time"`
+	}
+	var row periodRow
+	err := r.DB.Raw(`
+		SELECT
+			COUNT(*) AS total_games,
+			SUM(CASE WHEN g.winner_id = ? THEN 1 ELSE 0 END) AS games_won,
+			SUM(CASE WHEN g.winner_id IS NOT NULL AND g.winner_id != ? THEN 1 ELSE 0 END) AS games_lost,
+			SUM(CASE WHEN g.winner_id IS NULL AND g.status = 'completed' THEN 1 ELSE 0 END) AS games_drawn,
+			COALESCE(SUM(gp.score), 0) AS total_score,
+			COALESCE(AVG(gp.score), 0) AS average_score,
+			COALESCE(SUM(EXTRACT(EPOCH FROM (g.completed_at - g.started_at))::int), 0) AS play_time
+		FROM game_players gp
+		JOIN games g ON g.id = gp.game_id
+		WHERE gp.user_id = ? AND g.status = 'completed' AND g.completed_at >= ?
+	`, userID, userID, userID, since).Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var recentGames []model.RecentGameInfo
+	r.DB.Raw(`
+		SELECT g.public_id, g.mode, g.status, gp.score,
+			   (g.winner_id = ?) as is_winner, g.completed_at
+		FROM games g
+		JOIN game_players gp ON gp.game_id = g.id
+		WHERE gp.user_id = ? AND g.status = 'completed' AND g.completed_at >= ?
+		ORDER BY g.completed_at DESC
+		LIMIT ?
+	`, userID, userID, since, limit).Scan(&recentGames)
+
+	if recentGames == nil {
+		recentGames = []model.RecentGameInfo{}
+	}
+
+	return &model.UserStatsByPeriod{
+		TotalGames:   row.TotalGames,
+		GamesWon:     row.GamesWon,
+		GamesLost:    row.GamesLost,
+		GamesDrawn:   row.GamesDrawn,
+		TotalScore:   row.TotalScore,
+		AverageScore: row.AverageScore,
+		PlayTime:     row.PlayTime,
+		RecentGames:  recentGames,
+	}, nil
 }
 
 func (r *GameRepository) GetLeaderboardByTimeRange(since time.Time, mode string, limit, offset int) ([]model.LeaderboardEntry, error) {

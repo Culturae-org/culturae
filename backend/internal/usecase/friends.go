@@ -19,6 +19,7 @@ type FriendsUsecase struct {
 	userRepo    repository.UserRepositoryInterface
 	loggingSvc  service.LoggingServiceInterface
 	wsService   service.WebSocketServiceInterface
+	notifRepo   repository.NotificationRepositoryInterface
 }
 
 func NewFriendsUsecase(
@@ -26,12 +27,14 @@ func NewFriendsUsecase(
 	userRepo repository.UserRepositoryInterface,
 	loggingSvc service.LoggingServiceInterface,
 	wsService service.WebSocketServiceInterface,
+	notifRepo repository.NotificationRepositoryInterface,
 ) *FriendsUsecase {
 	return &FriendsUsecase{
 		friendsRepo: friendRepo,
 		userRepo:    userRepo,
 		loggingSvc:  loggingSvc,
 		wsService:   wsService,
+		notifRepo:   notifRepo,
 	}
 }
 
@@ -98,6 +101,29 @@ func (u *FriendsUsecase) SendFriendRequest(c *gin.Context, fromUserID uuid.UUID,
 		fromPublicID = fromUser.PublicID
 	}
 
+	if u.wsService != nil {
+		go func() {
+			_ = u.wsService.SendToUser(toUserID, map[string]interface{}{
+				"type":                "friend_request_received",
+				"request_id":         request.ID.String(),
+				"from_user_public_id": fromPublicID,
+			})
+		}()
+	}
+
+	if u.notifRepo != nil {
+		username := toUserPublicID
+		if fromUser != nil {
+			username = fromUser.Username
+		}
+		_ = u.notifRepo.Create(&model.Notification{
+			UserID: toUserID,
+			Type:   "friend_request",
+			Title:  "New friend request",
+			Body:   username + " sent you a friend request",
+		})
+	}
+
 	return &model.FriendRequestResponse{
 		ID:               request.ID,
 		FromUserPublicID: fromPublicID,
@@ -109,6 +135,8 @@ func (u *FriendsUsecase) SendFriendRequest(c *gin.Context, fromUserID uuid.UUID,
 }
 
 func (u *FriendsUsecase) AcceptFriendRequest(c *gin.Context, requestID, userID uuid.UUID) error {
+	request, reqErr := u.friendsRepo.GetFriendRequestByID(requestID)
+
 	err := u.friendsRepo.AcceptFriendRequest(requestID, userID)
 	if err != nil {
 		errorMsg := err.Error()
@@ -118,6 +146,14 @@ func (u *FriendsUsecase) AcceptFriendRequest(c *gin.Context, requestID, userID u
 
 	_ = u.loggingSvc.LogUserAction(userID, "accept_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"request_id": requestID}, true, nil)
 
+	if u.notifRepo != nil && reqErr == nil {
+		_ = u.notifRepo.Create(&model.Notification{
+			UserID: request.FromUserID,
+			Type:   "friend_request_accepted",
+			Title:  "Friend request accepted",
+			Body:   "Your friend request was accepted",
+		})
+	}
 
 	return nil
 }

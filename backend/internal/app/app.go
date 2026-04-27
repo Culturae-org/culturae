@@ -65,14 +65,15 @@ type App struct {
 
 	Deps *Deps
 
-	UserRepository      repository.UserRepositoryInterface
-	SessionRepository   repository.SessionRepositoryInterface
-	AdminUserRepository adminRepo.AdminUserRepositoryInterface
-	AdminLogsRepository adminRepo.AdminLogsRepositoryInterface
-	QuestionRepository  repository.QuestionRepositoryInterface
-	FriendsRepository   repository.FriendsRepositoryInterface
-	GameRepository      repository.GameRepositoryInterface
-	GeographyRepository repository.GeographyRepositoryInterface
+	UserRepository         repository.UserRepositoryInterface
+	SessionRepository      repository.SessionRepositoryInterface
+	AdminUserRepository    adminRepo.AdminUserRepositoryInterface
+	AdminLogsRepository    adminRepo.AdminLogsRepositoryInterface
+	QuestionRepository     repository.QuestionRepositoryInterface
+	FriendsRepository      repository.FriendsRepositoryInterface
+	GameRepository         repository.GameRepositoryInterface
+	GeographyRepository    repository.GeographyRepositoryInterface
+	NotificationRepository repository.NotificationRepositoryInterface
 
 	UserUsecase               *usecase.UserUsecase
 	AvatarUsecase             *usecase.AvatarUsecase
@@ -125,6 +126,7 @@ type App struct {
 	ReportsHandler       *handler.ReportsHandler
 	MatchmakingHandler   *handler.MatchmakingHandler
 	LeaderboardHandler   *handler.LeaderboardHandler
+	NotificationHandler  *handler.NotificationHandler
 	LobbyHandler         *handler.LobbyHandler
 	HealthHandler        *handler.HealthHandler
 
@@ -311,6 +313,10 @@ func (a *App) GetLobbyHandler() *handler.LobbyHandler {
 
 func (a *App) GetHealthHandler() *handler.HealthHandler {
 	return a.HealthHandler
+}
+
+func (a *App) GetNotificationHandler() *handler.NotificationHandler {
+	return a.NotificationHandler
 }
 
 func (a *App) Run() {
@@ -735,6 +741,7 @@ type AppComponents struct {
 		AdminUser       adminRepo.AdminUserRepositoryInterface
 		AdminFriends    adminRepo.AdminFriendsRepositoryInterface
 		GameTemplate    repository.GameTemplateRepositoryInterface
+		Notification    repository.NotificationRepositoryInterface
 		AvatarStorage   repository.AvatarStorageRepositoryInterface
 		AvatarCache     repository.AvatarCacheRepositoryInterface
 		FlagStorage     repository.FlagStorageRepositoryInterface
@@ -772,6 +779,7 @@ type AppComponents struct {
 		Reports            *handler.ReportsHandler
 		Matchmaking        *handler.MatchmakingHandler
 		Leaderboard        *handler.LeaderboardHandler
+		Notification       *handler.NotificationHandler
 		Lobby              *handler.LobbyHandler
 		Health             *handler.HealthHandler
 		AdminAuth          *admin.AdminAuthHandler
@@ -834,6 +842,7 @@ func buildApp(appCtx context.Context, cfg *config.Config, db *gorm.DB, deps *Dep
 		FriendsRepository:         components.Repositories.Friends,
 		GameRepository:            components.Repositories.Game,
 		GeographyRepository:       components.Repositories.Geography,
+		NotificationRepository:    components.Repositories.Notification,
 		UserUsecase:               components.UseCases.User,
 		AdminUserUsecase:          components.UseCases.Admin,
 		LogsUsecase:               components.UseCases.AdminLogs,
@@ -867,6 +876,7 @@ func buildApp(appCtx context.Context, cfg *config.Config, db *gorm.DB, deps *Dep
 		ReportsHandler:            components.Handlers.Reports,
 		MatchmakingHandler:        components.Handlers.Matchmaking,
 		LeaderboardHandler:        components.Handlers.Leaderboard,
+		NotificationHandler:       components.Handlers.Notification,
 		LobbyHandler:              components.Handlers.Lobby,
 		HealthHandler:             components.Handlers.Health,
 		LobbyBroadcaster:          components.LobbyBroadcaster,
@@ -926,6 +936,7 @@ func setupRepositoriesInComponents(
 	components.Repositories.AdminReport = reportRepo
 	components.Repositories.GameEventLog = adminRepo.NewGameEventLogRepository(db)
 	components.Repositories.GameTemplate = repository.NewGameTemplateRepository(db)
+	components.Repositories.Notification = repository.NewNotificationRepository(db)
 
 	components.GameManager = game.NewRedisGameManager(
 		appCtx,
@@ -1036,6 +1047,7 @@ func setupUseCasesInComponents(
 		components.Repositories.User,
 		components.LoggingService,
 		wsService,
+		components.Repositories.Notification,
 	)
 
 	components.UseCases.Geography = usecase.NewGeographyUsecase(
@@ -1102,6 +1114,7 @@ func setupUseCasesInComponents(
 		datasetReader,
 		xpCalc,
 		eloCalc,
+		components.Repositories.Notification,
 		logger,
 	)
 	components.UseCases.AdminGame = adminUsecase.NewAdminGameUsecase(
@@ -1349,6 +1362,10 @@ func setupHandlersAndMiddlewares(
 		deps.WebSocketService,
 		components.LoggingService,
 		logger,
+	)
+
+	components.Handlers.Notification = handler.NewNotificationHandler(
+		components.Repositories.Notification,
 	)
 
 	deps.WebSocketService.SetGameActionHandler(components.UseCases.Game)

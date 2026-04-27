@@ -37,7 +37,6 @@ func NewGamesHandler(
 // - InviteToGame
 // - AcceptGameInvite
 // - RejectGameInvite
-// - JoinGame
 // - LeaveGame
 // - StartGame
 // - SubmitAnswer
@@ -47,6 +46,8 @@ func NewGamesHandler(
 // - GetUserGameInvites
 // - CancelGame
 // - GetGameTemplates
+// - GetGameResults
+// - CancelUserGameInvite
 // -----------------------------------------------------
 
 func (gc *GamesHandler) CreateGame(c *gin.Context) {
@@ -163,30 +164,34 @@ func (gc *GamesHandler) RejectGameInvite(c *gin.Context) {
 	httputil.SuccessWithMessage(c, http.StatusOK, "Invitation rejected", nil)
 }
 
-func (gc *GamesHandler) JoinGame(c *gin.Context) {
+func (gc *GamesHandler) JoinGameByCode(c *gin.Context) {
 	userID := httputil.GetUserIDFromContext(c)
 	if userID == uuid.Nil {
 		httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeMissingToken, "Unauthorized")
 		return
 	}
 
-	gamePublicID := c.Param("gameID")
-	if len(gamePublicID) == 0 || len(gamePublicID) > 20 {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid game ID format")
-		return
-	}
-	game, err := gc.Usecase.GetGameByPublicID(gamePublicID)
-	if err != nil {
-		httputil.Error(c, http.StatusNotFound, httputil.ErrCodeGameNotFound, "Game not found")
+	var req model.JoinGameByCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, "code is required")
 		return
 	}
 
-	if err := gc.Usecase.JoinGame(c, game.ID, userID); err != nil {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
+	if err := gc.Usecase.JoinGameByCode(c, req.Code, userID); err != nil {
+		switch err.Error() {
+		case "game not found":
+			httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, err.Error())
+		case "game is full":
+			httputil.Error(c, http.StatusConflict, httputil.ErrCodeGameFull, err.Error())
+		case "you are already in this game":
+			httputil.Error(c, http.StatusConflict, httputil.ErrCodeConflict, err.Error())
+		default:
+			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
+		}
 		return
 	}
 
-	httputil.SuccessWithMessage(c, http.StatusOK, "Joined game successfully", nil)
+	httputil.Success(c, http.StatusOK, gin.H{"message": "joined game"})
 }
 
 func (gc *GamesHandler) LeaveGame(c *gin.Context) {
@@ -414,4 +419,60 @@ func (gc *GamesHandler) GetGameTemplates(c *gin.Context) {
 	}
 
 	httputil.Success(c, http.StatusOK, templates)
+}
+
+func (gc *GamesHandler) GetGameResults(c *gin.Context) {
+	userID := httputil.GetUserIDFromContext(c)
+	if userID == uuid.Nil {
+		httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeMissingToken, "Unauthorized")
+		return
+	}
+
+	gameID := c.Param("gameID")
+	results, err := gc.Usecase.GetGameResults(gameID, userID)
+	if err != nil {
+		switch err.Error() {
+		case "game not found":
+			httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, err.Error())
+		case "game is not completed":
+			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
+		case "forbidden":
+			httputil.Error(c, http.StatusForbidden, httputil.ErrCodeForbidden, "You are not a player in this game")
+		default:
+			httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to fetch results")
+		}
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, results)
+}
+
+func (gc *GamesHandler) CancelUserGameInvite(c *gin.Context) {
+	userID := httputil.GetUserIDFromContext(c)
+	if userID == uuid.Nil {
+		httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeMissingToken, "Unauthorized")
+		return
+	}
+
+	inviteID, err := uuid.Parse(c.Param("inviteID"))
+	if err != nil {
+		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid invite ID")
+		return
+	}
+
+	if err := gc.Usecase.CancelUserGameInvite(c, inviteID, userID); err != nil {
+		switch err.Error() {
+		case "invite not found":
+			httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, err.Error())
+		case "forbidden":
+			httputil.Error(c, http.StatusForbidden, httputil.ErrCodeForbidden, "You cannot cancel this invite")
+		case "invite is not pending":
+			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
+		default:
+			httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to cancel invite")
+		}
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, gin.H{"message": "invite cancelled"})
 }

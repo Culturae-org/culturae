@@ -251,6 +251,17 @@ type RecentGameInfo struct {
 	CompletedAt *time.Time `json:"completed_at"`
 }
 
+type UserStatsByPeriod struct {
+	TotalGames   int              `json:"total_games"`
+	GamesWon     int              `json:"games_won"`
+	GamesLost    int              `json:"games_lost"`
+	GamesDrawn   int              `json:"games_drawn"`
+	TotalScore   int64            `json:"total_score"`
+	AverageScore float64          `json:"average_score"`
+	PlayTime     int64            `json:"play_time"`
+	RecentGames  []RecentGameInfo `json:"recent_games"`
+}
+
 type LeaderboardEntry struct {
 	Rank      int    `json:"rank"`
 	PublicID  string `json:"public_id"`

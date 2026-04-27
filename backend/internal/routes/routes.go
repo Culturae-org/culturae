@@ -52,6 +52,7 @@ type Dependencies interface {
 	GetAdminGameTemplatesHandler() *admin.AdminGameTemplatesHandler
 	GetLobbyHandler() *handler.LobbyHandler
 	GetHealthHandler() *handler.HealthHandler
+	GetNotificationHandler() *handler.NotificationHandler
 }
 
 func RegisterRoutes(r *gin.Engine, deps Dependencies) {
@@ -175,14 +176,16 @@ func registerProtectedRoutes(r *gin.Engine, deps Dependencies, rateLimitMiddlewa
 			games.POST("/:gameID/invite/:toUserPublicID", deps.GetGamesHandler().InviteToGame)
 			games.POST("/invite/:inviteID/accept", deps.GetGamesHandler().AcceptGameInvite)
 			games.POST("/invite/:inviteID/reject", deps.GetGamesHandler().RejectGameInvite)
+			games.POST("/invite/:inviteID/cancel", deps.GetGamesHandler().CancelUserGameInvite)
 
-			games.POST("/:gameID/join", deps.GetGamesHandler().JoinGame)
+			games.POST("/join-by-code", deps.GetGamesHandler().JoinGameByCode)
 			games.POST("/:gameID/leave", deps.GetGamesHandler().LeaveGame)
 			games.POST("/:gameID/cancel", deps.GetGamesHandler().CancelGame)
 
 			games.POST("/:gameID/answer", deps.GetGamesHandler().SubmitAnswer)
 
 			games.GET("/:gameID/status", deps.GetGamesHandler().GetGameStatus)
+			games.GET("/:gameID/results", deps.GetGamesHandler().GetGameResults)
 			games.GET("/active", deps.GetGamesHandler().GetActiveGames)
 			games.GET("/invites", deps.GetGamesHandler().GetUserGameInvites)
 			games.GET("/history", deps.GetGamesHandler().GetGameHistory)
@@ -207,6 +210,13 @@ func registerProtectedRoutes(r *gin.Engine, deps Dependencies, rateLimitMiddlewa
 		}
 
 		protected.GET("/leaderboard", deps.GetLeaderboardHandler().GetLeaderboard)
+
+		notifications := protected.Group("/notifications")
+		{
+			notifications.GET("", deps.GetNotificationHandler().GetNotifications)
+			notifications.PATCH("/:id/read", deps.GetNotificationHandler().MarkAsRead)
+			notifications.POST("/read-all", deps.GetNotificationHandler().MarkAllAsRead)
+		}
 
 		if mode != config.AppModeAdmin {
 			protected.GET("/realtime", deps.GetWebSocketHandler().HandleWebSocket)

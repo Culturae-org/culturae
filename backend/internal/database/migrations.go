@@ -57,6 +57,7 @@ func RunMigrations(db *gorm.DB) error {
 		&model.QuestionReport{},
 		&model.GameTemplate{},
 		&model.GameEventLog{},
+		&model.Notification{},
 	); err != nil {
 		return err
 	}

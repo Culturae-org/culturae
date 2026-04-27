@@ -334,7 +334,16 @@ func (pc *ProfileHandler) GetUserStats(c *gin.Context) {
 		return
 	}
 
-	stats, err := pc.GameUsecase.GetUserStats(userID)
+	period := c.Query("period")
+	var stats interface{}
+	var err error
+
+	if period == "week" || period == "month" {
+		stats, err = pc.GameUsecase.GetUserStatsByPeriod(userID, period)
+	} else {
+		stats, err = pc.GameUsecase.GetUserStats(userID)
+	}
+
 	if err != nil {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to fetch stats")
 		return

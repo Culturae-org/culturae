@@ -154,8 +154,8 @@ type CreateGameRequest struct {
 	TemplateSnapshot   string     `json:"-"`
 }
 
-type JoinGameRequest struct {
-	GameID uuid.UUID `json:"game_id" binding:"required"`
+type JoinGameByCodeRequest struct {
+	Code string `json:"code" binding:"required"`
 }
 
 type SubmitAnswerRequest struct {
@@ -268,4 +268,42 @@ var ValidFlagVariants = map[string]bool{
 	FlagVariantCapitalToFlag2: true,
 	FlagVariantCapitalToName4: true,
 	FlagVariantCapitalToName2: true,
+}
+
+type GameResultsResponse struct {
+	Game      GameSummary           `json:"game"`
+	Players   []PlayerResultSummary `json:"players"`
+	Questions []QuestionResult      `json:"questions"`
+}
+
+type GameSummary struct {
+	PublicID       string     `json:"public_id"`
+	Mode           string     `json:"mode"`
+	Status         string     `json:"status"`
+	StartedAt      *time.Time `json:"started_at"`
+	CompletedAt    *time.Time `json:"completed_at"`
+	WinnerPublicID *string    `json:"winner_public_id,omitempty"`
+}
+
+type PlayerResultSummary struct {
+	PublicID string `json:"public_id"`
+	Username string `json:"username"`
+	Score    int    `json:"score"`
+	IsWinner bool   `json:"is_winner"`
+}
+
+type QuestionResult struct {
+	OrderNumber   int                  `json:"order_number"`
+	QuestionTitle string               `json:"question_title"`
+	QuestionType  string               `json:"question_type"`
+	CorrectAnswer string               `json:"correct_answer"`
+	Answers       []PlayerAnswerResult `json:"answers"`
+}
+
+type PlayerAnswerResult struct {
+	PlayerPublicID string `json:"player_public_id"`
+	Answer         string `json:"answer"`
+	IsCorrect      bool   `json:"is_correct"`
+	Points         int    `json:"points"`
+	TimeSpentMs    int    `json:"time_spent_ms"`
 }

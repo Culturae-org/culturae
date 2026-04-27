@@ -38,6 +38,7 @@ type GameUsecase struct {
 	datasetReader     DatasetReader
 	xpCalc            *game.XPCalculator
 	eloCalc           *game.ELOCalculator
+	notifRepo         repository.NotificationRepositoryInterface
 	logger            *zap.Logger
 }
 
@@ -55,6 +56,7 @@ func NewGameUsecase(
 	datasetReader DatasetReader,
 	xpCalc *game.XPCalculator,
 	eloCalc *game.ELOCalculator,
+	notifRepo repository.NotificationRepositoryInterface,
 	logger *zap.Logger,
 ) *GameUsecase {
 	return &GameUsecase{
@@ -71,6 +73,7 @@ func NewGameUsecase(
 		datasetReader:     datasetReader,
 		xpCalc:            xpCalc,
 		eloCalc:           eloCalc,
+		notifRepo:         notifRepo,
 		logger:            logger,
 	}
 }
@@ -726,6 +729,17 @@ func (u *GameUsecase) InviteToGame(c *gin.Context, gameID, fromUserID uuid.UUID,
 				},
 			})
 		}()
+	}
+
+	if u.notifRepo != nil {
+		data, _ := json.Marshal(map[string]string{"invite_id": invite.ID.String()})
+		_ = u.notifRepo.Create(&model.Notification{
+			UserID: toUser.ID,
+			Type:   "game_invite",
+			Title:  "Game invitation",
+			Body:   username + " invited you to a game",
+			Data:   datatypes.JSON(data),
+		})
 	}
 
 	return invite, nil
@@ -1660,6 +1674,61 @@ func (u *GameUsecase) GetUserStats(userID uuid.UUID) (*model.UserStats, error) {
 	}, nil
 }
 
+func (u *GameUsecase) GetUserStatsByPeriod(userID uuid.UUID, period string) (*model.UserStats, error) {
+	user, err := u.userRepo.GetByID(userID.String())
+	if err != nil {
+		return nil, err
+	}
+
+	var since time.Time
+	switch period {
+	case "week":
+		since = time.Now().AddDate(0, 0, -7)
+	case "month":
+		since = time.Now().AddDate(0, -1, 0)
+	default:
+		return nil, errors.New("unsupported period")
+	}
+
+	periodStats, err := u.gameRepo.GetUserStatsByPeriod(userID, since, 10)
+	if err != nil || periodStats == nil {
+		periodStats = &model.UserStatsByPeriod{RecentGames: []model.RecentGameInfo{}}
+	}
+
+	winRate := 0.0
+	if periodStats.TotalGames > 0 {
+		winRate = float64(periodStats.GamesWon) / float64(periodStats.TotalGames) * 100
+	}
+
+	gameStats, _ := u.userRepo.GetUserGameStats(userID)
+	dayStreak := 0
+	bestDayStreak := 0
+	if gameStats != nil {
+		dayStreak = gameStats.DayStreak
+		bestDayStreak = gameStats.BestDayStreak
+	}
+
+	return &model.UserStats{
+		TotalGames:     periodStats.TotalGames,
+		GamesWon:       periodStats.GamesWon,
+		GamesLost:      periodStats.GamesLost,
+		GamesDrawn:     periodStats.GamesDrawn,
+		WinRate:        winRate,
+		DayStreak:      dayStreak,
+		BestDayStreak:  bestDayStreak,
+		TotalScore:     periodStats.TotalScore,
+		AverageScore:   periodStats.AverageScore,
+		PlayTime:       periodStats.PlayTime,
+		EloRating:      user.EloRating,
+		EloGamesPlayed: user.EloGamesPlayed,
+		Experience:     user.Experience,
+		Level:          user.Level,
+		Rank:           user.Rank,
+		GamesByMode:    []model.GameModeStats{},
+		RecentGames:    periodStats.RecentGames,
+	}, nil
+}
+
 func (u *GameUsecase) CountGameHistory(userID uuid.UUID, status, mode string) (int64, error) {
 	return u.gameRepo.CountUserGameHistory(userID, status, mode)
 }
@@ -2306,5 +2375,230 @@ func (u *GameUsecase) updateQuestionStats(gameID uuid.UUID) error {
 			}
 		}
 	}
+	return nil
+}
+
+func (u *GameUsecase) CancelUserGameInvite(c *gin.Context, inviteID, userID uuid.UUID) error {
+	invite, err := u.gameRepo.GetGameInviteByID(inviteID)
+	if err != nil {
+		return errors.New("invite not found")
+	}
+	if invite.FromUserID != userID {
+		return errors.New("forbidden")
+	}
+	if invite.Status != model.GameInviteStatusPending {
+		return errors.New("invite is not pending")
+	}
+	if err := u.gameRepo.UpdateGameInviteStatus(inviteID, model.GameInviteStatusCancelled); err != nil {
+		return err
+	}
+	if u.wsService != nil {
+		go func() {
+			_ = u.wsService.SendToUser(invite.ToUserID, map[string]interface{}{
+				"type":      "game_invite_cancelled",
+				"invite_id": inviteID.String(),
+			})
+		}()
+	}
+	if u.notifRepo != nil {
+		_ = u.notifRepo.DeleteGameInviteNotification(invite.ToUserID, inviteID)
+	}
+	return nil
+}
+
+func (u *GameUsecase) GetGameResults(publicID string, userID uuid.UUID) (*model.GameResultsResponse, error) {
+	g, err := u.gameRepo.GetGameByPublicID(publicID)
+	if err != nil {
+		return nil, errors.New("game not found")
+	}
+	if g.Status != model.GameStatusCompleted {
+		return nil, errors.New("game is not completed")
+	}
+
+	isPlayer := false
+	for _, p := range g.Players {
+		if p.UserID == userID {
+			isPlayer = true
+			break
+		}
+	}
+	if !isPlayer {
+		return nil, errors.New("forbidden")
+	}
+
+	var winnerPublicID *string
+	if g.WinnerID != nil {
+		for _, p := range g.Players {
+			if p.User != nil && p.UserID == *g.WinnerID {
+				id := p.User.PublicID
+				winnerPublicID = &id
+				break
+			}
+		}
+	}
+
+	gameSummary := model.GameSummary{
+		PublicID:       g.PublicID,
+		Mode:           string(g.Mode),
+		Status:         string(g.Status),
+		StartedAt:      g.StartedAt,
+		CompletedAt:    g.CompletedAt,
+		WinnerPublicID: winnerPublicID,
+	}
+
+	players := make([]model.PlayerResultSummary, 0, len(g.Players))
+	for _, p := range g.Players {
+		pubID := ""
+		username := ""
+		if p.User != nil {
+			pubID = p.User.PublicID
+			username = p.User.Username
+		}
+		players = append(players, model.PlayerResultSummary{
+			PublicID: pubID,
+			Username: username,
+			Score:    p.Score,
+			IsWinner: g.WinnerID != nil && p.UserID == *g.WinnerID,
+		})
+	}
+
+	// Index answers by GameQuestion.ID
+	answersByGQID := make(map[uuid.UUID][]model.GameAnswer)
+	for _, a := range g.Answers {
+		if a.GameQuestionID != nil {
+			answersByGQID[*a.GameQuestionID] = append(answersByGQID[*a.GameQuestionID], a)
+		}
+	}
+
+	questions := make([]model.QuestionResult, 0, len(g.Questions))
+	for _, gq := range g.Questions {
+		title := ""
+		qtype := gq.Type
+		correctAnswer := ""
+
+		if gq.Question != nil {
+			var i18n map[string]model.QuestionI18n
+			if err := json.Unmarshal(gq.Question.I18n, &i18n); err == nil {
+				if en, ok := i18n["en"]; ok {
+					title = en.Title
+				} else {
+					for _, v := range i18n {
+						title = v.Title
+						break
+					}
+				}
+			}
+			var answers []model.Answer
+			if err := json.Unmarshal(gq.Question.Answers, &answers); err == nil {
+				for _, a := range answers {
+					if a.IsCorrect {
+						correctAnswer = a.Slug
+						break
+					}
+				}
+			}
+			qtype = gq.Question.QType
+		}
+
+		gaList := answersByGQID[gq.ID]
+		playerAnswers := make([]model.PlayerAnswerResult, 0, len(gaList))
+		for _, ga := range gaList {
+			playerPubID := ""
+			for _, p := range g.Players {
+				if p.ID == ga.PlayerID {
+					if p.User != nil {
+						playerPubID = p.User.PublicID
+					}
+					break
+				}
+			}
+			playerAnswers = append(playerAnswers, model.PlayerAnswerResult{
+				PlayerPublicID: playerPubID,
+				Answer:         ga.AnswerSlug,
+				IsCorrect:      ga.IsCorrect,
+				Points:         ga.Points,
+				TimeSpentMs:    ga.TimeSpent,
+			})
+		}
+
+		questions = append(questions, model.QuestionResult{
+			OrderNumber:   gq.OrderNumber,
+			QuestionTitle: title,
+			QuestionType:  qtype,
+			CorrectAnswer: correctAnswer,
+			Answers:       playerAnswers,
+		})
+	}
+
+	return &model.GameResultsResponse{
+		Game:      gameSummary,
+		Players:   players,
+		Questions: questions,
+	}, nil
+}
+
+func (u *GameUsecase) JoinGameByCode(c *gin.Context, code string, userID uuid.UUID) error {
+	g, err := u.gameRepo.GetGameByPublicID(code)
+	if err != nil {
+		return errors.New("game not found")
+	}
+
+	if g.Mode != model.GameMode1v1 && g.Mode != model.GameModeMulti {
+		return errors.New("join by code is only available for 1v1 and multi games")
+	}
+	if g.Status != model.GameStatusWaiting {
+		return errors.New("game is not accepting players")
+	}
+
+	for _, p := range g.Players {
+		if p.UserID == userID {
+			return errors.New("you are already in this game")
+		}
+	}
+
+	if len(g.Players) >= g.MaxPlayers {
+		return errors.New("game is full")
+	}
+
+	if isBlocked, err := u.friendsRepo.IsBlocked(userID, g.CreatorID); err == nil && isBlocked {
+		return errors.New("you cannot join this game")
+	}
+
+	gamePlayer := &model.GamePlayer{
+		GameID:   g.ID,
+		UserID:   userID,
+		Score:    0,
+		IsReady:  false,
+		JoinedAt: time.Now(),
+	}
+	if err := u.gameRepo.AddPlayerToGame(gamePlayer); err != nil {
+		return err
+	}
+	if err := u.gameManager.AddPlayerToGame(g.ID, userID); err != nil {
+		return err
+	}
+	if err := u.userRepo.UpdateUserGameStatus(userID, &g.ID); err != nil {
+		u.logger.Warn("Failed to update user game status", zap.Error(err))
+	}
+
+	if u.wsService != nil {
+		go func() {
+			playerData := map[string]interface{}{"action": "joined"}
+			if joiner, err := u.userRepo.GetByID(userID.String()); err == nil {
+				playerData["user_public_id"] = joiner.PublicID
+				playerData["username"] = joiner.Username
+			}
+			_ = u.wsService.SendToGame(g.PublicID, map[string]interface{}{
+				"type":           "lobby_updated",
+				"game_public_id": g.PublicID,
+				"data":           playerData,
+			})
+		}()
+	}
+
+	_ = u.loggingService.LogUserAction(userID, "join_game_by_code", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{
+		"game_public_id": code,
+	}, true, nil)
+
 	return nil
 }
