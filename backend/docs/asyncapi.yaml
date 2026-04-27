@@ -122,7 +122,13 @@ info:
       [invitee rejects: POST /invite/:id/reject]
       |<-- game_invite_updated ----|   (status: rejected, sent to invitee's other sessions)
       |                            |<-- game_invite_rejected  (sent to inviter)
+      |                            |                    |
+      [inviter cancels: POST /games/invite/:id/cancel]
+      |<-- game_invite_cancelled --|                    |
     ```
+    When an invite is cancelled the associated notification is also deleted from
+    the database so the invitee never sees it if they were offline.
+
     Clients **must not** poll `GET /api/v1/games/invites?status=pending` on a
     loop — use `pending_invites` on connect and subsequent push events instead.
 
@@ -134,7 +140,7 @@ info:
       |--- join_game (WS) ---------->|                    |
       |<-- ack (join_game, ok) ------|                    |
       |                            |                    |
-      [joiner calls POST /games/:id/join]
+      [joiner calls POST /games/join-by-code { "code": "<public_id>" }]
       |<-- lobby_updated -----------|   (action: joined, broadcast to room)
       |                            |--- join_game (WS) ->|
       |                            |<-- ack (ok) --------|
@@ -443,6 +449,8 @@ channels:
       lobby_updated:
         $ref: '#/components/messages/LobbyUpdatedMessage'
       # Social / friends — Server → Client
+      friend_request_received:
+        $ref: '#/components/messages/FriendRequestReceivedMessage'
       friend_request_rejected:
         $ref: '#/components/messages/FriendRequestRejectedMessage'
       friend_request_cancelled:
@@ -536,6 +544,7 @@ operations:
       - $ref: '#/channels/realtime/messages/lobby_stats'
       - $ref: '#/channels/realtime/messages/lobby_updated'
       # Social / friends
+      - $ref: '#/channels/realtime/messages/friend_request_received'
       - $ref: '#/channels/realtime/messages/friend_request_rejected'
       - $ref: '#/channels/realtime/messages/friend_request_cancelled'
       - $ref: '#/channels/realtime/messages/friend_removed'
@@ -2096,6 +2105,30 @@ components:
     # ==========================================================================
     # Server → Client  (social / friends)
     # ==========================================================================
+
+    FriendRequestReceivedMessage:
+      name: friend_request_received
+      messageId: friend_request_received
+      title: Friend Request Received
+      summary: Sent to a user when someone sends them a friend request.
+      description: |
+        Emitted by the server in real-time when `SendFriendRequest` succeeds.
+        The recipient can use `request_id` to accept or reject the request via REST,
+        and `from_user_public_id` to display the sender's identity.
+      payload:
+        type: object
+        required: [type, request_id, from_user_public_id]
+        properties:
+          type:
+            type: string
+            enum: [friend_request_received]
+          request_id:
+            type: string
+            format: uuid
+            description: ID of the new friend request.
+          from_user_public_id:
+            type: string
+            description: Public ID of the user who sent the request.
 
     FriendRequestRejectedMessage:
       name: friend_request_rejected

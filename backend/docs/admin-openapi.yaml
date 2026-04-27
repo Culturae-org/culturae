@@ -3994,12 +3994,23 @@ paths:
     get:
       operationId: getProfileStats
       summary: Get personal game statistics
-      description: Returns detailed game statistics for the current user including win rate, ELO, games by mode, and recent
-        games.
+      description: |
+        Returns detailed game statistics for the current user including win rate, ELO, games by mode, and recent games.
+        Use `?period=week` or `?period=month` to filter stats to a recent time window. Without `period`, lifetime stats are returned.
+        ELO, XP, level, and rank are always lifetime values regardless of the period filter.
       tags:
       - Profile
       security:
       - BearerAuth: []
+      parameters:
+      - in: query
+        name: period
+        schema:
+          type: string
+          enum:
+          - week
+          - month
+        description: Optional time window to filter game stats. Omit for lifetime stats.
       responses:
         '200':
           description: User statistics
@@ -5261,6 +5272,44 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           description: Invitation not found
+  /api/v1/games/invite/{inviteID}/cancel:
+    post:
+      operationId: cancelUserGameInvite
+      summary: Cancel a sent game invite
+      description: Allows the invite sender to cancel a pending invite they sent. Sends a `game_invite_cancelled` WebSocket event to the recipient and removes the associated notification.
+      tags:
+      - Games
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: inviteID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Invite cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example:
+                message: invite cancelled
+        '400':
+          description: Invite is not pending
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Not the sender of the invite
+        '404':
+          description: Invite not found
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /api/v1/games/matchmaking/join:
     post:
       operationId: joinMatchmaking
@@ -5368,23 +5417,34 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalServerError'
-  /api/v1/games/{gameID}/join:
+  /api/v1/games/join-by-code:
     post:
-      operationId: joinGame
-      summary: Join a game
+      operationId: joinGameByCode
+      summary: Join a game by code
+      description: |
+        Join a 1v1 or multi game using its public code (the game's `public_id`).
+        Validates that the game is in `waiting` status, not full, and that the caller is not already a player.
+        Sends a `player_joined` WebSocket event to all players in the game room.
       tags:
       - Games
       security:
       - BearerAuth: []
-      parameters:
-      - in: path
-        name: gameID
+      requestBody:
         required: true
-        schema:
-          type: string
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - code
+              properties:
+                code:
+                  type: string
+                  description: The game's public_id (shown to the creator as a shareable code).
+                  example: a1b2c3d4
       responses:
         '200':
-          description: Joined game successfully
+          description: Joined game
           content:
             application/json:
               schema:
@@ -5392,17 +5452,16 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: Joined game successfully
-                  data:
-                    nullable: true
               example:
-                message: Joined game successfully
+                message: joined game
         '400':
-          description: Cannot join (game full, already in game, not waiting, etc.)
+          description: Invalid game mode, game not waiting, or other validation error
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
-          $ref: '#/components/responses/NotFound'
+          description: Game not found
+        '409':
+          description: Game is full or player already in game
   /api/v1/games/{gameID}/leave:
     post:
       operationId: leaveGame
@@ -5583,6 +5642,107 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/games/{gameID}/results:
+    get:
+      operationId: getGameResults
+      summary: Get post-game results
+      description: |
+        Returns detailed results for a completed game: final scores per player, question-by-question
+        breakdown, and each player's answers. Only accessible to players who participated in the game.
+        The game must have `status: completed`.
+      tags:
+      - Games
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: gameID
+        required: true
+        schema:
+          type: string
+        description: The game's public_id
+      responses:
+        '200':
+          description: Game results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      game:
+                        type: object
+                        properties:
+                          public_id:
+                            type: string
+                          mode:
+                            type: string
+                          status:
+                            type: string
+                          started_at:
+                            type: string
+                            format: date-time
+                            nullable: true
+                          completed_at:
+                            type: string
+                            format: date-time
+                            nullable: true
+                          winner_public_id:
+                            type: string
+                            nullable: true
+                      players:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            public_id:
+                              type: string
+                            username:
+                              type: string
+                            score:
+                              type: integer
+                            is_winner:
+                              type: boolean
+                      questions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            order_number:
+                              type: integer
+                            question_title:
+                              type: string
+                            question_type:
+                              type: string
+                            correct_answer:
+                              type: string
+                            answers:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  player_public_id:
+                                    type: string
+                                  answer:
+                                    type: string
+                                  is_correct:
+                                    type: boolean
+                                  points:
+                                    type: integer
+                                  time_spent_ms:
+                                    type: integer
+        '400':
+          description: Game is not completed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Not a participant of this game
+        '404':
+          description: Game not found
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /api/v1/games/active:
     get:
       operationId: getActiveGames
@@ -5728,6 +5888,142 @@ paths:
                 error:
                   code: VALIDATION_ERROR
                   message: 'Invalid status. Use: pending, accepted, rejected, cancelled, all'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/notifications:
+    get:
+      operationId: getNotifications
+      summary: List notifications
+      description: Returns paginated notifications for the authenticated user. Notifications are created when a friend request is received, a friend request is accepted, or a game invite is received.
+      tags:
+      - Notifications
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: query
+        name: unread_only
+        schema:
+          type: boolean
+          default: false
+        description: If true, return only unread notifications.
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 20
+          minimum: 1
+          maximum: 100
+        description: Number of notifications to return.
+      - in: query
+        name: offset
+        schema:
+          type: integer
+          default: 0
+          minimum: 0
+        description: Pagination offset.
+      responses:
+        '200':
+          description: List of notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        type:
+                          type: string
+                          example: game_invite
+                        title:
+                          type: string
+                        body:
+                          type: string
+                        data:
+                          type: object
+                          nullable: true
+                        is_read:
+                          type: boolean
+                        created_at:
+                          type: string
+                          format: date-time
+                  total:
+                    type: integer
+              example:
+                data:
+                - id: 550e8400-e29b-41d4-a716-446655440000
+                  type: game_invite
+                  title: Game invitation
+                  body: alice invited you to a game
+                  data:
+                    invite_id: 660e8400-e29b-41d4-a716-446655440001
+                  is_read: false
+                  created_at: '2026-04-27T10:00:00Z'
+                total: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/notifications/{id}/read:
+    patch:
+      operationId: markNotificationAsRead
+      summary: Mark a notification as read
+      tags:
+      - Notifications
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Notification marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example:
+                message: Notification marked as read
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Notification not found or does not belong to the user
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/notifications/read-all:
+    post:
+      operationId: markAllNotificationsAsRead
+      summary: Mark all notifications as read
+      tags:
+      - Notifications
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: All notifications marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example:
+                message: All notifications marked as read
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
