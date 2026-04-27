@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
       - run: |
-          sed -i "s/x-last-updated:.*/x-last-updated: \"$(date +%Y-%m-%d)\"/" docs/admin-openapi.yaml
+          sed -i "s/x-last-updated:.*/x-last-updated: \"$(date +%Y-%m-%d)\"/" backend/docs/admin-openapi.yaml
       - uses: stefanzweifel/git-auto-commit-action@v7.1.0
         with:
           commit_message: "docs: bump openapi last-updated date"
