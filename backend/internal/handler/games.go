@@ -37,6 +37,7 @@ func NewGamesHandler(
 // - InviteToGame
 // - AcceptGameInvite
 // - RejectGameInvite
+// - JoinGameByCode
 // - LeaveGame
 // - StartGame
 // - SubmitAnswer
