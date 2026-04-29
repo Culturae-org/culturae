@@ -35,6 +35,7 @@ func NewWebSocketHandler(
 // WebSocket Handlers
 //
 // - HandleWebSocket
+// - HandleAdminWebSocket
 // -----------------------------------------------------
 
 func (wsc *WebSocketHandler) HandleWebSocket(c *gin.Context) {

@@ -55,7 +55,7 @@ func NewAdminDatasetsHandler(
 // -----------------------------------------------------
 // Admin Datasets Handlers
 //
-// - ListAllDatasets
+// - ListDatasets
 // - GetDataset
 // - GetDatasetBySlug
 // - CreateDataset
@@ -68,6 +68,7 @@ func NewAdminDatasetsHandler(
 // - UpdateDatasetStatistics
 // - GetDatasetStatistics
 // - GetDatasetQuestions
+// - GetHistory
 // -----------------------------------------------------
 
 func (dc *AdminDatasetsHandler) ListDatasets(c *gin.Context) {

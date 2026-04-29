@@ -45,6 +45,8 @@ func NewAdminGamesHandler(
 // - GetGameAnswers
 // - AdminCancelGame
 // - DeleteGameByID
+// - ArchiveGame
+// - UnarchiveGame
 // - ListGameInvites
 // - ListPendingInvites
 // - DeleteGameInvite
@@ -55,8 +57,8 @@ func NewAdminGamesHandler(
 // - GetGamePerformanceStats
 // - CleanupAbandonedGames
 // - RunGameMaintenance
-// - RunGameMaintenance
 // - GetUserGameHistory
+// - GetGameEventLogs
 // -----------------------------------------------------
 
 func (gc *AdminGamesHandler) ListGames(c *gin.Context) {

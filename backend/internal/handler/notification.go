@@ -14,6 +14,18 @@ import (
 	"gorm.io/gorm"
 )
 
+type NotificationHandler struct {
+	notifRepo repository.NotificationRepositoryInterface
+}
+
+func NewNotificationHandler(
+	notifRepo repository.NotificationRepositoryInterface,
+	) *NotificationHandler {
+	return &NotificationHandler{
+		notifRepo: notifRepo,
+	}
+}
+
 // -----------------------------------------------------
 // Notification Handlers
 //
@@ -21,14 +33,6 @@ import (
 // - MarkAsRead
 // - MarkAllAsRead
 // -----------------------------------------------------
-
-type NotificationHandler struct {
-	notifRepo repository.NotificationRepositoryInterface
-}
-
-func NewNotificationHandler(notifRepo repository.NotificationRepositoryInterface) *NotificationHandler {
-	return &NotificationHandler{notifRepo: notifRepo}
-}
 
 func (h *NotificationHandler) GetNotifications(c *gin.Context) {
 	userID := httputil.GetUserIDFromContext(c)

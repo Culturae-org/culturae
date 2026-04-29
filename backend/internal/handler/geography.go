@@ -29,6 +29,16 @@ func NewGeographyHandler(
 	}
 }
 
+// -----------------------------------------------------
+// Geography Handlers
+//
+// - GetFlagPNG
+// - GetFlag
+// - GetFlagURL
+// - GetCountries
+// - GetContinents
+// -----------------------------------------------------
+
 func (gc *GeographyHandler) GetFlagPNG(c *gin.Context) {
 	countryCode := c.Param("country_code")
 	format := c.Param("format")

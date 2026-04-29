@@ -33,7 +33,7 @@ func NewUserHandler(
 // User Handlers
 //
 // - SearchPublicProfiles
-// - GetPublicProfile
+// - GetUserProfileWithRelationship
 // -----------------------------------------------------
 
 func (pc *UserHandler) SearchPublicProfiles(ctx *gin.Context) {

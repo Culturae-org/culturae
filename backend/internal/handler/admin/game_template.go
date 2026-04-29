@@ -34,6 +34,8 @@ func NewAdminGameTemplatesHandler(
 	}
 }
 
+// TODO : need to change functions name
+
 // -----------------------------------------------------
 // Admin Game Templates Handlers
 //
