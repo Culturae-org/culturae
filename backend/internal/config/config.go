@@ -135,8 +135,8 @@ func Load() (*Config, error) {
 		AllowedOrigins: allowedOrigins,
 
 		MinIOEndpoint:   getEnvOrDefault("MINIO_ENDPOINT", "localhost:9000"),
-		MinIOAccessKey:  getEnvOrDefault("MINIO_ACCESS_KEY", "minioadmin"),
-		MinIOSecretKey:  getEnvOrDefault("MINIO_SECRET_KEY", "minioadmin"),
+		MinIOAccessKey:  getEnvOrDefault("MINIO_ROOT_USER", "minioadmin"),
+		MinIOSecretKey:  getEnvOrDefault("MINIO_ROOT_PASSWORD", "minioadmin"),
 		MinIOBucketName: getEnvOrDefault("MINIO_BUCKET_NAME", "culturae"),
 		MinIOUseSSL:     useSSL,
 
