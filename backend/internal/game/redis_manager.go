@@ -98,9 +98,9 @@ func buildPlayersFinalPayload(players []Player) []map[string]interface{} {
 	result := make([]map[string]interface{}, 0, len(players))
 	for _, p := range players {
 		result = append(result, map[string]interface{}{
-			"user_public_id": p.PublicID,
-			"username":       p.Username,
-			"score":          p.Score,
+			keyUserPublicID: p.PublicID,
+			keyUsername:       p.Username,
+			keyScore:          p.Score,
 		})
 	}
 	return result
@@ -455,8 +455,8 @@ func (rgm *RedisGameManager) doAddPlayerToGame(gameID, userID uuid.UUID) error {
 		GameID:   gameID,
 		PublicID: game.GetPublicID(),
 		Data: map[string]interface{}{
-			"user_public_id": userPublicID,
-			"username":       username,
+			keyUserPublicID: userPublicID,
+			keyUsername:       username,
 		},
 	})
 
@@ -505,7 +505,7 @@ func (rgm *RedisGameManager) RemovePlayerFromGame(gameID, userID uuid.UUID) erro
 		GameID:   gameID,
 		PublicID: game.GetPublicID(),
 		Data: map[string]interface{}{
-			"user_public_id": userPublicID,
+			keyUserPublicID: userPublicID,
 		},
 	})
 
@@ -557,7 +557,7 @@ func (rgm *RedisGameManager) MarkPlayerDisconnected(gameID, userID uuid.UUID) er
 		Type:     EventPlayerDisconnected,
 		GameID:   gameID,
 		PublicID: publicID,
-		Data:     map[string]interface{}{"user_public_id": userPublicID},
+		Data:     map[string]interface{}{keyUserPublicID: userPublicID},
 	})
 
 	if shouldPause {
@@ -645,7 +645,7 @@ func (rgm *RedisGameManager) MarkPlayerReconnected(gameID, userID uuid.UUID) err
 		Type:     EventPlayerReconnected,
 		GameID:   gameID,
 		PublicID: publicID,
-		Data:     map[string]interface{}{"user_public_id": userPublicID},
+		Data:     map[string]interface{}{keyUserPublicID: userPublicID},
 	})
 
 	if wasPaused {
@@ -698,7 +698,7 @@ func (rgm *RedisGameManager) doHandleReconnectTimeout(gameID, disconnectedUserID
 				Type:     EventGameCancelled,
 				GameID:   gameID,
 				PublicID: publicID,
-				Data:     map[string]interface{}{"reason": "reconnect_timeout"},
+				Data:     map[string]interface{}{keyReason: CmdReconnectTimeout},
 			})
 		} else if len(activePlayers) == 1 || game.GetMode() == model.GameMode1v1 {
 			_ = rgm.RemoveQuestionTimeout(gameID)
@@ -707,10 +707,10 @@ func (rgm *RedisGameManager) doHandleReconnectTimeout(gameID, disconnectedUserID
 			_ = game.End(&winnerID)
 			_ = rgm.SaveGame(game)
 			completedData := map[string]interface{}{
-				"game_id":          publicID,
-				"winner_public_id": winnerPublicID,
-				"players_final":    buildPlayersFinalPayload(players),
-				"reason":           "reconnect_timeout",
+				keyGameID:          publicID,
+				keyWinnerPublicID: winnerPublicID,
+				keyPlayersFinal:    buildPlayersFinalPayload(players),
+				keyReason:           CmdReconnectTimeout,
 			}
 			rgm.EmitEvent(GameEvent{
 				Type:     EventGameCompleted,
@@ -758,7 +758,7 @@ func (rgm *RedisGameManager) doHandleReconnectTimeout(gameID, disconnectedUserID
 				Type:     EventPlayerLeft,
 				GameID:   gameID,
 				PublicID: publicID,
-				Data:     map[string]interface{}{"user_public_id": discoPublicID, "reason": "reconnect_timeout"},
+				Data:     map[string]interface{}{keyUserPublicID: discoPublicID, keyReason: CmdReconnectTimeout},
 			})
 			rgm.EmitEvent(GameEvent{
 				Type:     EventGameResumed,
@@ -804,7 +804,7 @@ func (rgm *RedisGameManager) SetPlayerReady(gameID, userID uuid.UUID, ready bool
 		GameID:   gameID,
 		PublicID: game.GetPublicID(),
 		Data: map[string]interface{}{
-			"user_public_id": userPublicID,
+			keyUserPublicID: userPublicID,
 			"ready":          ready,
 		},
 	})
@@ -832,8 +832,8 @@ func (rgm *RedisGameManager) StartGame(gameID uuid.UUID) error {
 			var playerPayloads []map[string]interface{}
 			for _, p := range game.GetPlayers() {
 				playerPayloads = append(playerPayloads, map[string]interface{}{
-					"user_public_id": p.PublicID,
-					"username":       p.Username,
+					keyUserPublicID: p.PublicID,
+					keyUsername:       p.Username,
 				})
 			}
 			rgm.EmitEvent(GameEvent{
@@ -842,7 +842,7 @@ func (rgm *RedisGameManager) StartGame(gameID uuid.UUID) error {
 				PublicID: game.GetPublicID(),
 				Data: map[string]interface{}{
 					keyCountdownSecs: countdownSecs,
-					"players":        playerPayloads,
+					keyPlayers:        playerPayloads,
 				},
 			})
 
@@ -898,7 +898,7 @@ func (rgm *RedisGameManager) doStartGame(gameID uuid.UUID, game GameEngine) erro
 		GameID:   gameID,
 		PublicID: game.GetPublicID(),
 		Data: map[string]interface{}{
-			"players": buildPlayersFinalPayload(game.GetPlayers()),
+			keyPlayers: buildPlayersFinalPayload(game.GetPlayers()),
 		},
 	})
 
@@ -921,10 +921,10 @@ func (rgm *RedisGameManager) doStartGame(gameID uuid.UUID, game GameEngine) erro
 			GameID:   gameID,
 			PublicID: game.GetPublicID(),
 			Data: map[string]interface{}{
-				"question":        QuestionToPayload(question),
-				"question_number": game.GetQuestionNumber(),
-				"total_questions": game.GetTotalQuestions(),
-				"time_limit":      estimatedSecs,
+				keyQuestion:        QuestionToPayload(question),
+				keyQuestionNumber: game.GetQuestionNumber(),
+				keyTotalQuestions: game.GetTotalQuestions(),
+				keyTimeLimit:      estimatedSecs,
 			},
 		})
 	}
@@ -978,8 +978,8 @@ func (rgm *RedisGameManager) doSubmitAnswer(gameID, userID uuid.UUID, answer Ans
 	}
 
 	answerReceivedData := map[string]interface{}{
-		"user_public_id":  userPublicID,
-		"question_number": prevQNumber,
+		keyUserPublicID:  userPublicID,
+		keyQuestionNumber: prevQNumber,
 		"submitted_slug":  validatedAnswer.GetAnswerSlug(),
 		"is_correct":      resultPayload.IsCorrect,
 		"points":          resultPayload.Points,
@@ -1002,8 +1002,8 @@ func (rgm *RedisGameManager) doSubmitAnswer(gameID, userID uuid.UUID, answer Ans
 			GameID:   gameID,
 			PublicID: game.GetPublicID(),
 			Data: map[string]interface{}{
-				"user_public_id": userPublicID,
-				"score":          player.Score,
+				keyUserPublicID: userPublicID,
+				keyScore:          player.Score,
 			},
 		})
 	}
@@ -1017,8 +1017,8 @@ func (rgm *RedisGameManager) doSubmitAnswer(gameID, userID uuid.UUID, answer Ans
 				GameID:   gameID,
 				PublicID: game.GetPublicID(),
 				Data: map[string]interface{}{
-					"user_public_id": p.PublicID,
-					"score":          p.Score,
+					keyUserPublicID: p.PublicID,
+					keyScore:          p.Score,
 				},
 			})
 		}
@@ -1043,10 +1043,10 @@ func (rgm *RedisGameManager) doSubmitAnswer(gameID, userID uuid.UUID, answer Ans
 					GameID:   gameID,
 					PublicID: g.GetPublicID(),
 					Data: map[string]interface{}{
-						"question":        QuestionToPayload(nextQuestion),
-						"question_number": g.GetQuestionNumber(),
-						"total_questions": g.GetTotalQuestions(),
-						"time_limit":      nextEstimatedSecs,
+						keyQuestion:        QuestionToPayload(nextQuestion),
+						keyQuestionNumber: g.GetQuestionNumber(),
+						keyTotalQuestions: g.GetTotalQuestions(),
+						keyTimeLimit:      nextEstimatedSecs,
 					},
 				})
 			} else {
@@ -1062,8 +1062,8 @@ func (rgm *RedisGameManager) doSubmitAnswer(gameID, userID uuid.UUID, answer Ans
 					rgm.logger.Warn("Failed to save completed game state", zap.Error(saveErr))
 				}
 				completedData := map[string]interface{}{
-					"game_id":       gameID,
-					"players_final": buildPlayersFinalPayload(players),
+					keyGameID:       gameID,
+					keyPlayersFinal: buildPlayersFinalPayload(players),
 				}
 				for _, p := range players {
 					if winnerID != nil && p.UserID == *winnerID {
@@ -1135,7 +1135,7 @@ func (rgm *RedisGameManager) CancelGame(gameID uuid.UUID) error {
 		Type:     EventGameCancelled,
 		GameID:   gameID,
 		PublicID: game.GetPublicID(),
-		Data:     map[string]interface{}{"reason": "cancelled"},
+		Data:     map[string]interface{}{keyReason: "cancelled"},
 	})
 
 	return nil
@@ -1398,7 +1398,7 @@ func (rgm *RedisGameManager) doHandleSingleGameTimeout(gameID uuid.UUID, now tim
 		Type:     EventQuestionTimeout,
 		GameID:   gameID,
 		PublicID: game.GetPublicID(),
-		Data:     map[string]interface{}{"question_number": prevQNumber},
+		Data:     map[string]interface{}{keyQuestionNumber: prevQNumber},
 	})
 
 	if !gameOver {
@@ -1415,17 +1415,17 @@ func (rgm *RedisGameManager) doHandleSingleGameTimeout(gameID uuid.UUID, now tim
 			GameID:   gameID,
 			PublicID: game.GetPublicID(),
 			Data: map[string]interface{}{
-				"question":        QuestionToPayload(nextQuestion),
-				"question_number": game.GetQuestionNumber(),
-				"total_questions": game.GetTotalQuestions(),
-				"time_limit":      nextQuestion.EstimatedSeconds,
+				keyQuestion:        QuestionToPayload(nextQuestion),
+				keyQuestionNumber: game.GetQuestionNumber(),
+				keyTotalQuestions: game.GetTotalQuestions(),
+				keyTimeLimit:      nextQuestion.EstimatedSeconds,
 			},
 		})
 	} else {
 		players := game.GetPlayers()
 		timeoutCompletedData := map[string]interface{}{
-			"game_id":       game.GetPublicID(),
-			"players_final": buildPlayersFinalPayload(players),
+			keyGameID:       game.GetPublicID(),
+			keyPlayersFinal: buildPlayersFinalPayload(players),
 		}
 		if winnerID := game.GetWinnerID(); winnerID != nil {
 			for _, p := range players {
@@ -1614,7 +1614,7 @@ func (rgm *RedisGameManager) applyPostGameRewards(
 				"type":      "game_results",
 				"public_id": game.GetPublicID(),
 				keyData: map[string]interface{}{
-					"score":     p.Score,
+					keyScore:     p.Score,
 					"xp_gained": xp,
 					"is_winner": isWinner,
 				},
@@ -1693,8 +1693,8 @@ func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID
 					"type": keyEloUpdated,
 					keyData: map[string]interface{}{
 						keyEloDelta: newLoserElo - loserUser.EloRating,
-						"new_elo":   newLoserElo,
-						"result":    "loss",
+						keyNewElo:   newLoserElo,
+						keyResult:    "loss",
 					},
 				}); err != nil {
 					rgm.logger.Warn("Failed to send ELO notification to loser",
@@ -1723,8 +1723,8 @@ func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID
 				"type": keyEloUpdated,
 				keyData: map[string]interface{}{
 					keyEloDelta: runningWinnerElo - winnerUser.EloRating,
-					"new_elo":   runningWinnerElo,
-					"result":    "win",
+					keyNewElo:   runningWinnerElo,
+					keyResult:    "win",
 				},
 			}); err != nil {
 				rgm.logger.Warn("Failed to send ELO notification to winner",
@@ -1787,8 +1787,8 @@ func (rgm *RedisGameManager) applyEloUpdateDraw(players []Player) {
 				"type": keyEloUpdated,
 				keyData: map[string]interface{}{
 					keyEloDelta: pair.newElo - pair.oldElo,
-					"new_elo":   pair.newElo,
-					"result":    "draw",
+					keyNewElo:   pair.newElo,
+					keyResult:    "draw",
 				},
 			})
 		}

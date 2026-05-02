@@ -484,9 +484,9 @@ func (g *BaseGame) finalizeWithWinner() {
 		g.emitEvent(GameEvent{
 			Type: EventGameCompleted,
 			Data: map[string]interface{}{
-				"game_id":          g.publicID,
-				"winner_public_id": winnerPublicID,
-				"players_final":    playersFinal,
+				keyGameID:          g.publicID,
+				keyWinnerPublicID: winnerPublicID,
+				keyPlayersFinal:    playersFinal,
 			},
 		})
 	} else {
@@ -496,7 +496,7 @@ func (g *BaseGame) finalizeWithWinner() {
 		g.emitEvent(GameEvent{
 			Type: EventGameCancelled,
 			Data: map[string]interface{}{
-				"reason": "all_players_left",
+				keyReason: "all_players_left",
 			},
 		})
 	}
@@ -737,8 +737,8 @@ func (g *BaseGame) handleStartGame() {
 		var playerPayloads []map[string]interface{}
 		for _, p := range g.players {
 			playerPayloads = append(playerPayloads, map[string]interface{}{
-				"user_public_id": p.PublicID,
-				"username":       p.Username,
+				keyUserPublicID: p.PublicID,
+				keyUsername:       p.Username,
 			})
 		}
 		g.mutex.RUnlock()
@@ -751,7 +751,7 @@ func (g *BaseGame) handleStartGame() {
 			Type: EventGameStarting,
 			Data: map[string]interface{}{
 				keyCountdownSecs: countdownSecs,
-				"players":        playerPayloads,
+				keyPlayers:        playerPayloads,
 			},
 		})
 	}
@@ -759,8 +759,8 @@ func (g *BaseGame) handleStartGame() {
 	err := g.Start()
 	if err != nil {
 		g.emitEvent(GameEvent{
-			Type: "game_error",
-			Data: map[string]interface{}{"error": err.Error()},
+			Type: keyGameError,
+			Data: map[string]interface{}{keyError: err.Error()},
 		})
 		return
 	}
@@ -790,7 +790,7 @@ func (g *BaseGame) handleStartGame() {
 
 	g.emitEvent(GameEvent{
 		Type: EventGameStarted,
-		Data: map[string]interface{}{"players": g.buildPlayersFinal()},
+		Data: map[string]interface{}{keyPlayers: g.buildPlayersFinal()},
 	})
 
 	g.mutex.RLock()
@@ -802,10 +802,10 @@ func (g *BaseGame) handleStartGame() {
 	g.emitEvent(GameEvent{
 		Type: EventQuestionSent,
 		Data: map[string]interface{}{
-			"question":        QuestionToPayload(firstQ),
-			"question_number": qNum,
-			"total_questions": totalQ,
-			"time_limit":      firstQ.EstimatedSeconds,
+			keyQuestion:        QuestionToPayload(firstQ),
+			keyQuestionNumber: qNum,
+			keyTotalQuestions: totalQ,
+			keyTimeLimit:      firstQ.EstimatedSeconds,
 		},
 	})
 }
@@ -824,8 +824,8 @@ func (g *BaseGame) handleEndGame(payload interface{}) {
 	err := g.End(winnerID)
 	if err != nil {
 		g.emitEvent(GameEvent{
-			Type: "game_error",
-			Data: map[string]interface{}{"error": err.Error()},
+			Type: keyGameError,
+			Data: map[string]interface{}{keyError: err.Error()},
 		})
 		return
 	}
@@ -845,9 +845,9 @@ func (g *BaseGame) handleEndGame(payload interface{}) {
 	g.emitEvent(GameEvent{
 		Type: EventGameCompleted,
 		Data: map[string]interface{}{
-			"game_id":         g.publicID,
-			"winner_public_id": winnerPublicID,
-			"players_final":   g.buildPlayersFinal(),
+			keyGameID:         g.publicID,
+			keyWinnerPublicID: winnerPublicID,
+			keyPlayersFinal:   g.buildPlayersFinal(),
 		},
 	})
 }
@@ -865,8 +865,8 @@ func (g *BaseGame) handleSubmitAnswer(payload interface{}) {
 	err := g.SubmitAnswer(data.UserID, data.Answer)
 	if err != nil {
 		g.emitEvent(GameEvent{
-			Type: "game_error",
-			Data: map[string]interface{}{"error": err.Error()},
+			Type: keyGameError,
+			Data: map[string]interface{}{keyError: err.Error()},
 		})
 		return
 	}
@@ -897,13 +897,13 @@ func (g *BaseGame) handleSubmitAnswer(payload interface{}) {
 	g.emitEvent(GameEvent{
 		Type: EventAnswerReceived,
 		Data: map[string]interface{}{
-			"user_public_id":  userPublicID,
+			keyUserPublicID:  userPublicID,
 			"is_correct":      resultPayload.IsCorrect,
 			"points":          resultPayload.Points,
 			"time_spent_ms":   resultPayload.TimeSpentMs,
 			"correct_answer":  resultPayload.CorrectAnswer,
 			"submitted_slug":  validatedAnswer.GetAnswerSlug(),
-			"question_number": prevQ + 1,
+			keyQuestionNumber: prevQ + 1,
 		},
 	})
 
@@ -912,8 +912,8 @@ func (g *BaseGame) handleSubmitAnswer(payload interface{}) {
 		scoreUpdates := make([]map[string]interface{}, 0, len(g.players))
 		for _, p := range g.players {
 			scoreUpdates = append(scoreUpdates, map[string]interface{}{
-				"user_public_id": p.PublicID,
-				"score":          p.Score,
+				keyUserPublicID: p.PublicID,
+				keyScore:          p.Score,
 			})
 		}
 		g.mutex.RUnlock()
@@ -954,9 +954,9 @@ func (g *BaseGame) handleSubmitAnswer(payload interface{}) {
 		g.emitEvent(GameEvent{
 			Type: EventGameCompleted,
 			Data: map[string]interface{}{
-				"game_id":          g.publicID,
-				"winner_public_id": winnerPublicID,
-				"players_final":    g.buildPlayersFinal(),
+				keyGameID:          g.publicID,
+				keyWinnerPublicID: winnerPublicID,
+				keyPlayersFinal:    g.buildPlayersFinal(),
 			},
 		})
 	}
@@ -1017,7 +1017,7 @@ func (g *BaseGame) handleTimer() {
 
 		g.emitEvent(GameEvent{
 			Type: EventQuestionTimeout,
-			Data: map[string]interface{}{"question_number": timedOutQ + 1},
+			Data: map[string]interface{}{keyQuestionNumber: timedOutQ + 1},
 		})
 		var winnerPublicID *string
 		if winnerID != nil {
@@ -1027,9 +1027,9 @@ func (g *BaseGame) handleTimer() {
 		g.emitEvent(GameEvent{
 			Type: EventGameCompleted,
 			Data: map[string]interface{}{
-				"game_id":          g.publicID,
-				"winner_public_id": winnerPublicID,
-				"players_final":    g.buildPlayersFinal(),
+				keyGameID:          g.publicID,
+				keyWinnerPublicID: winnerPublicID,
+				keyPlayersFinal:    g.buildPlayersFinal(),
 			},
 		})
 		return
@@ -1040,7 +1040,7 @@ func (g *BaseGame) handleTimer() {
 
 	g.emitEvent(GameEvent{
 		Type: EventQuestionTimeout,
-		Data: map[string]interface{}{"question_number": timedOutQ + 1},
+		Data: map[string]interface{}{keyQuestionNumber: timedOutQ + 1},
 	})
 	g.scheduleNextQuestion(nextQIdx)
 }
@@ -1054,8 +1054,8 @@ func (g *BaseGame) handleAddPlayer(payload interface{}) {
 	err := g.AddPlayer(data.UserID)
 	if err != nil {
 		g.emitEvent(GameEvent{
-			Type: "game_error",
-			Data: map[string]interface{}{"error": err.Error()},
+			Type: keyGameError,
+			Data: map[string]interface{}{keyError: err.Error()},
 		})
 		return
 	}
@@ -1072,8 +1072,8 @@ func (g *BaseGame) handleAddPlayer(payload interface{}) {
 	g.emitEvent(GameEvent{
 		Type: EventPlayerJoined,
 		Data: map[string]interface{}{
-			"user_public_id": joinedPublicID,
-			"username":       joinedUsername,
+			keyUserPublicID: joinedPublicID,
+			keyUsername:       joinedUsername,
 		},
 	})
 }
@@ -1087,15 +1087,15 @@ func (g *BaseGame) handleRemovePlayer(payload interface{}) {
 	err := g.RemovePlayer(data.UserID)
 	if err != nil {
 		g.emitEvent(GameEvent{
-			Type: "game_error",
-			Data: map[string]interface{}{"error": err.Error()},
+			Type: keyGameError,
+			Data: map[string]interface{}{keyError: err.Error()},
 		})
 		return
 	}
 
 	g.emitEvent(GameEvent{
 		Type: EventPlayerLeft,
-		Data: map[string]interface{}{"user_public_id": g.playerPublicID(data.UserID)},
+		Data: map[string]interface{}{keyUserPublicID: g.playerPublicID(data.UserID)},
 	})
 }
 
@@ -1108,8 +1108,8 @@ func (g *BaseGame) handleSetPlayerReady(payload interface{}) {
 	err := g.SetPlayerReady(data.UserID, data.Ready)
 	if err != nil {
 		g.emitEvent(GameEvent{
-			Type: "game_error",
-			Data: map[string]interface{}{"error": err.Error()},
+			Type: keyGameError,
+			Data: map[string]interface{}{keyError: err.Error()},
 		})
 		return
 	}
@@ -1117,7 +1117,7 @@ func (g *BaseGame) handleSetPlayerReady(payload interface{}) {
 	g.emitEvent(GameEvent{
 		Type: EventPlayerReady,
 		Data: map[string]interface{}{
-			"user_public_id": g.playerPublicID(data.UserID),
+			keyUserPublicID: g.playerPublicID(data.UserID),
 			"ready":          data.Ready,
 		},
 	})
@@ -1127,8 +1127,8 @@ func (g *BaseGame) handleCancelGame() {
 	err := g.Cancel()
 	if err != nil {
 		g.emitEvent(GameEvent{
-			Type: "game_error",
-			Data: map[string]interface{}{"error": err.Error()},
+			Type: keyGameError,
+			Data: map[string]interface{}{keyError: err.Error()},
 		})
 		return
 	}
@@ -1142,7 +1142,7 @@ func (g *BaseGame) handleCancelGame() {
 
 	g.emitEvent(GameEvent{
 		Type: EventGameCancelled,
-		Data: map[string]interface{}{"reason": "cancelled"},
+		Data: map[string]interface{}{keyReason: "cancelled"},
 	})
 }
 
@@ -1206,10 +1206,10 @@ func (g *BaseGame) handleNextQuestion(payload interface{}) {
 	g.emitEvent(GameEvent{
 		Type: EventQuestionSent,
 		Data: map[string]interface{}{
-			"question":        QuestionToPayload(nextQuestion),
-			"question_number": currentQ + 1,
-			"total_questions": questionsLen,
-			"time_limit":      nextQuestion.EstimatedSeconds,
+			keyQuestion:        QuestionToPayload(nextQuestion),
+			keyQuestionNumber: currentQ + 1,
+			keyTotalQuestions: questionsLen,
+			keyTimeLimit:      nextQuestion.EstimatedSeconds,
 		},
 	})
 }
@@ -1224,7 +1224,7 @@ func (g *BaseGame) handlePlayerDisconnected(payload interface{}) {
 	}
 	g.emitEvent(GameEvent{
 		Type: EventPlayerDisconnected,
-		Data: map[string]interface{}{"user_public_id": g.playerPublicID(data.UserID)},
+		Data: map[string]interface{}{keyUserPublicID: g.playerPublicID(data.UserID)},
 	})
 
 	g.mutex.RLock()
@@ -1278,7 +1278,7 @@ func (g *BaseGame) handleReconnectTimeout() {
 		_ = g.Cancel()
 		g.emitEvent(GameEvent{
 			Type: EventGameCancelled,
-			Data: map[string]interface{}{"reason": "reconnect_timeout"},
+			Data: map[string]interface{}{keyReason: CmdReconnectTimeout},
 		})
 		return
 	}
@@ -1292,10 +1292,10 @@ func (g *BaseGame) handleReconnectTimeout() {
 	g.emitEvent(GameEvent{
 		Type: EventGameCompleted,
 		Data: map[string]interface{}{
-			"game_id":          g.publicID,
-			"winner_public_id": winnerPublicID,
-			"players_final":    g.buildPlayersFinal(),
-			"reason":           "reconnect_timeout",
+			keyGameID:          g.publicID,
+			keyWinnerPublicID: winnerPublicID,
+			keyPlayersFinal:    g.buildPlayersFinal(),
+			keyReason:           CmdReconnectTimeout,
 		},
 	})
 }
@@ -1319,7 +1319,7 @@ func (g *BaseGame) handlePlayerReconnected(payload interface{}) {
 
 	g.emitEvent(GameEvent{
 		Type: EventPlayerReconnected,
-		Data: map[string]interface{}{"user_public_id": g.playerPublicID(data.UserID)},
+		Data: map[string]interface{}{keyUserPublicID: g.playerPublicID(data.UserID)},
 	})
 
 	if isPaused {
@@ -1340,9 +1340,9 @@ func (g *BaseGame) buildPlayersFinalLocked() []map[string]interface{} {
 	result := make([]map[string]interface{}, 0, len(g.players))
 	for _, p := range g.players {
 		result = append(result, map[string]interface{}{
-			"user_public_id": p.PublicID,
-			"username":       p.Username,
-			"score":          p.Score,
+			keyUserPublicID: p.PublicID,
+			keyUsername:       p.Username,
+			keyScore:          p.Score,
 			"status":         string(p.Status),
 		})
 	}

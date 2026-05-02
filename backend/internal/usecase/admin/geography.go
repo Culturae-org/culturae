@@ -138,8 +138,8 @@ func (u *AdminGeographyUsecase) UpdateDatasetStatistics(datasetID uuid.UUID) err
 	}
 
 	return u.repo.UpdateDatasetByID(datasetID, map[string]interface{}{
-		"country_count":   countryCount,
-		"continent_count": continentCount,
+		keyCountryCount:   countryCount,
+		keyContinentCount: continentCount,
 		"region_count":    regionCount,
 	})
 }
@@ -158,8 +158,8 @@ func (u *AdminGeographyUsecase) GetGeographyDatasetStatistics(datasetID uuid.UUI
 		"dataset_id":         datasetID,
 		"name":               dataset.Name,
 		"version":            dataset.Version,
-		"country_count":      countryCount,
-		"continent_count":    continentCount,
+		keyCountryCount:      countryCount,
+		keyContinentCount:    continentCount,
 		"region_count":       regionCount,
 		"flag_count":         dataset.FlagCount,
 		"flag_png512_count":  dataset.FlagPNG512Count,
@@ -335,8 +335,8 @@ func (u *AdminGeographyUsecase) ImportGeographyFromManifest(manifestURL string) 
 	dataset.FlagCount = manifest.Counts.Flags
 
 	if err := u.repo.UpdateDatasetByID(dataset.ID, map[string]interface{}{
-		"country_count":   dataset.CountryCount,
-		"continent_count": dataset.ContinentCount,
+		keyCountryCount:   dataset.CountryCount,
+		keyContinentCount: dataset.ContinentCount,
 		"region_count":    dataset.RegionCount,
 		"flag_count":      dataset.FlagCount,
 	}); err != nil {

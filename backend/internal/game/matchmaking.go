@@ -164,9 +164,9 @@ func (s *MatchmakingService) JoinQueue(userID uuid.UUID, mode model.GameMode, ga
 
 	if s.userNotifier != nil {
 		_ = s.userNotifier.SendToUser(userID, map[string]interface{}{
-			"type": "queue_joined",
+			keyType: "queue_joined",
 			keyData: map[string]interface{}{
-				"mode":   string(mode),
+				keyMode:   string(mode),
 				"params": gameParams,
 			},
 		})
@@ -218,9 +218,9 @@ func (s *MatchmakingService) LeaveQueue(userID uuid.UUID, mode model.GameMode) e
 
 	if s.userNotifier != nil {
 		_ = s.userNotifier.SendToUser(userID, map[string]interface{}{
-			"type": "queue_left",
+			keyType: "queue_left",
 			keyData: map[string]interface{}{
-				"mode": string(mode),
+				keyMode: string(mode),
 			},
 		})
 	}
@@ -334,9 +334,9 @@ func (s *MatchmakingService) createMatchWithParams(user1, user2 uuid.UUID, mode 
 
 	if s.userNotifier != nil {
 		matchEvent := map[string]interface{}{
-			"type": "match_found",
+			keyType: "match_found",
 			keyData: map[string]interface{}{
-				"mode": string(mode),
+				keyMode: string(mode),
 			},
 		}
 		_ = s.userNotifier.SendToUser(user1, matchEvent)
@@ -393,10 +393,10 @@ func (s *MatchmakingService) ClearQueue(mode model.GameMode) error {
 		}
 		if s.userNotifier != nil {
 			_ = s.userNotifier.SendToUser(userID, map[string]interface{}{
-				"type": "queue_left",
+				keyType: "queue_left",
 				keyData: map[string]interface{}{
-					"mode":   string(mode),
-					"reason": "queue_cleared",
+					keyMode:   string(mode),
+					keyReason: "queue_cleared",
 				},
 			})
 		}
@@ -479,9 +479,9 @@ func (s *MatchmakingService) drainDelegateQueue(ctx context.Context) {
 
 		if s.userNotifier != nil {
 			matchEvent := map[string]interface{}{
-				"type": "match_found",
+				keyType: "match_found",
 				keyData: map[string]interface{}{
-					"mode": string(req.Mode),
+					keyMode: string(req.Mode),
 				},
 			}
 			_ = s.userNotifier.SendToUser(req.User1, matchEvent)
