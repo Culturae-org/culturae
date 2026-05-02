@@ -64,7 +64,7 @@ func (ac *AvatarHandler) UploadAvatar(c *gin.Context) {
 				httputil.GetRealIP(c),
 				httputil.GetUserAgent(c),
 				map[string]interface{}{
-					"error": "no_file_uploaded",
+					keyError: "no_file_uploaded",
 				},
 				false,
 				&errorMsg)
@@ -83,7 +83,7 @@ func (ac *AvatarHandler) UploadAvatar(c *gin.Context) {
 				httputil.GetRealIP(c),
 				httputil.GetUserAgent(c),
 				map[string]interface{}{
-					"error":     "invalid_file_type",
+					keyError:     "invalid_file_type",
 					"file_name": file.Filename,
 					"file_size": file.Size,
 				},
@@ -102,7 +102,7 @@ func (ac *AvatarHandler) UploadAvatar(c *gin.Context) {
 				httputil.GetRealIP(c),
 				httputil.GetUserAgent(c),
 				map[string]interface{}{
-					"error":     "file_too_large",
+					keyError:     "file_too_large",
 					"file_name": file.Filename,
 					"file_size": file.Size,
 					"max_size":  avatarCfg.MaxFileSizeBytes(),
@@ -123,7 +123,7 @@ func (ac *AvatarHandler) UploadAvatar(c *gin.Context) {
 				httputil.GetRealIP(c),
 				httputil.GetUserAgent(c),
 				map[string]interface{}{
-					"error": "failed_to_fetch_user",
+					keyError: "failed_to_fetch_user",
 				},
 				false,
 				&errorMsg)
@@ -142,7 +142,7 @@ func (ac *AvatarHandler) UploadAvatar(c *gin.Context) {
 				httputil.GetRealIP(c),
 				httputil.GetUserAgent(c),
 				map[string]interface{}{
-					"error":     "failed_to_upload_avatar",
+					keyError:     "failed_to_upload_avatar",
 					"file_name": file.Filename,
 					"file_size": file.Size,
 				},
@@ -226,7 +226,7 @@ func (ac *AvatarHandler) DeleteAvatar(c *gin.Context) {
 				httputil.GetRealIP(c),
 				httputil.GetUserAgent(c),
 				map[string]interface{}{
-					"error": "failed_to_fetch_user",
+					keyError: "failed_to_fetch_user",
 				},
 				false,
 				&errorMsg)
@@ -243,7 +243,7 @@ func (ac *AvatarHandler) DeleteAvatar(c *gin.Context) {
 				httputil.GetRealIP(c),
 				httputil.GetUserAgent(c),
 				map[string]interface{}{
-					"error": "no_avatar_to_delete",
+					keyError: "no_avatar_to_delete",
 				},
 				false,
 				nil)
@@ -261,7 +261,7 @@ func (ac *AvatarHandler) DeleteAvatar(c *gin.Context) {
 				httputil.GetRealIP(c),
 				httputil.GetUserAgent(c),
 				map[string]interface{}{
-					"error":       "failed_to_delete_avatar",
+					keyError:       "failed_to_delete_avatar",
 					"avatar_path": fileutil.FormatAvatarURL(userID.String()),
 				},
 				false,

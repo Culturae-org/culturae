@@ -373,32 +373,32 @@ func (ac *AuthHandler) RefreshToken(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, service.ErrRefreshTokenReused) {
 			errorMsg := err.Error()
-			_ = ac.LoggingService.LogSecurityEvent(nil, "refresh_token_reuse_detected", map[string]string{"error": errorMsg}, httputil.GetRealIP(c), httputil.GetUserAgent(c), false, &errorMsg)
+			_ = ac.LoggingService.LogSecurityEvent(nil, "refresh_token_reuse_detected", map[string]string{keyError: errorMsg}, httputil.GetRealIP(c), httputil.GetUserAgent(c), false, &errorMsg)
 			httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeInvalidToken, "Invalid refresh token")
 			return
 		} else if errors.Is(err, service.ErrInvalidRefreshToken) {
 			httputil.LogFailedAuthAttempt(ac.LoggingService, c, nil, "invalid_refresh_token")
 			errorMsg := err.Error()
-			_ = ac.LoggingService.LogSecurityEvent(nil, "refresh_token_failed", map[string]string{"error": errorMsg}, httputil.GetRealIP(c), httputil.GetUserAgent(c), false, &errorMsg)
+			_ = ac.LoggingService.LogSecurityEvent(nil, "refresh_token_failed", map[string]string{keyError: errorMsg}, httputil.GetRealIP(c), httputil.GetUserAgent(c), false, &errorMsg)
 			httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeInvalidToken, "Invalid refresh token")
 			return
 		} else if errors.Is(err, service.ErrRefreshTokenExpired) {
 			httputil.LogFailedAuthAttempt(ac.LoggingService, c, nil, "refresh_token_expired")
 			errorMsg := err.Error()
-			_ = ac.LoggingService.LogSecurityEvent(nil, "refresh_token_failed", map[string]string{"error": errorMsg}, httputil.GetRealIP(c), httputil.GetUserAgent(c), false, &errorMsg)
+			_ = ac.LoggingService.LogSecurityEvent(nil, "refresh_token_failed", map[string]string{keyError: errorMsg}, httputil.GetRealIP(c), httputil.GetUserAgent(c), false, &errorMsg)
 			httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeRefreshExpired, "Refresh token expired")
 			return
 		} else if errors.Is(err, service.ErrSessionRevoked) {
 			httputil.LogFailedAuthAttempt(ac.LoggingService, c, nil, "refresh_token_revoked")
 			errorMsg := err.Error()
-			_ = ac.LoggingService.LogSecurityEvent(nil, "refresh_token_failed", map[string]string{"error": errorMsg}, httputil.GetRealIP(c), httputil.GetUserAgent(c), false, &errorMsg)
+			_ = ac.LoggingService.LogSecurityEvent(nil, "refresh_token_failed", map[string]string{keyError: errorMsg}, httputil.GetRealIP(c), httputil.GetUserAgent(c), false, &errorMsg)
 			httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeSessionRevoked, "Refresh token revoked")
 			return
 		}
 
 		ac.logger.Error("Failed to refresh session", zap.Error(err))
 		errorMsg := err.Error()
-		_ = ac.LoggingService.LogSecurityEvent(nil, "refresh_token_failed", map[string]string{"error": errorMsg}, httputil.GetRealIP(c), httputil.GetUserAgent(c), false, &errorMsg)
+		_ = ac.LoggingService.LogSecurityEvent(nil, "refresh_token_failed", map[string]string{keyError: errorMsg}, httputil.GetRealIP(c), httputil.GetUserAgent(c), false, &errorMsg)
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to refresh token")
 		return
 	}
@@ -412,7 +412,7 @@ func (ac *AuthHandler) RefreshToken(c *gin.Context) {
 	accessToken, err := ac.JWTService.GenerateAccessToken(session, ac.SessionConfig.AccessTokenDuration)
 	if err != nil {
 		errorMsg := err.Error()
-		_ = ac.LoggingService.LogSecurityEvent(&session.User.ID, "token_refresh_failed", map[string]string{"error": errorMsg}, httputil.GetRealIP(c), httputil.GetUserAgent(c), false, &errorMsg)
+		_ = ac.LoggingService.LogSecurityEvent(&session.User.ID, "token_refresh_failed", map[string]string{keyError: errorMsg}, httputil.GetRealIP(c), httputil.GetUserAgent(c), false, &errorMsg)
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to generate access token")
 		return
 	}

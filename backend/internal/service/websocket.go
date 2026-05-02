@@ -229,7 +229,7 @@ func (ws *WebSocketService) upgradeConnectionWithRole(c *gin.Context, userID uui
 	ws.userClients[userID] = append(ws.userClients[userID], client)
 	if t, ok := ws.offlineTimers[userID]; ok {
 		if t.Stop() {
-			ws.logger.Info("Cancelled pending offline timer", zap.String("user_id", userID.String()))
+			ws.logger.Info("Cancelled pending offline timer", zap.String(keyUserID, userID.String()))
 		}
 		delete(ws.offlineTimers, userID)
 	}
@@ -240,7 +240,7 @@ func (ws *WebSocketService) upgradeConnectionWithRole(c *gin.Context, userID uui
 		ws.incrOnlineUser(userID)
 	}
 
-	ws.logger.Info("WebSocket new client added", zap.String("user_id", userID.String()), zap.Int("user_connections", count))
+	ws.logger.Info("WebSocket new client added", zap.String(keyUserID, userID.String()), zap.Int("user_connections", count))
 
 	hello := HelloMessage{
 		Type:              "hello",
@@ -281,7 +281,7 @@ func (ws *WebSocketService) handleConnection(client *WSClient, ctx context.Conte
 			if closeStatus != websocket.StatusNormalClosure &&
 				closeStatus != websocket.StatusGoingAway &&
 				ctx.Err() == nil {
-				ws.logger.Warn("WebSocket unexpected close", zap.String("client_id", client.ID.String()), zap.Error(err))
+				ws.logger.Warn("WebSocket unexpected close", zap.String(keyClientID, client.ID.String()), zap.Error(err))
 			}
 			break
 		}
@@ -315,7 +315,7 @@ func (ws *WebSocketService) writePump(client *WSClient, ctx context.Context, cfg
 			err := client.Conn.Ping(pingCtx)
 			cancel()
 			if err != nil {
-				ws.logger.Debug("Ping failed, closing connection", zap.String("client_id", client.ID.String()), zap.Error(err))
+				ws.logger.Debug("Ping failed, closing connection", zap.String(keyClientID, client.ID.String()), zap.Error(err))
 				return
 			}
 
@@ -339,7 +339,7 @@ func (ws *WebSocketService) handleMessage(client *WSClient, message []byte) {
 		client.rateMu.Unlock()
 
 		if limited {
-			ws.logger.Warn("Client rate limited", zap.String("client_id", client.ID.String()))
+			ws.logger.Warn("Client rate limited", zap.String(keyClientID, client.ID.String()))
 			errMsg := "rate limit exceeded"
 			data, _ := json.Marshal(AckMessage{
 				Type:    msgAck,
@@ -387,7 +387,7 @@ func (ws *WebSocketService) handleMessage(client *WSClient, message []byte) {
 				}
 				ws.logger.Debug("Sending current question to joining player",
 					zap.String(keyGamePublicID, joinMsg.GamePublicID),
-					zap.String("user_id", client.UserID.String()),
+					zap.String(keyUserID, client.UserID.String()),
 					zap.Int("question_number", qNum),
 				)
 				data, _ := json.Marshal(map[string]interface{}{
@@ -400,7 +400,7 @@ func (ws *WebSocketService) handleMessage(client *WSClient, message []byte) {
 			} else if err != nil {
 				ws.logger.Warn("GetCurrentQuestionPayload failed for joining player",
 					zap.String(keyGamePublicID, joinMsg.GamePublicID),
-					zap.String("user_id", client.UserID.String()),
+					zap.String(keyUserID, client.UserID.String()),
 					zap.Error(err),
 				)
 			}
@@ -408,7 +408,7 @@ func (ws *WebSocketService) handleMessage(client *WSClient, message []byte) {
 			if statePayload, err := ws.gameActionHandler.GetGameStateForReconnect(joinMsg.GamePublicID); err == nil && statePayload != nil {
 				ws.logger.Debug("Sending game state to joining player",
 					zap.String(keyGamePublicID, joinMsg.GamePublicID),
-					zap.String("user_id", client.UserID.String()),
+					zap.String(keyUserID, client.UserID.String()),
 				)
 				data, _ := json.Marshal(map[string]interface{}{
 					keyType:      "game_state",
@@ -575,7 +575,7 @@ func (ws *WebSocketService) trySend(client *WSClient, data []byte) {
 	select {
 	case client.SendChan <- data:
 	default:
-		ws.logger.Warn("Client send channel full, dropping message", zap.String("client_id", client.ID.String()))
+		ws.logger.Warn("Client send channel full, dropping message", zap.String(keyClientID, client.ID.String()))
 	}
 }
 
@@ -631,7 +631,7 @@ func (ws *WebSocketService) disconnectClient(client *WSClient) {
 				if exists && len(clients) > 0 {
 					delete(ws.offlineTimers, userID)
 					ws.mutex.Unlock()
-					ws.logger.Info("Offline timer aborted, user reconnected", zap.String("user_id", userID.String()))
+					ws.logger.Info("Offline timer aborted, user reconnected", zap.String(keyUserID, userID.String()))
 					return
 				}
 				delete(ws.offlineTimers, userID)
@@ -640,11 +640,11 @@ func (ws *WebSocketService) disconnectClient(client *WSClient) {
 				if err := ws.updateUserStatus(userID, false); err != nil {
 					ws.logger.Error("Failed to update user status (delayed)", zap.Error(err))
 				} else {
-					ws.logger.Info("Offline timer fired, user set offline", zap.String("user_id", userID.String()))
+					ws.logger.Info("Offline timer fired, user set offline", zap.String(keyUserID, userID.String()))
 				}
 			})
 			ws.offlineTimers[userID] = timer
-			ws.logger.Info("Scheduled delayed offline update", zap.String("user_id", userID.String()))
+			ws.logger.Info("Scheduled delayed offline update", zap.String(keyUserID, userID.String()))
 		}
 	}
 
@@ -673,7 +673,7 @@ func (ws *WebSocketService) disconnectClient(client *WSClient) {
 			go func() {
 				if err := ws.gameActionHandler.MarkPlayerDisconnected(userID, gamePublicID); err != nil {
 					ws.logger.Warn("Failed to mark player disconnected",
-						zap.String("user_id", userID.String()),
+						zap.String(keyUserID, userID.String()),
 						zap.String(keyGamePublicID, gamePublicID),
 						zap.Error(err),
 					)
@@ -697,13 +697,13 @@ func (ws *WebSocketService) disconnectClient(client *WSClient) {
 			}
 			if err := ws.gameActionHandler.HandleLeaveGame(userID, gamePublicID); err != nil {
 				ws.logger.Warn("Failed to auto-leave game after disconnect",
-					zap.String("user_id", userID.String()),
+					zap.String(keyUserID, userID.String()),
 					zap.String(keyGamePublicID, gamePublicID),
 					zap.Error(err),
 				)
 			} else {
 				ws.logger.Info("Auto-left game after disconnect grace period",
-					zap.String("user_id", userID.String()),
+					zap.String(keyUserID, userID.String()),
 					zap.String(keyGamePublicID, gamePublicID),
 				)
 			}
@@ -735,7 +735,7 @@ func (ws *WebSocketService) updateUserStatus(userID uuid.UUID, isOnline bool) er
 		ws.mutex.RLock()
 		connectedClients := len(ws.clients)
 		ws.mutex.RUnlock()
-		ws.logger.Info("Broadcasting presence update", zap.String("user_id", userID.String()), zap.Bool("is_online", isOnline), zap.Int("connected_clients", connectedClients))
+		ws.logger.Info("Broadcasting presence update", zap.String(keyUserID, userID.String()), zap.Bool("is_online", isOnline), zap.Int("connected_clients", connectedClients))
 		_ = ws.BroadcastToAll(msg)
 		return nil
 	}
@@ -840,11 +840,11 @@ func (ws *WebSocketService) incrOnlineUser(userID uuid.UUID) {
 	defer cancel()
 	newCount, err := ws.redisService.HIncrBy(ctx, onlineUsersRedisKey, userID.String(), 1)
 	if err != nil {
-		ws.logger.Warn("Failed to increment online user counter", zap.String("user_id", userID.String()), zap.Error(err))
+		ws.logger.Warn("Failed to increment online user counter", zap.String(keyUserID, userID.String()), zap.Error(err))
 		return
 	}
 	if newCount == 1 {
-		ws.logger.Debug("User came online (Redis)", zap.String("user_id", userID.String()))
+		ws.logger.Debug("User came online (Redis)", zap.String(keyUserID, userID.String()))
 	}
 }
 
@@ -856,12 +856,12 @@ func (ws *WebSocketService) decrOnlineUser(userID uuid.UUID) {
 	defer cancel()
 	newCount, err := ws.redisService.HIncrBy(ctx, onlineUsersRedisKey, userID.String(), -1)
 	if err != nil {
-		ws.logger.Warn("Failed to decrement online user counter", zap.String("user_id", userID.String()), zap.Error(err))
+		ws.logger.Warn("Failed to decrement online user counter", zap.String(keyUserID, userID.String()), zap.Error(err))
 		return
 	}
 	if newCount <= 0 {
 		_ = ws.redisService.HDel(ctx, onlineUsersRedisKey, userID.String())
-		ws.logger.Debug("User went offline (Redis)", zap.String("user_id", userID.String()))
+		ws.logger.Debug("User went offline (Redis)", zap.String(keyUserID, userID.String()))
 	}
 }
 
@@ -891,7 +891,7 @@ func (ws *WebSocketService) SendToUser(userID uuid.UUID, message interface{}) er
 		defer pubCancel()
 		if err := ws.relay.PublishUserMessage(pubCtx, userID, data); err != nil {
 			ws.logger.Warn("Failed to publish user message to relay",
-				zap.String("user_id", userID.String()), zap.Error(err))
+				zap.String(keyUserID, userID.String()), zap.Error(err))
 		}
 	}
 
@@ -955,7 +955,7 @@ func (ws *WebSocketService) addClientToGame(client *WSClient, gamePublicID strin
 		timer.Stop()
 		delete(ws.gameDisconnectTimers, client.UserID)
 		ws.logger.Info("Game disconnect timer cancelled, player rejoined",
-			zap.String("user_id", client.UserID.String()),
+			zap.String(keyUserID, client.UserID.String()),
 			zap.String(keyGamePublicID, gamePublicID),
 		)
 		gamePublicIDCopy := gamePublicID
@@ -968,7 +968,7 @@ func (ws *WebSocketService) addClientToGame(client *WSClient, gamePublicID strin
 	}
 
 	ws.logger.Info("Client joined game room",
-		zap.String("client_id", client.ID.String()),
+		zap.String(keyClientID, client.ID.String()),
 		zap.String(keyGamePublicID, gamePublicID),
 	)
 }
@@ -993,7 +993,7 @@ func (ws *WebSocketService) removeClientFromGame(client *WSClient, gamePublicID 
 	client.GameID = nil
 
 	ws.logger.Info("Client left game room",
-		zap.String("client_id", client.ID.String()),
+		zap.String(keyClientID, client.ID.String()),
 		zap.String(keyGamePublicID, gamePublicID),
 	)
 }

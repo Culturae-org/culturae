@@ -172,12 +172,12 @@ func (gc *AdminGamesHandler) AdminCancelGame(c *gin.Context) {
 
 	if err := gc.Usecase.AdminCancelGame(c, gameID, adminID); err != nil {
 		errMsg := err.Error()
-		_ = gc.LoggingService.LogAdminAction(adminID, c.GetString("username"), "cancel_game", "game", &gameID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{"game_id": gameID}, false, &errMsg)
+		_ = gc.LoggingService.LogAdminAction(adminID, c.GetString("username"), "cancel_game", "game", &gameID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{keyGameID: gameID}, false, &errMsg)
 		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
 		return
 	}
 
-	_ = gc.LoggingService.LogAdminAction(adminID, c.GetString("username"), "cancel_game", "game", &gameID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{"game_id": gameID}, true, nil)
+	_ = gc.LoggingService.LogAdminAction(adminID, c.GetString("username"), "cancel_game", "game", &gameID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{keyGameID: gameID}, true, nil)
 	httputil.SuccessWithMessage(c, http.StatusOK, "Game cancelled by admin", nil)
 }
 
@@ -199,7 +199,7 @@ func (gc *AdminGamesHandler) DeleteGameByID(c *gin.Context) {
 		adminName := c.GetString("username")
 		errorMessage := err.Error()
 		details := map[string]interface{}{
-			"game_id": gameID,
+			keyGameID: gameID,
 		}
 		if gameDetails != nil {
 			details["game_mode"] = gameDetails.Mode
@@ -216,7 +216,7 @@ func (gc *AdminGamesHandler) DeleteGameByID(c *gin.Context) {
 	adminID := httputil.GetUserIDFromContext(c)
 	adminName := c.GetString("username")
 	details := map[string]interface{}{
-		"game_id": gameID,
+		keyGameID: gameID,
 	}
 	if gameDetails != nil {
 		details["game_mode"] = gameDetails.Mode
@@ -246,7 +246,7 @@ func (gc *AdminGamesHandler) ArchiveGame(c *gin.Context) {
 
 	adminID := httputil.GetUserIDFromContext(c)
 	adminName := c.GetString("username")
-	details := map[string]interface{}{"game_id": gameID}
+	details := map[string]interface{}{keyGameID: gameID}
 	_ = gc.LoggingService.LogAdminAction(adminID, adminName, "archive_game", "game", &gameID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, true, nil)
 
 	httputil.SuccessWithMessage(c, http.StatusOK, "Game archived successfully", nil)
@@ -268,7 +268,7 @@ func (gc *AdminGamesHandler) UnarchiveGame(c *gin.Context) {
 
 	adminID := httputil.GetUserIDFromContext(c)
 	adminName := c.GetString("username")
-	details := map[string]interface{}{"game_id": gameID}
+	details := map[string]interface{}{keyGameID: gameID}
 	_ = gc.LoggingService.LogAdminAction(adminID, adminName, "unarchive_game", "game", &gameID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, true, nil)
 
 	httputil.SuccessWithMessage(c, http.StatusOK, "Game restored successfully", nil)
@@ -371,12 +371,12 @@ func (gc *AdminGamesHandler) GetDailyGameStats(c *gin.Context) {
 	var startDate, endDate *time.Time
 	var mode *string
 
-	if start := c.Query("start_date"); start != "" {
+	if start := c.Query(keyStartDate); start != "" {
 		if t, err := time.Parse("2006-01-02", start); err == nil {
 			startDate = &t
 		}
 	}
-	if end := c.Query("end_date"); end != "" {
+	if end := c.Query(keyEndDate); end != "" {
 		if t, err := time.Parse("2006-01-02", end); err == nil {
 			endDate = &t
 		}
@@ -429,7 +429,7 @@ func (gc *AdminGamesHandler) CleanupAbandonedGames(c *gin.Context) {
 	if err != nil {
 		errorMessage := err.Error()
 		_ = gc.LoggingService.LogAdminAction(adminID, adminName, "cleanup_abandoned_games", "game", nil, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-			"action": "cleanup_abandoned_games",
+			keyAction: "cleanup_abandoned_games",
 		}, false, &errorMessage)
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
 		return
@@ -448,7 +448,7 @@ func (gc *AdminGamesHandler) RunGameMaintenance(c *gin.Context) {
 	if err != nil {
 		errorMessage := err.Error()
 		_ = gc.LoggingService.LogAdminAction(adminID, adminName, "run_game_maintenance", "game", nil, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-			"action": "run_game_maintenance",
+			keyAction: "run_game_maintenance",
 		}, false, &errorMessage)
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
 		return

@@ -634,7 +634,7 @@ func (g *BaseGame) SendCommand(cmd GameCommand) {
 	default:
 		g.logger.Warn("Command channel full, dropping command",
 			zap.String("command_type", cmd.Type),
-			zap.String("game_id", g.id.String()),
+			zap.String(keyGameID, g.id.String()),
 		)
 	}
 }
@@ -1366,7 +1366,7 @@ func (g *BaseGame) emitEvent(event GameEvent) {
 		if g.logger != nil {
 			g.logger.Warn("Game event channel full, dropping event",
 				zap.String("event_type", event.Type),
-				zap.String("game_id", g.id.String()),
+				zap.String(keyGameID, g.id.String()),
 			)
 		}
 	}

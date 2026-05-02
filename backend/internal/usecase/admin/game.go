@@ -236,7 +236,7 @@ func (u *AdminGameUsecase) GetGameAnswers(gameID uuid.UUID) ([]model.GameAnswerD
 					if json.Unmarshal(gq.Data, &gqData) == nil {
 						if ca, ok := gqData["correct_answer"].(map[string]interface{}); ok {
 							if detail.CorrectAnswerSlug == "" {
-								if slug, ok := ca["slug"].(string); ok {
+								if slug, ok := ca[keySlug].(string); ok {
 									detail.CorrectAnswerSlug = slug
 								}
 							}
@@ -257,7 +257,7 @@ func (u *AdminGameUsecase) GetGameAnswers(gameID uuid.UUID) ([]model.GameAnswerD
 								if !ok {
 									continue
 								}
-								slug, _ := optMap["slug"].(string)
+								slug, _ := optMap[keySlug].(string)
 								names, hasNames := optMap["name"].(map[string]interface{})
 								if !hasNames {
 									continue

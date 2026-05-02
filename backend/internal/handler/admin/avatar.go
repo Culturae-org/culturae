@@ -80,7 +80,7 @@ func (ac *AdminAvatarHandler) UploadUserAvatar(c *gin.Context) {
 		errorMsg := err.Error()
 		go func() {
 			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "avatar", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"error": "no_file_uploaded",
+				keyError: "no_file_uploaded",
 			}, false, &errorMsg)
 		}()
 		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, "No file uploaded")
@@ -93,7 +93,7 @@ func (ac *AdminAvatarHandler) UploadUserAvatar(c *gin.Context) {
 		errorMsg := "Invalid file type. Only .jpg, .jpeg, .png are allowed."
 		go func() {
 			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "avatar", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"error":     "invalid_file_type",
+				keyError:     "invalid_file_type",
 				"file_name": file.Filename,
 				"file_size": file.Size,
 			}, false, &errorMsg)
@@ -106,7 +106,7 @@ func (ac *AdminAvatarHandler) UploadUserAvatar(c *gin.Context) {
 		errorMsg := "File size exceeds the configured limit."
 		go func() {
 			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "avatar", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"error":     "file_too_large",
+				keyError:     "file_too_large",
 				"file_name": file.Filename,
 				"file_size": file.Size,
 				"max_size":  avatarCfg.MaxFileSizeBytes(),
@@ -120,7 +120,7 @@ func (ac *AdminAvatarHandler) UploadUserAvatar(c *gin.Context) {
 		errorMsg := err.Error()
 		go func() {
 			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "avatar", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"error": "failed_to_fetch_user",
+				keyError: "failed_to_fetch_user",
 			}, false, &errorMsg)
 		}()
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to fetch user")
@@ -132,7 +132,7 @@ func (ac *AdminAvatarHandler) UploadUserAvatar(c *gin.Context) {
 		errorMsg := err.Error()
 		go func() {
 			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "avatar", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"error":     "failed_to_upload_avatar",
+				keyError:     "failed_to_upload_avatar",
 				"file_name": file.Filename,
 				"file_size": file.Size,
 			}, false, &errorMsg)
@@ -168,7 +168,7 @@ func (ac *AdminAvatarHandler) DeleteUserAvatar(c *gin.Context) {
 		go func() {
 			errorMsg := err.Error()
 			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "avatar", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"error": "failed_to_fetch_user",
+				keyError: "failed_to_fetch_user",
 			}, false, &errorMsg)
 		}()
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to fetch user")
@@ -179,7 +179,7 @@ func (ac *AdminAvatarHandler) DeleteUserAvatar(c *gin.Context) {
 		errorMsg := "No avatar to delete"
 		go func() {
 			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "avatar", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"error": "no_avatar_to_delete",
+				keyError: "no_avatar_to_delete",
 			}, false, &errorMsg)
 		}()
 		httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, "No avatar to delete")
@@ -191,7 +191,7 @@ func (ac *AdminAvatarHandler) DeleteUserAvatar(c *gin.Context) {
 		go func() {
 			errorMsg := err.Error()
 			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "avatar", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"error":       "failed_to_delete_avatar",
+				keyError:       "failed_to_delete_avatar",
 				"avatar_path": fileutil.FormatAvatarURL(userID),
 			}, false, &errorMsg)
 		}()

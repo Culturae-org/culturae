@@ -15,6 +15,7 @@ const (
 	keyImportedAt = "imported_at"
 
 	keyGameID     = "game_id"
+	keySlug       = "slug"
 	keyTotalGames = "total_games"
 	keyMessage    = "message"
 

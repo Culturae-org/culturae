@@ -68,7 +68,7 @@ func (lc *LeaderboardHandler) GetLeaderboard(c *gin.Context) {
 					userRank, _ = lc.usecase.GetUserRank(userID, lbType)
 				}
 				httputil.SuccessRaw(c, http.StatusOK, gin.H{
-					"data":       cachedData.Entries,
+					keyData:       cachedData.Entries,
 					"pagination": httputil.Pagination{Limit: limit, Offset: offset, HasMore: len(cachedData.Entries) == limit},
 					"type":       lbType,
 					"mode":       mode,
@@ -103,7 +103,7 @@ func (lc *LeaderboardHandler) GetLeaderboard(c *gin.Context) {
 	}
 
 	httputil.SuccessRaw(c, http.StatusOK, gin.H{
-		"data":       entries,
+		keyData:       entries,
 		"pagination": httputil.Pagination{Limit: limit, Offset: offset, HasMore: len(entries) == limit},
 		"type":       lbType,
 		"mode":       mode,

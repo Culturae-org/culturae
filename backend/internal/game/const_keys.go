@@ -24,4 +24,5 @@ const (
 	keyTimeLimit      = "time_limit"
 	keyScore          = "score"
 	keyPublicID       = "public_id"
+	keyUserID         = "user_id"
 )

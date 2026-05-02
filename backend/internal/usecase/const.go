@@ -26,4 +26,8 @@ const (
 
 	keyFriendUserPublicID  = "friend_user_public_id"
 	keyBlockedUserPublicID = "blocked_user_public_id"
+	keyRequestID           = "request_id"
+
+	keySlug  = "slug"
+	keyScore = "score"
 )

@@ -96,7 +96,7 @@ func (ic *AdminImportsHandler) GetImportJobLogs(c *gin.Context) {
 		DefaultLimit: 50,
 		MaxLimit:     500,
 	})
-	action := c.Query("action")
+	action := c.Query(keyAction)
 
 	var logs []interface{}
 	var total int64
@@ -106,7 +106,7 @@ func (ic *AdminImportsHandler) GetImportJobLogs(c *gin.Context) {
 		if err != nil {
 			ic.logger.Error("Failed to get import logs by action",
 				zap.String("id", idParam),
-				zap.String("action", action),
+				zap.String(keyAction, action),
 				zap.Error(err),
 			)
 			httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to get import logs")

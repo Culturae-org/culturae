@@ -221,7 +221,7 @@ func (ls *LoggingService) APILoggingMiddleware() gin.HandlerFunc {
 		}
 
 		var userID *uuid.UUID
-		if val, exists := c.Get("user_id"); exists {
+		if val, exists := c.Get(keyUserID); exists {
 			switch v := val.(type) {
 			case uuid.UUID:
 				userID = &v

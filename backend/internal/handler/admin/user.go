@@ -211,7 +211,7 @@ func (ac *AdminUserHandler) CreateUser(c *gin.Context) {
 		Event: "user_created_admin",
 		Data: map[string]interface{}{
 			"username":   createUser.Username,
-			"admin_name": adminName,
+			keyAdminName: adminName,
 		},
 		EntityType: "user",
 		EntityID:   createdUser.PublicID,
@@ -274,9 +274,9 @@ func (ac *AdminUserHandler) UpdateUser(c *gin.Context) {
 		errorMsg := err.Error()
 		go func() {
 			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"user_id":       currentUser.ID,
-				"user_email":    currentUser.Email,
-				"user_username": currentUser.Username,
+				keyUserID:       currentUser.ID,
+				keyUserEmail:    currentUser.Email,
+				keyUserUsername: currentUser.Username,
 			}, false, &errorMsg)
 		}()
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to update user")
@@ -287,9 +287,9 @@ func (ac *AdminUserHandler) UpdateUser(c *gin.Context) {
 		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
 			"changes":       changes,
 			"summary":       httputil.GenerateChangeSummary(changes),
-			"user_id":       currentUser.ID,
-			"user_email":    currentUser.Email,
-			"user_username": currentUser.Username,
+			keyUserID:       currentUser.ID,
+			keyUserEmail:    currentUser.Email,
+			keyUserUsername: currentUser.Username,
 		}, true, nil)
 	}()
 
@@ -320,10 +320,10 @@ func (ac *AdminUserHandler) UpdateUserPassword(c *gin.Context) {
 	}
 
 	details := map[string]interface{}{
-		"action":        "password_update",
-		"user_id":       currentUser.ID,
-		"user_email":    currentUser.Email,
-		"user_username": currentUser.Username,
+		keyAction:        "password_update",
+		keyUserID:       currentUser.ID,
+		keyUserEmail:    currentUser.Email,
+		keyUserUsername: currentUser.Username,
 	}
 
 	if updateErr := ac.Usecase.UpdateUserPassword(id, updatePassword.Password); updateErr != nil {
@@ -360,10 +360,10 @@ func (ac *AdminUserHandler) DeleteUser(c *gin.Context) {
 	}
 
 	details := map[string]interface{}{
-		"action":        "delete",
-		"user_id":       currentUser.ID,
-		"user_email":    currentUser.Email,
-		"user_username": currentUser.Username,
+		keyAction:        "delete",
+		keyUserID:       currentUser.ID,
+		keyUserEmail:    currentUser.Email,
+		keyUserUsername: currentUser.Username,
 	}
 
 	if deleteErr := ac.Usecase.DeleteUserByID(id); deleteErr != nil {
@@ -385,31 +385,31 @@ func (ac *AdminUserHandler) buildUserChanges(current *model.UserAdminView, updat
 	changes := make(map[string]interface{})
 
 	if update.Username != "" && update.Username != current.Username {
-		changes["username"] = map[string]string{"from": current.Username, "to": update.Username}
+		changes["username"] = map[string]string{keyFrom: current.Username, keyTo: update.Username}
 	}
 	if update.Email != "" && update.Email != current.Email {
-		changes["email"] = map[string]string{"from": current.Email, "to": update.Email}
+		changes["email"] = map[string]string{keyFrom: current.Email, keyTo: update.Email}
 	}
 	if update.Role != "" && update.Role != current.Role {
-		changes["role"] = map[string]string{"from": current.Role, "to": update.Role}
+		changes["role"] = map[string]string{keyFrom: current.Role, keyTo: update.Role}
 	}
 	if update.AccountStatus != "" && update.AccountStatus != current.AccountStatus {
-		changes["account_status"] = map[string]string{"from": current.AccountStatus, "to": update.AccountStatus}
+		changes["account_status"] = map[string]string{keyFrom: current.AccountStatus, keyTo: update.AccountStatus}
 	}
 	if update.IsProfilePublic != nil && *update.IsProfilePublic != current.IsProfilePublic {
-		changes["is_profile_public"] = map[string]bool{"from": current.IsProfilePublic, "to": *update.IsProfilePublic}
+		changes["is_profile_public"] = map[string]bool{keyFrom: current.IsProfilePublic, keyTo: *update.IsProfilePublic}
 	}
 	if update.ShowOnlineStatus != nil && *update.ShowOnlineStatus != current.ShowOnlineStatus {
-		changes["show_online_status"] = map[string]bool{"from": current.ShowOnlineStatus, "to": *update.ShowOnlineStatus}
+		changes["show_online_status"] = map[string]bool{keyFrom: current.ShowOnlineStatus, keyTo: *update.ShowOnlineStatus}
 	}
 	if update.AllowFriendRequests != nil && *update.AllowFriendRequests != current.AllowFriendRequests {
-		changes["allow_friend_requests"] = map[string]bool{"from": current.AllowFriendRequests, "to": *update.AllowFriendRequests}
+		changes["allow_friend_requests"] = map[string]bool{keyFrom: current.AllowFriendRequests, keyTo: *update.AllowFriendRequests}
 	}
 	if update.AllowPartyInvites != nil && *update.AllowPartyInvites != current.AllowPartyInvites {
-		changes["allow_party_invites"] = map[string]bool{"from": current.AllowPartyInvites, "to": *update.AllowPartyInvites}
+		changes["allow_party_invites"] = map[string]bool{keyFrom: current.AllowPartyInvites, keyTo: *update.AllowPartyInvites}
 	}
 	if update.Language != "" && update.Language != current.Language {
-		changes["language"] = map[string]string{"from": current.Language, "to": update.Language}
+		changes["language"] = map[string]string{keyFrom: current.Language, keyTo: update.Language}
 	}
 
 	return changes

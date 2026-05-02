@@ -117,11 +117,11 @@ func (gc *AdminGeographyHandler) GetGeographyDataset(c *gin.Context) {
 }
 
 func (gc *AdminGeographyHandler) GetGeographyDatasetBySlug(c *gin.Context) {
-	slug := c.Param("slug")
+	slug := c.Param(keySlug)
 
 	dataset, err := gc.AdminGeographyUsecase.GetGeographyDatasetBySlug(slug)
 	if err != nil {
-		gc.logger.Error("Failed to get geography dataset by slug", zap.String("slug", slug), zap.Error(err))
+		gc.logger.Error("Failed to get geography dataset by slug", zap.String(keySlug, slug), zap.Error(err))
 		httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, "Geography dataset not found")
 		return
 	}
@@ -155,8 +155,8 @@ func (gc *AdminGeographyHandler) DeleteGeographyDataset(c *gin.Context) {
 			errorMsg := err.Error()
 			go func() {
 				httputil.LogAdminAction(gc.LoggingService, adminUUID, adminName, "geography_dataset_delete", "geography_dataset", &id, realIP, userAgent, map[string]interface{}{
-					"dataset_id": id,
-					"error":      errorMsg,
+					keyDatasetID: id,
+					keyError:      errorMsg,
 				}, false, &errorMsg)
 			}()
 		}
@@ -178,11 +178,11 @@ func (gc *AdminGeographyHandler) DeleteGeographyDataset(c *gin.Context) {
 	if adminUUID != uuid.Nil {
 		go func() {
 			details := map[string]interface{}{
-				"dataset_id": id,
+				keyDatasetID: id,
 			}
 			if dataset != nil {
-				details["name"] = dataset.Name
-				details["slug"] = dataset.Slug
+				details[keyName] = dataset.Name
+				details[keySlug] = dataset.Slug
 			}
 			httputil.LogAdminAction(gc.LoggingService, adminUUID, adminName, "geography_dataset_delete", "geography_dataset", &id, realIP, userAgent, details, true, nil)
 		}()
@@ -212,8 +212,8 @@ func (gc *AdminGeographyHandler) SetDefaultGeographyDataset(c *gin.Context) {
 			errorMsg := "Dataset not found"
 			go func() {
 				httputil.LogAdminAction(gc.LoggingService, adminUUID, adminName, "geography_dataset_set_default", "geography_dataset", &id, realIP, userAgent, map[string]interface{}{
-					"dataset_id": id,
-					"error":      errorMsg,
+					keyDatasetID: id,
+					keyError:      errorMsg,
 				}, false, &errorMsg)
 			}()
 		}
@@ -229,10 +229,10 @@ func (gc *AdminGeographyHandler) SetDefaultGeographyDataset(c *gin.Context) {
 			errorMsg := err.Error()
 			go func() {
 				httputil.LogAdminAction(gc.LoggingService, adminUUID, adminName, "geography_dataset_set_default", "geography_dataset", &id, realIP, userAgent, map[string]interface{}{
-					"dataset_id": id,
-					"name":       dataset.Name,
-					"slug":       dataset.Slug,
-					"error":      errorMsg,
+					keyDatasetID: id,
+					keyName:       dataset.Name,
+					keySlug:       dataset.Slug,
+					keyError:      errorMsg,
 				}, false, &errorMsg)
 			}()
 		}
@@ -244,8 +244,8 @@ func (gc *AdminGeographyHandler) SetDefaultGeographyDataset(c *gin.Context) {
 	if adminUUID != uuid.Nil {
 		go func() {
 			httputil.LogAdminAction(gc.LoggingService, adminUUID, adminName, "geography_dataset_set_default", "geography_dataset", &id, realIP, userAgent, map[string]interface{}{
-				"name": dataset.Name,
-				"slug": dataset.Slug,
+				keyName: dataset.Name,
+				keySlug: dataset.Slug,
 			}, true, nil)
 		}()
 	}
@@ -280,8 +280,8 @@ func (gc *AdminGeographyHandler) ImportGeographyDataset(c *gin.Context) {
 	req.DatasetType = datasetTypeGeography
 
 	gc.logger.Info("Starting Geography import from manifest",
-		zap.String("manifest_url", req.ManifestURL),
-		zap.String("dataset_type", req.DatasetType),
+		zap.String(keyManifestURL, req.ManifestURL),
+		zap.String(keyDatasetType, req.DatasetType),
 		zap.Bool("set_as_default", req.SetAsDefault),
 		zap.Bool("force", req.Force),
 	)
@@ -299,9 +299,9 @@ func (gc *AdminGeographyHandler) ImportGeographyDataset(c *gin.Context) {
 			errorMsg := err.Error()
 			go func() {
 				httputil.LogAdminAction(gc.LoggingService, adminUUID, adminName, "geography_dataset_import", "geography_dataset", nil, realIP, userAgent, map[string]interface{}{
-					"manifest_url": req.ManifestURL,
-					"error":        errorMsg,
-					"error_type":   "import_failed",
+					keyManifestURL: req.ManifestURL,
+					keyError:        errorMsg,
+					keyErrorType:   "import_failed",
 				}, false, &errorMsg)
 			}()
 		}
@@ -323,9 +323,9 @@ func (gc *AdminGeographyHandler) ImportGeographyDataset(c *gin.Context) {
 				errorMsg := err.Error()
 				go func() {
 					httputil.LogAdminAction(gc.LoggingService, adminUUID, adminName, "geography_dataset_import", "geography_dataset", nil, realIP, userAgent, map[string]interface{}{
-						"manifest_url": req.ManifestURL,
-						"error":        errorMsg,
-						"error_type":   "find_imported_dataset_failed",
+						keyManifestURL: req.ManifestURL,
+						keyError:        errorMsg,
+						keyErrorType:   "find_imported_dataset_failed",
 					}, false, &errorMsg)
 				}()
 			}
@@ -341,10 +341,10 @@ func (gc *AdminGeographyHandler) ImportGeographyDataset(c *gin.Context) {
 				errorMsg := err.Error()
 				go func() {
 					httputil.LogAdminAction(gc.LoggingService, adminUUID, adminName, "geography_dataset_import", "geography_dataset", nil, realIP, userAgent, map[string]interface{}{
-						"manifest_url": req.ManifestURL,
-						"dataset_id":   dataset.ID,
-						"error":        errorMsg,
-						"error_type":   "set_default_failed",
+						keyManifestURL: req.ManifestURL,
+						keyDatasetID:   dataset.ID,
+						keyError:        errorMsg,
+						keyErrorType:   "set_default_failed",
 					}, false, &errorMsg)
 				}()
 			}
@@ -353,13 +353,13 @@ func (gc *AdminGeographyHandler) ImportGeographyDataset(c *gin.Context) {
 			return
 		}
 
-		gc.logger.Info("Geography dataset set as default", zap.String("dataset_id", dataset.ID.String()))
+		gc.logger.Info("Geography dataset set as default", zap.String(keyDatasetID, dataset.ID.String()))
 	}
 
 	if adminUUID != uuid.Nil {
 		go func() {
 			httputil.LogAdminAction(gc.LoggingService, adminUUID, adminName, "geography_dataset_import", "geography_dataset", nil, realIP, userAgent, map[string]interface{}{
-				"manifest_url":     req.ManifestURL,
+				keyManifestURL:     req.ManifestURL,
 				"countries_added":  result.CountriesAdded,
 				"continents_added": result.ContinentsAdded,
 				"regions_added":    result.RegionsAdded,
@@ -371,8 +371,8 @@ func (gc *AdminGeographyHandler) ImportGeographyDataset(c *gin.Context) {
 	gc.wsService.BroadcastAdminNotification(service.AdminNotification{
 		Event: "geography_imported",
 		Data: map[string]interface{}{
-			"dataset_type":     "geography",
-			"admin_name":       c.GetString("username"),
+			keyDatasetType:     "geography",
+			keyAdminName:       c.GetString("username"),
 			"countries_added":  result.CountriesAdded,
 			"continents_added": result.ContinentsAdded,
 			"regions_added":    result.RegionsAdded,
@@ -445,7 +445,7 @@ func (gc *AdminGeographyHandler) ListCountries(c *gin.Context) {
 	}
 
 	if err != nil {
-		gc.logger.Error("Failed to list countries", zap.String("dataset_id", id.String()), zap.Error(err))
+		gc.logger.Error("Failed to list countries", zap.String(keyDatasetID, id.String()), zap.Error(err))
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
 		return
 	}
@@ -461,11 +461,11 @@ func (gc *AdminGeographyHandler) GetCountry(c *gin.Context) {
 		return
 	}
 
-	slug := c.Param("slug")
+	slug := c.Param(keySlug)
 
 	country, err := gc.GeographyUsecase.GetCountryBySlug(slug, id)
 	if err != nil {
-		gc.logger.Error("Failed to get country", zap.String("slug", slug), zap.Error(err))
+		gc.logger.Error("Failed to get country", zap.String(keySlug, slug), zap.Error(err))
 		httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, "Country not found")
 		return
 	}
@@ -480,7 +480,7 @@ func (gc *AdminGeographyHandler) UpdateCountry(c *gin.Context) {
 		return
 	}
 
-	slug := c.Param("slug")
+	slug := c.Param(keySlug)
 
 	var updates map[string]interface{}
 	if err := c.ShouldBindJSON(&updates); err != nil {
@@ -500,7 +500,7 @@ func (gc *AdminGeographyHandler) UpdateCountry(c *gin.Context) {
 		adminName := c.GetString("username")
 		go func() {
 			if err := gc.LoggingService.LogAdminAction(adminID, adminName, "geography_country_update", "country", &country.ID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"slug":    slug,
+				keySlug:    slug,
 				"updates": updates,
 			}, true, nil); err != nil {
 				gc.logger.Warn("Failed to log admin action", zap.Error(err))
@@ -587,7 +587,7 @@ func (gc *AdminGeographyHandler) ListContinents(c *gin.Context) {
 
 	continents, err := gc.GeographyUsecase.ListContinents(id)
 	if err != nil {
-		gc.logger.Error("Failed to list continents", zap.String("dataset_id", id.String()), zap.Error(err))
+		gc.logger.Error("Failed to list continents", zap.String(keyDatasetID, id.String()), zap.Error(err))
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
 		return
 	}
@@ -602,11 +602,11 @@ func (gc *AdminGeographyHandler) GetContinent(c *gin.Context) {
 		return
 	}
 
-	slug := c.Param("slug")
+	slug := c.Param(keySlug)
 
 	continent, err := gc.GeographyUsecase.GetContinentBySlug(slug, id)
 	if err != nil {
-		gc.logger.Error("Failed to get continent", zap.String("slug", slug), zap.Error(err))
+		gc.logger.Error("Failed to get continent", zap.String(keySlug, slug), zap.Error(err))
 		httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, "Continent not found")
 		return
 	}
@@ -621,7 +621,7 @@ func (gc *AdminGeographyHandler) UpdateContinent(c *gin.Context) {
 		return
 	}
 
-	slug := c.Param("slug")
+	slug := c.Param(keySlug)
 
 	var updates map[string]interface{}
 	if err := c.ShouldBindJSON(&updates); err != nil {
@@ -641,7 +641,7 @@ func (gc *AdminGeographyHandler) UpdateContinent(c *gin.Context) {
 		adminName := c.GetString("username")
 		go func() {
 			if err := gc.LoggingService.LogAdminAction(adminID, adminName, "geography_continent_update", "continent", &continent.ID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"slug":    slug,
+				keySlug:    slug,
 				"updates": updates,
 			}, true, nil); err != nil {
 				gc.logger.Warn("Failed to log admin action", zap.Error(err))
@@ -661,7 +661,7 @@ func (gc *AdminGeographyHandler) ListRegions(c *gin.Context) {
 
 	regions, err := gc.GeographyUsecase.ListRegions(id)
 	if err != nil {
-		gc.logger.Error("Failed to list regions", zap.String("dataset_id", id.String()), zap.Error(err))
+		gc.logger.Error("Failed to list regions", zap.String(keyDatasetID, id.String()), zap.Error(err))
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
 		return
 	}
@@ -695,11 +695,11 @@ func (gc *AdminGeographyHandler) GetRegion(c *gin.Context) {
 		return
 	}
 
-	slug := c.Param("slug")
+	slug := c.Param(keySlug)
 
 	region, err := gc.GeographyUsecase.GetRegionBySlug(slug, id)
 	if err != nil {
-		gc.logger.Error("Failed to get region", zap.String("slug", slug), zap.Error(err))
+		gc.logger.Error("Failed to get region", zap.String(keySlug, slug), zap.Error(err))
 		httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, "Region not found")
 		return
 	}
@@ -714,7 +714,7 @@ func (gc *AdminGeographyHandler) UpdateRegion(c *gin.Context) {
 		return
 	}
 
-	slug := c.Param("slug")
+	slug := c.Param(keySlug)
 
 	var updates map[string]interface{}
 	if err := c.ShouldBindJSON(&updates); err != nil {
@@ -724,7 +724,7 @@ func (gc *AdminGeographyHandler) UpdateRegion(c *gin.Context) {
 
 	region, err := gc.AdminGeographyUsecase.UpdateRegion(datasetID, slug, updates)
 	if err != nil {
-		gc.logger.Error("Failed to update region", zap.String("slug", slug), zap.Error(err))
+		gc.logger.Error("Failed to update region", zap.String(keySlug, slug), zap.Error(err))
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
 		return
 	}
@@ -734,7 +734,7 @@ func (gc *AdminGeographyHandler) UpdateRegion(c *gin.Context) {
 		adminName := c.GetString("username")
 		go func() {
 			if err := gc.LoggingService.LogAdminAction(adminID, adminName, "geography_region_update", "region", &region.ID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"slug":    slug,
+				keySlug:    slug,
 				"updates": updates,
 			}, true, nil); err != nil {
 				gc.logger.Warn("Failed to log admin action", zap.Error(err))

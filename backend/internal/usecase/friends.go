@@ -92,7 +92,7 @@ func (u *FriendsUsecase) SendFriendRequest(c *gin.Context, fromUserID uuid.UUID,
 		return nil, err
 	}
 
-	_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyToUserPublicID: toUserPublicID, "request_id": request.ID}, true, nil)
+	_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyToUserPublicID: toUserPublicID, keyRequestID: request.ID}, true, nil)
 
 	fromUser, _ := u.userRepo.GetByID(fromUserID.String())
 
@@ -105,7 +105,7 @@ func (u *FriendsUsecase) SendFriendRequest(c *gin.Context, fromUserID uuid.UUID,
 		go func() {
 			_ = u.wsService.SendToUser(toUserID, map[string]interface{}{
 				"type":                "friend_request_received",
-				"request_id":         request.ID.String(),
+				keyRequestID:         request.ID.String(),
 				"from_user_public_id": fromPublicID,
 			})
 		}()
@@ -140,11 +140,11 @@ func (u *FriendsUsecase) AcceptFriendRequest(c *gin.Context, requestID, userID u
 	err := u.friendsRepo.AcceptFriendRequest(requestID, userID)
 	if err != nil {
 		errorMsg := err.Error()
-		_ = u.loggingSvc.LogUserAction(userID, "accept_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"request_id": requestID}, false, &errorMsg)
+		_ = u.loggingSvc.LogUserAction(userID, "accept_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyRequestID: requestID}, false, &errorMsg)
 		return err
 	}
 
-	_ = u.loggingSvc.LogUserAction(userID, "accept_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"request_id": requestID}, true, nil)
+	_ = u.loggingSvc.LogUserAction(userID, "accept_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyRequestID: requestID}, true, nil)
 
 	if u.notifRepo != nil && reqErr == nil {
 		_ = u.notifRepo.Create(&model.Notification{
@@ -164,17 +164,17 @@ func (u *FriendsUsecase) RejectFriendRequest(c *gin.Context, requestID, userID u
 	err := u.friendsRepo.RejectFriendRequest(requestID, userID)
 	if err != nil {
 		errorMsg := err.Error()
-		_ = u.loggingSvc.LogUserAction(userID, "reject_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"request_id": requestID}, false, &errorMsg)
+		_ = u.loggingSvc.LogUserAction(userID, "reject_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyRequestID: requestID}, false, &errorMsg)
 		return err
 	}
 
-	_ = u.loggingSvc.LogUserAction(userID, "reject_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"request_id": requestID}, true, nil)
+	_ = u.loggingSvc.LogUserAction(userID, "reject_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyRequestID: requestID}, true, nil)
 
 	if u.wsService != nil && reqErr == nil {
 		go func() {
 			_ = u.wsService.SendToUser(request.FromUserID, map[string]interface{}{
 				"type":       "friend_request_rejected",
-				"request_id": requestID.String(),
+				keyRequestID: requestID.String(),
 			})
 		}()
 	}
@@ -188,17 +188,17 @@ func (u *FriendsUsecase) CancelFriendRequest(c *gin.Context, requestID, userID u
 	err := u.friendsRepo.CancelFriendRequest(requestID, userID)
 	if err != nil {
 		errorMsg := err.Error()
-		_ = u.loggingSvc.LogUserAction(userID, "cancel_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"request_id": requestID}, false, &errorMsg)
+		_ = u.loggingSvc.LogUserAction(userID, "cancel_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyRequestID: requestID}, false, &errorMsg)
 		return err
 	}
 
-	_ = u.loggingSvc.LogUserAction(userID, "cancel_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"request_id": requestID}, true, nil)
+	_ = u.loggingSvc.LogUserAction(userID, "cancel_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyRequestID: requestID}, true, nil)
 
 	if u.wsService != nil && reqErr == nil {
 		go func() {
 			_ = u.wsService.SendToUser(request.ToUserID, map[string]interface{}{
 				"type":       "friend_request_cancelled",
-				"request_id": requestID.String(),
+				keyRequestID: requestID.String(),
 			})
 		}()
 	}
@@ -210,11 +210,11 @@ func (u *FriendsUsecase) BlockFriendRequest(c *gin.Context, requestID, userID uu
 	err := u.friendsRepo.BlockFriendRequest(requestID, userID)
 	if err != nil {
 		errorMsg := err.Error()
-		_ = u.loggingSvc.LogUserAction(userID, "block_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"request_id": requestID}, false, &errorMsg)
+		_ = u.loggingSvc.LogUserAction(userID, "block_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyRequestID: requestID}, false, &errorMsg)
 		return err
 	}
 
-	_ = u.loggingSvc.LogUserAction(userID, "block_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"request_id": requestID}, true, nil)
+	_ = u.loggingSvc.LogUserAction(userID, "block_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyRequestID: requestID}, true, nil)
 	return nil
 }
 

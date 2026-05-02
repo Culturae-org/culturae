@@ -166,7 +166,7 @@ func (u *GameUsecase) generateGeographyQuestions(datasetID uuid.UUID, count int,
 			i18n["es"] = model.QuestionI18n{Title: "Bandera", Stem: "¿Qué país es este?"}
 
 			data["correct_answer"] = map[string]interface{}{
-				"slug": country.Slug,
+				keySlug: country.Slug,
 				keyName: parseCountryNamesByLang(country.Name),
 				keyFlag: getFlagCode(country),
 			}
@@ -192,7 +192,7 @@ func (u *GameUsecase) generateGeographyQuestions(datasetID uuid.UUID, count int,
 				var capitalNames map[string]string
 				_ = json.Unmarshal(country.Capital, &capitalNames)
 				data["correct_answer"] = map[string]interface{}{
-					"slug": country.Slug,
+					keySlug: country.Slug,
 					keyName: capitalNames,
 					keyFlag: getFlagCode(country),
 				}
@@ -247,7 +247,7 @@ func (u *GameUsecase) generateGeographyQuestions(datasetID uuid.UUID, count int,
 			options := []map[string]interface{}{}
 
 			options = append(options, map[string]interface{}{
-				"slug": country.Slug,
+				keySlug: country.Slug,
 				keyName: parseCountryNamesByLang(country.Name),
 				keyFlag: getFlagCode(country),
 			})
@@ -265,7 +265,7 @@ func (u *GameUsecase) generateGeographyQuestions(datasetID uuid.UUID, count int,
 					break
 				}
 				options = append(options, map[string]interface{}{
-					"slug": d.Slug,
+					keySlug: d.Slug,
 					keyName: parseCountryNamesByLang(d.Name),
 					keyFlag: getFlagCode(d),
 				})
@@ -282,7 +282,7 @@ func (u *GameUsecase) generateGeographyQuestions(datasetID uuid.UUID, count int,
 			data["variant"] = activeVariant
 
 			data["correct_answer"] = map[string]interface{}{
-				"slug": country.Slug,
+				keySlug: country.Slug,
 				keyName: parseCountryNamesByLang(country.Name),
 				keyFlag: getFlagCode(country),
 			}

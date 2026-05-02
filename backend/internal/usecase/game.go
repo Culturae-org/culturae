@@ -346,7 +346,7 @@ func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.
 
 		if snapshot, err := json.Marshal(map[string]interface{}{
 			keyName:               tmpl.Name,
-			"slug":               tmpl.Slug,
+			keySlug:               tmpl.Slug,
 			"category":           tmpl.Category,
 			"flag_variant":       tmpl.FlagVariant,
 			"question_type":      tmpl.QuestionType,
@@ -1061,7 +1061,7 @@ func (u *GameUsecase) LeaveGame(c *gin.Context, gameID, userID uuid.UUID) error 
 			playersFinal = append(playersFinal, map[string]interface{}{
 				keyUserPublicID: p.UserPublicID,
 				"username":       username,
-				"score":          p.Score,
+				keyScore:          p.Score,
 			})
 		}
 		if wasCancelled {
@@ -1281,7 +1281,7 @@ func (u *GameUsecase) SubmitAnswer(c *gin.Context, gameID, userID uuid.UUID, req
 		if slug == "" && len(req.Data) > 0 {
 			var dataMap map[string]interface{}
 			if err := json.Unmarshal(req.Data, &dataMap); err == nil {
-				if val, ok := dataMap["slug"].(string); ok {
+				if val, ok := dataMap[keySlug].(string); ok {
 					slug = val
 				}
 			}
@@ -1465,7 +1465,7 @@ func (u *GameUsecase) finalizeGame(c *gin.Context, gameID uuid.UUID) error {
 			keyType:      "game_results",
 			keyPublicID: gameModel.PublicID,
 			keyData: map[string]interface{}{
-				"score":     player.Score,
+				keyScore:     player.Score,
 				"xp_gained": xp,
 				"is_winner": isWinner,
 			},
@@ -1797,7 +1797,7 @@ func (u *GameUsecase) CancelGame(c *gin.Context, gameID, userID uuid.UUID) error
 			playersFinalData = append(playersFinalData, map[string]interface{}{
 				keyUserPublicID: p.PublicID,
 				"username":       p.Username,
-				"score":          p.Score,
+				keyScore:          p.Score,
 			})
 			if p.UserID != userID && p.PublicID != "" {
 				winnerPublicId = p.PublicID
@@ -1968,7 +1968,7 @@ func (u *GameUsecase) emitGameCompletedEvent(gameModel *model.Game, players []ga
 		playersFinal = append(playersFinal, map[string]interface{}{
 			keyUserPublicID: p.PublicID,
 			"username":       p.Username,
-			"score":          p.Score,
+			keyScore:          p.Score,
 		})
 	}
 
@@ -2050,7 +2050,7 @@ func (u *GameUsecase) HandleSubmitAnswer(userID uuid.UUID, gamePublicID string, 
 				answerSlug = slug
 			} else if idx, ok := payloadData["value"].(float64); ok {
 				answerSlug = fmt.Sprintf("%d", int(idx))
-			} else if slug, ok := payloadData["slug"].(string); ok {
+			} else if slug, ok := payloadData[keySlug].(string); ok {
 				answerSlug = slug
 			}
 		}
@@ -2329,7 +2329,7 @@ func (u *GameUsecase) GetGameStateForReconnect(gamePublicID string) (map[string]
 		playerSnapshots = append(playerSnapshots, map[string]interface{}{
 			keyUserPublicID: p.PublicID,
 			"username":       p.Username,
-			"score":          p.Score,
+			keyScore:          p.Score,
 		})
 	}
 

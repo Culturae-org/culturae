@@ -158,7 +158,7 @@ func (u *AdminQuestionsUsecase) ImportFromManifest(manifestURL string) (*model.I
 	}
 
 	u.logger.Info("Dataset created",
-		zap.String("slug", dataset.Slug),
+		zap.String(keySlug, dataset.Slug),
 		zap.String("id", dataset.ID.String()),
 	)
 
@@ -587,7 +587,7 @@ func (u *AdminQuestionsUsecase) importEntitiesWithChecksum(url string, entityTyp
 		if err != nil {
 			u.logger.Warn("Failed to find or create entity",
 				zap.String("type", entityType),
-				zap.String("slug", entity.Slug),
+				zap.String(keySlug, entity.Slug),
 				zap.Error(err),
 			)
 			continue
@@ -597,7 +597,7 @@ func (u *AdminQuestionsUsecase) importEntitiesWithChecksum(url string, entityTyp
 			if err := u.adminQuestionRepo.UpdateTheme(entity.Slug, entity.I18n); err != nil {
 				u.logger.Warn("Failed to update theme i18n",
 					zap.String("type", entityType),
-					zap.String("slug", entity.Slug),
+					zap.String(keySlug, entity.Slug),
 					zap.Error(err),
 				)
 			}

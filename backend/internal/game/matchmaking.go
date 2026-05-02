@@ -157,7 +157,7 @@ func (s *MatchmakingService) JoinQueue(userID uuid.UUID, mode model.GameMode, ga
 	tsCancel()
 
 	s.logger.Info("User joined matchmaking queue",
-		zap.String("user_id", userStr),
+		zap.String(keyUserID, userStr),
 		zap.String("mode", string(mode)),
 		zap.Any("params", gameParams),
 	)
@@ -212,7 +212,7 @@ func (s *MatchmakingService) LeaveQueue(userID uuid.UUID, mode model.GameMode) e
 	delCancel()
 
 	s.logger.Info("User left matchmaking queue",
-		zap.String("user_id", userID.String()),
+		zap.String(keyUserID, userID.String()),
 		zap.String("mode", string(mode)),
 	)
 

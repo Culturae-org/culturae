@@ -40,9 +40,9 @@ func NewAdminLogsHandler(
 
 func (lc *AdminLogsHandler) GetAdminActionLogs(c *gin.Context) {
 	pag := pagination.Parse(c, pagination.AdminConfig())
-	startDate, endDate := httputil.QueryDateRange(c, "start_date", "end_date")
+	startDate, endDate := httputil.QueryDateRange(c, keyStartDate, keyEndDate)
 
-	action := httputil.QueryString(c, "action")
+	action := httputil.QueryString(c, keyAction)
 	resource := httputil.QueryString(c, "resource")
 
 	logs, total, err := lc.Usecase.GetAdminActionLogs(
@@ -64,12 +64,12 @@ func (lc *AdminLogsHandler) GetAdminActionLogs(c *gin.Context) {
 
 func (lc *AdminLogsHandler) GetUserActionLogs(c *gin.Context) {
 	pag := pagination.Parse(c, pagination.AdminConfig())
-	startDate, endDate := httputil.QueryDateRange(c, "start_date", "end_date")
+	startDate, endDate := httputil.QueryDateRange(c, keyStartDate, keyEndDate)
 
 	logs, total, err := lc.Usecase.GetUserActionLogs(
 		pag.Limit, pag.Offset,
-		httputil.QueryUUID(c, "user_id"),
-		httputil.QueryString(c, "action"),
+		httputil.QueryUUID(c, keyUserID),
+		httputil.QueryString(c, keyAction),
 		httputil.QueryString(c, "category"),
 		startDate, endDate,
 	)
@@ -96,12 +96,12 @@ func (lc *AdminLogsHandler) GetUserActionLogsByID(c *gin.Context) {
 	}
 
 	pag := pagination.Parse(c, pagination.AdminConfig())
-	startDate, endDate := httputil.QueryDateRange(c, "start_date", "end_date")
+	startDate, endDate := httputil.QueryDateRange(c, keyStartDate, keyEndDate)
 
 	logs, total, err := lc.Usecase.GetUserActionLogs(
 		pag.Limit, pag.Offset,
 		&uuid,
-		httputil.QueryString(c, "action"),
+		httputil.QueryString(c, keyAction),
 		httputil.QueryString(c, "category"),
 		startDate, endDate,
 	)
@@ -116,12 +116,12 @@ func (lc *AdminLogsHandler) GetUserActionLogsByID(c *gin.Context) {
 
 func (lc *AdminLogsHandler) GetAllUserActionLogs(c *gin.Context) {
 	pag := pagination.Parse(c, pagination.AdminConfig())
-	startDate, endDate := httputil.QueryDateRange(c, "start_date", "end_date")
+	startDate, endDate := httputil.QueryDateRange(c, keyStartDate, keyEndDate)
 
 	logs, total, err := lc.Usecase.GetUserActionLogs(
 		pag.Limit, pag.Offset,
 		nil,
-		httputil.QueryString(c, "action"),
+		httputil.QueryString(c, keyAction),
 		httputil.QueryString(c, "category"),
 		startDate, endDate,
 	)
@@ -136,11 +136,11 @@ func (lc *AdminLogsHandler) GetAllUserActionLogs(c *gin.Context) {
 
 func (lc *AdminLogsHandler) GetConnectionLogs(c *gin.Context) {
 	pag := pagination.Parse(c, pagination.AdminConfig())
-	startDate, endDate := httputil.QueryDateRange(c, "start_date", "end_date")
+	startDate, endDate := httputil.QueryDateRange(c, keyStartDate, keyEndDate)
 
 	logs, total, err := lc.Usecase.GetConnectionLogs(
 		pag.Limit, pag.Offset,
-		httputil.QueryUUID(c, "user_id"),
+		httputil.QueryUUID(c, keyUserID),
 		httputil.QueryBool(c, "is_success"),
 		startDate, endDate,
 	)
@@ -154,7 +154,7 @@ func (lc *AdminLogsHandler) GetConnectionLogs(c *gin.Context) {
 }
 
 func (lc *AdminLogsHandler) GetAPIRequestStats(c *gin.Context) {
-	startDate, endDate := httputil.QueryDateRange(c, "start_date", "end_date")
+	startDate, endDate := httputil.QueryDateRange(c, keyStartDate, keyEndDate)
 
 	stats, err := lc.Usecase.GetAPIRequestStats(startDate, endDate)
 	if err != nil {
@@ -166,7 +166,7 @@ func (lc *AdminLogsHandler) GetAPIRequestStats(c *gin.Context) {
 }
 
 func (lc *AdminLogsHandler) GetAdminActionStats(c *gin.Context) {
-	startDate, endDate := httputil.QueryDateRange(c, "start_date", "end_date")
+	startDate, endDate := httputil.QueryDateRange(c, keyStartDate, keyEndDate)
 
 	stats, err := lc.Usecase.GetAdminActionStats(startDate, endDate)
 	if err != nil {
@@ -178,7 +178,7 @@ func (lc *AdminLogsHandler) GetAdminActionStats(c *gin.Context) {
 }
 
 func (lc *AdminLogsHandler) GetUserActionStats(c *gin.Context) {
-	startDate, endDate := httputil.QueryDateRange(c, "start_date", "end_date")
+	startDate, endDate := httputil.QueryDateRange(c, keyStartDate, keyEndDate)
 
 	stats, err := lc.Usecase.GetUserActionStats(startDate, endDate)
 	if err != nil {
@@ -190,7 +190,7 @@ func (lc *AdminLogsHandler) GetUserActionStats(c *gin.Context) {
 }
 
 func (lc *AdminLogsHandler) GetAPIRequestTimestamps(c *gin.Context) {
-	startDate, endDate := httputil.QueryDateRange(c, "start_date", "end_date")
+	startDate, endDate := httputil.QueryDateRange(c, keyStartDate, keyEndDate)
 
 	timestamps, err := lc.Usecase.GetAPIRequestTimestamps(
 		httputil.QueryString(c, "method"),

@@ -48,12 +48,12 @@ func (ac *AdminUserHandler) DeactivateUser(c *gin.Context) {
 	}
 
 	details := map[string]interface{}{
-		"action":          "deactivate",
+		keyAction:          "deactivate",
 		"new_status":      "inactive",
 		"previous_status": currentUser.AccountStatus,
-		"user_id":         currentUser.ID,
-		"user_email":      currentUser.Email,
-		"user_username":   currentUser.Username,
+		keyUserID:         currentUser.ID,
+		keyUserEmail:      currentUser.Email,
+		keyUserUsername:   currentUser.Username,
 	}
 
 	if err := ac.Usecase.DeactivateUserByID(id); err != nil {
@@ -72,8 +72,8 @@ func (ac *AdminUserHandler) DeactivateUser(c *gin.Context) {
 	ac.wsService.BroadcastAdminNotification(service.AdminNotification{
 		Event: "user_deactivated",
 		Data: map[string]interface{}{
-			"action":          "deactivate",
-			"admin_name":      adminName,
+			keyAction:          "deactivate",
+			keyAdminName:      adminName,
 			"target_username": currentUser.Username,
 		},
 		EntityType: "user",
@@ -112,9 +112,9 @@ func (ac *AdminUserHandler) UpdateUserStatus(c *gin.Context) {
 	details := map[string]interface{}{
 		"new_status":      statusUpdate.AccountStatus,
 		"previous_status": currentUser.AccountStatus,
-		"user_id":         currentUser.ID,
-		"user_email":      currentUser.Email,
-		"user_username":   currentUser.Username,
+		keyUserID:         currentUser.ID,
+		keyUserEmail:      currentUser.Email,
+		keyUserUsername:   currentUser.Username,
 	}
 
 	if updateStatusErr := ac.Usecase.UpdateUserStatusByID(id, statusUpdate.AccountStatus); updateStatusErr != nil {
@@ -134,8 +134,8 @@ func (ac *AdminUserHandler) UpdateUserStatus(c *gin.Context) {
 	ac.wsService.BroadcastAdminNotification(service.AdminNotification{
 		Event: "user_status_updated",
 		Data: map[string]interface{}{
-			"action":          "status_" + statusUpdate.AccountStatus,
-			"admin_name":      adminName,
+			keyAction:          "status_" + statusUpdate.AccountStatus,
+			keyAdminName:      adminName,
 			"target_username": currentUser.Username,
 		},
 		EntityType: "user",
@@ -179,9 +179,9 @@ func (ac *AdminUserHandler) BanUser(c *gin.Context) {
 		"duration":        banReq.Duration,
 		"reason":          banReq.Reason,
 		"previous_status": currentUser.AccountStatus,
-		"user_id":         currentUser.ID,
-		"user_email":      currentUser.Email,
-		"user_username":   currentUser.Username,
+		keyUserID:         currentUser.ID,
+		keyUserEmail:      currentUser.Email,
+		keyUserUsername:   currentUser.Username,
 	}
 
 	updatedUser, err := ac.Usecase.BanUser(id, banReq.Duration, banReq.Reason)
@@ -201,8 +201,8 @@ func (ac *AdminUserHandler) BanUser(c *gin.Context) {
 	ac.wsService.BroadcastAdminNotification(service.AdminNotification{
 		Event: "user_banned",
 		Data: map[string]interface{}{
-			"action":          "ban",
-			"admin_name":      adminName,
+			keyAction:          "ban",
+			keyAdminName:      adminName,
 			"target_username": currentUser.Username,
 		},
 		EntityType: "user",
@@ -233,9 +233,9 @@ func (ac *AdminUserHandler) UnbanUser(c *gin.Context) {
 
 	details := map[string]interface{}{
 		"previous_status": currentUser.AccountStatus,
-		"user_id":         currentUser.ID,
-		"user_email":      currentUser.Email,
-		"user_username":   currentUser.Username,
+		keyUserID:         currentUser.ID,
+		keyUserEmail:      currentUser.Email,
+		keyUserUsername:   currentUser.Username,
 	}
 
 	updatedUser, err := ac.Usecase.UnbanUser(id)
@@ -255,8 +255,8 @@ func (ac *AdminUserHandler) UnbanUser(c *gin.Context) {
 	ac.wsService.BroadcastAdminNotification(service.AdminNotification{
 		Event: "user_unbanned",
 		Data: map[string]interface{}{
-			"action":          "unban",
-			"admin_name":      adminName,
+			keyAction:          "unban",
+			keyAdminName:      adminName,
 			"target_username": currentUser.Username,
 		},
 		EntityType: "user",
@@ -292,9 +292,9 @@ func (ac *AdminUserHandler) RegeneratePublicID(c *gin.Context) {
 
 	oldPublicID := currentUser.PublicID
 	details := map[string]interface{}{
-		"user_id":       currentUser.ID,
-		"user_email":    currentUser.Email,
-		"user_username": currentUser.Username,
+		keyUserID:       currentUser.ID,
+		keyUserEmail:    currentUser.Email,
+		keyUserUsername: currentUser.Username,
 		"old_public_id": oldPublicID,
 	}
 
@@ -342,12 +342,12 @@ func (ac *AdminUserHandler) GetUserRoleStats(c *gin.Context) {
 func (ac *AdminUserHandler) GetUserCreationDates(c *gin.Context) {
 	var startDate, endDate *time.Time
 
-	if start := c.Query("start_date"); start != "" {
+	if start := c.Query(keyStartDate); start != "" {
 		if t, err := time.Parse("2006-01-02", start); err == nil {
 			startDate = &t
 		}
 	}
-	if end := c.Query("end_date"); end != "" {
+	if end := c.Query(keyEndDate); end != "" {
 		if t, err := time.Parse("2006-01-02", end); err == nil {
 			endDate = &t
 		}

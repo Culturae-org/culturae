@@ -72,7 +72,7 @@ func (qc *AdminQuestionHandler) CreateQuestion(c *gin.Context) {
 		adminName := c.GetString("username")
 		go func() {
 			if err := qc.LoggingService.LogAdminAction(adminID, adminName, "question_create", "question", &question.ID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"slug":       question.Slug,
+				keySlug:       question.Slug,
 				"theme":      question.Theme,
 				"difficulty": question.Difficulty,
 			}, true, nil); err != nil {
@@ -102,7 +102,7 @@ func (qc *AdminQuestionHandler) GetQuestion(c *gin.Context) {
 }
 
 func (qc *AdminQuestionHandler) GetQuestionBySlug(c *gin.Context) {
-	slug := c.Param("slug")
+	slug := c.Param(keySlug)
 	datasetIDStr := c.Query("dataset_id")
 
 	var datasetID *uuid.UUID
@@ -149,7 +149,7 @@ func (qc *AdminQuestionHandler) UpdateQuestion(c *gin.Context) {
 		adminName := c.GetString("username")
 		go func() {
 			if err := qc.LoggingService.LogAdminAction(adminID, adminName, "question_update", "question", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"slug":       question.Slug,
+				keySlug:       question.Slug,
 				"theme":      question.Theme,
 				"difficulty": question.Difficulty,
 			}, true, nil); err != nil {
@@ -186,7 +186,7 @@ func (qc *AdminQuestionHandler) DeleteQuestion(c *gin.Context) {
 		adminName := c.GetString("username")
 		go func() {
 			if err := qc.LoggingService.LogAdminAction(adminID, adminName, "question_delete", "question", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"slug":       question.Slug,
+				keySlug:       question.Slug,
 				"theme":      question.Theme,
 				"difficulty": question.Difficulty,
 			}, true, nil); err != nil {

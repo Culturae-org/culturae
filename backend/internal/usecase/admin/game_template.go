@@ -381,7 +381,7 @@ func (u *AdminGameTemplatesUsecase) SeedDefaultGameTemplates() (int, error) {
 			DescI18n:         d.descI18n,
 		}
 		if err := u.templateRepo.Create(t); err != nil {
-			u.logger.Warn("Failed to seed game template", zap.String("slug", d.slug), zap.Error(err))
+			u.logger.Warn("Failed to seed game template", zap.String(keySlug, d.slug), zap.Error(err))
 			continue
 		}
 		created++

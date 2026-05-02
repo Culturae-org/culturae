@@ -174,7 +174,7 @@ func (rgm *RedisGameManager) loadCountdownConfig() model.CountdownConfig {
 
 type GameStateData struct {
 	ID          uuid.UUID         `json:"id"`
-	PublicID    string            `json:keyPublicID`
+	PublicID    string            `json:"public_id"`
 	Mode        model.GameMode    `json:"mode"`
 	Status      model.GameStatus  `json:"status"`
 	Players     []Player          `json:"players"`
@@ -224,7 +224,7 @@ func (rgm *RedisGameManager) SaveGame(game GameEngine) error {
 	defer cancel()
 	if err := rgm.redisService.SetJSON(ctx, key, state, rgm.gameStateTTL(game.GetStatus())); err != nil {
 		rgm.logger.Error("Failed to save game to Redis",
-			zap.String("game_id", game.GetID().String()),
+			zap.String(keyGameID, game.GetID().String()),
 			zap.Error(err),
 		)
 		return fmt.Errorf("failed to save game: %w", err)
@@ -352,7 +352,7 @@ func (rgm *RedisGameManager) CreateGame(
 	}
 
 	rgm.logger.Info("Game created in Redis",
-		zap.String("game_id", gameID.String()),
+		zap.String(keyGameID, gameID.String()),
 		zap.String(keyPublicID, publicID),
 		zap.String("mode", string(mode)),
 	)
@@ -384,7 +384,7 @@ func (rgm *RedisGameManager) CreateGameWithPlayers(
 
 	for _, pid := range playerIDs {
 		if err := rgm.AddPlayerToGame(gameID, pid); err != nil {
-			rgm.logger.Warn("Failed to auto-add player to match", zap.String("game_id", gameID.String()), zap.String("user_id", pid.String()), zap.Error(err))
+			rgm.logger.Warn("Failed to auto-add player to match", zap.String(keyGameID, gameID.String()), zap.String(keyUserID, pid.String()), zap.Error(err))
 		}
 	}
 
@@ -411,7 +411,7 @@ func (rgm *RedisGameManager) RemoveGame(gameID uuid.UUID) error {
 	_ = rgm.RemoveQuestionTimeout(gameID)
 
 	rgm.logger.Info("Game removed from Redis",
-		zap.String("game_id", gameID.String()),
+		zap.String(keyGameID, gameID.String()),
 	)
 
 	return nil
@@ -446,8 +446,8 @@ func (rgm *RedisGameManager) doAddPlayerToGame(gameID, userID uuid.UUID) error {
 	}
 
 	rgm.logger.Info("Player added to game",
-		zap.String("game_id", gameID.String()),
-		zap.String("user_id", userID.String()),
+		zap.String(keyGameID, gameID.String()),
+		zap.String(keyUserID, userID.String()),
 	)
 
 	rgm.EmitEvent(GameEvent{
@@ -496,8 +496,8 @@ func (rgm *RedisGameManager) RemovePlayerFromGame(gameID, userID uuid.UUID) erro
 	}
 
 	rgm.logger.Info("Player removed from game",
-		zap.String("game_id", gameID.String()),
-		zap.String("user_id", userID.String()),
+		zap.String(keyGameID, gameID.String()),
+		zap.String(keyUserID, userID.String()),
 	)
 
 	rgm.EmitEvent(GameEvent{
@@ -516,16 +516,16 @@ func (rgm *RedisGameManager) MarkPlayerDisconnected(gameID, userID uuid.UUID) er
 	game, err := rgm.GetGame(gameID)
 	if err != nil {
 		rgm.logger.Warn("MarkPlayerDisconnected: game not found",
-			zap.String("game_id", gameID.String()),
-			zap.String("user_id", userID.String()),
+			zap.String(keyGameID, gameID.String()),
+			zap.String(keyUserID, userID.String()),
 			zap.Error(err),
 		)
 		return nil
 	}
 	if err := game.DisconnectPlayer(userID); err != nil {
 		rgm.logger.Warn("MarkPlayerDisconnected: DisconnectPlayer failed",
-			zap.String("game_id", gameID.String()),
-			zap.String("user_id", userID.String()),
+			zap.String(keyGameID, gameID.String()),
+			zap.String(keyUserID, userID.String()),
 			zap.Error(err),
 		)
 		return nil
@@ -580,16 +580,16 @@ func (rgm *RedisGameManager) MarkPlayerReconnected(gameID, userID uuid.UUID) err
 	game, err := rgm.GetGame(gameID)
 	if err != nil {
 		rgm.logger.Warn("MarkPlayerReconnected: game not found",
-			zap.String("game_id", gameID.String()),
-			zap.String("user_id", userID.String()),
+			zap.String(keyGameID, gameID.String()),
+			zap.String(keyUserID, userID.String()),
 			zap.Error(err),
 		)
 		return nil
 	}
 	if err := game.ReconnectPlayer(userID); err != nil {
 		rgm.logger.Warn("MarkPlayerReconnected: ReconnectPlayer failed",
-			zap.String("game_id", gameID.String()),
-			zap.String("user_id", userID.String()),
+			zap.String(keyGameID, gameID.String()),
+			zap.String(keyUserID, userID.String()),
 			zap.Error(err),
 		)
 		return nil
@@ -627,7 +627,7 @@ func (rgm *RedisGameManager) MarkPlayerReconnected(gameID, userID uuid.UUID) err
 				questionRemainingMs = remaining.Milliseconds()
 				if err := rgm.RegisterQuestionTimeout(gameID, time.Now().Add(remaining)); err != nil {
 					rgm.logger.Warn("Failed to re-register question timeout after reconnect",
-						zap.String("game_id", gameID.String()),
+						zap.String(keyGameID, gameID.String()),
 						zap.Error(err),
 					)
 				}
@@ -747,7 +747,7 @@ func (rgm *RedisGameManager) doHandleReconnectTimeout(gameID, disconnectedUserID
 					questionRemainingMs = remaining.Milliseconds()
 					if err := rgm.RegisterQuestionTimeout(gameID, time.Now().Add(remaining)); err != nil {
 						rgm.logger.Error("Failed to re-register question timeout after reconnect timeout",
-							zap.String("game_id", gameID.String()),
+							zap.String(keyGameID, gameID.String()),
 							zap.Error(err),
 						)
 					}
@@ -789,8 +789,8 @@ func (rgm *RedisGameManager) SetPlayerReady(gameID, userID uuid.UUID, ready bool
 	}
 
 	rgm.logger.Info("Player ready status updated",
-		zap.String("game_id", gameID.String()),
-		zap.String("user_id", userID.String()),
+		zap.String(keyGameID, gameID.String()),
+		zap.String(keyUserID, userID.String()),
 		zap.Bool("ready", ready),
 	)
 
@@ -859,7 +859,7 @@ func (rgm *RedisGameManager) StartGame(gameID uuid.UUID) error {
 					return rgm.doStartGame(gameID, freshGame)
 				}); err != nil {
 					rgm.logger.Error("Failed to start game after countdown",
-						zap.String("game_id", gameID.String()),
+						zap.String(keyGameID, gameID.String()),
 						zap.Error(err),
 					)
 				}
@@ -873,7 +873,7 @@ func (rgm *RedisGameManager) StartGame(gameID uuid.UUID) error {
 
 func (rgm *RedisGameManager) doStartGame(gameID uuid.UUID, game GameEngine) error {
 	if err := game.Start(); err != nil {
-		rgm.logger.Warn("doStartGame: game.Start failed", zap.String("game_id", gameID.String()), zap.Error(err))
+		rgm.logger.Warn("doStartGame: game.Start failed", zap.String(keyGameID, gameID.String()), zap.Error(err))
 		return err
 	}
 
@@ -885,12 +885,12 @@ func (rgm *RedisGameManager) doStartGame(gameID uuid.UUID, game GameEngine) erro
 	}
 
 	if err := rgm.SaveGame(game); err != nil {
-		rgm.logger.Warn("doStartGame: SaveGame failed", zap.String("game_id", gameID.String()), zap.Error(err))
+		rgm.logger.Warn("doStartGame: SaveGame failed", zap.String(keyGameID, gameID.String()), zap.Error(err))
 		return err
 	}
 
 	rgm.logger.Info("Game started",
-		zap.String("game_id", gameID.String()),
+		zap.String(keyGameID, gameID.String()),
 	)
 
 	rgm.EmitEvent(GameEvent{
@@ -911,7 +911,7 @@ func (rgm *RedisGameManager) doStartGame(gameID uuid.UUID, game GameEngine) erro
 		expiresAt := time.Now().Add(time.Duration(estimatedSecs) * time.Second)
 		if err := rgm.RegisterQuestionTimeout(gameID, expiresAt); err != nil {
 			rgm.logger.Warn("Failed to register question timeout",
-				zap.String("game_id", gameID.String()),
+				zap.String(keyGameID, gameID.String()),
 				zap.Error(err),
 			)
 		}
@@ -1033,7 +1033,7 @@ func (rgm *RedisGameManager) doSubmitAnswer(gameID, userID uuid.UUID, answer Ans
 				expiresAt := time.Now().Add(time.Duration(nextEstimatedSecs) * time.Second)
 				if err := rgm.RegisterQuestionTimeout(gameID, expiresAt); err != nil {
 					rgm.logger.Warn("Failed to register question timeout",
-						zap.String("game_id", gameID.String()),
+						zap.String(keyGameID, gameID.String()),
 						zap.Error(err),
 					)
 				}
@@ -1104,8 +1104,8 @@ func (rgm *RedisGameManager) doSubmitAnswer(gameID, userID uuid.UUID, answer Ans
 	}
 
 	rgm.logger.Info("Answer submitted",
-		zap.String("game_id", gameID.String()),
-		zap.String("user_id", userID.String()),
+		zap.String(keyGameID, gameID.String()),
+		zap.String(keyUserID, userID.String()),
 		zap.Bool("is_correct", validatedAnswer.IsCorrect),
 		zap.Int("points", validatedAnswer.Points),
 	)
@@ -1128,7 +1128,7 @@ func (rgm *RedisGameManager) CancelGame(gameID uuid.UUID) error {
 	}
 
 	rgm.logger.Info("Game cancelled",
-		zap.String("game_id", gameID.String()),
+		zap.String(keyGameID, gameID.String()),
 	)
 
 	rgm.EmitEvent(GameEvent{
@@ -1220,7 +1220,7 @@ func (rgm *RedisGameManager) EmitEvent(event GameEvent) {
 	default:
 		rgm.logger.Warn("Event channel full, dropping event",
 			zap.String("event_type", event.Type),
-			zap.String("game_id", event.GameID.String()),
+			zap.String(keyGameID, event.GameID.String()),
 		)
 	}
 }
@@ -1242,7 +1242,7 @@ func (rgm *RedisGameManager) CleanupFinishedGames() (int, error) {
 		if game.IsFinished() {
 			if err := rgm.RemoveGame(gameID); err != nil {
 				rgm.logger.Error("Failed to remove finished game",
-					zap.String("game_id", gameID.String()),
+					zap.String(keyGameID, gameID.String()),
 					zap.Error(err),
 				)
 				continue
@@ -1273,7 +1273,7 @@ func (rgm *RedisGameManager) RegisterQuestionTimeout(gameID uuid.UUID, expiresAt
 	})
 	if err != nil {
 		rgm.logger.Error("Failed to register question timeout",
-			zap.String("game_id", gameID.String()),
+			zap.String(keyGameID, gameID.String()),
 			zap.Error(err),
 		)
 		return err
@@ -1287,7 +1287,7 @@ func (rgm *RedisGameManager) RemoveQuestionTimeout(gameID uuid.UUID) error {
 	err := rgm.redisService.ZRem(ctx, questionTimeoutZSetKey, gameID.String())
 	if err != nil {
 		rgm.logger.Warn("Failed to remove question timeout",
-			zap.String("game_id", gameID.String()),
+			zap.String(keyGameID, gameID.String()),
 			zap.Error(err),
 		)
 	}
@@ -1351,7 +1351,7 @@ func (rgm *RedisGameManager) handleSingleGameTimeout(gameID uuid.UUID, now time.
 		return nil
 	}); err != nil {
 		rgm.logger.Warn("Failed to acquire lock for question timeout",
-			zap.String("game_id", gameID.String()),
+			zap.String(keyGameID, gameID.String()),
 			zap.Error(err),
 		)
 	}
@@ -1389,7 +1389,7 @@ func (rgm *RedisGameManager) doHandleSingleGameTimeout(gameID uuid.UUID, now tim
 
 	if saveErr := rgm.SaveGame(game); saveErr != nil {
 		rgm.logger.Warn("Failed to save game after question timeout",
-			zap.String("game_id", gameID.String()),
+			zap.String(keyGameID, gameID.String()),
 			zap.Error(saveErr),
 		)
 	}
@@ -1405,7 +1405,7 @@ func (rgm *RedisGameManager) doHandleSingleGameTimeout(gameID uuid.UUID, now tim
 		expiresAt := time.Now().Add(time.Duration(nextQuestion.EstimatedSeconds) * time.Second)
 		if err := rgm.RegisterQuestionTimeout(gameID, expiresAt); err != nil {
 			rgm.logger.Error("Failed to register question timeout on advance",
-				zap.String("game_id", gameID.String()),
+				zap.String(keyGameID, gameID.String()),
 				zap.Error(err),
 			)
 		}
@@ -1573,7 +1573,7 @@ func (rgm *RedisGameManager) applyPostGameRewards(
 		if xp > 0 {
 			if err := rgm.userRepo.AddExperience(p.UserID, xp, cfg); err != nil {
 				rgm.logger.Warn("Failed to add experience after game",
-					zap.String("user_id", p.UserID.String()),
+					zap.String(keyUserID, p.UserID.String()),
 					zap.Int64("xp", xp),
 					zap.Error(err),
 				)
@@ -1595,7 +1595,7 @@ func (rgm *RedisGameManager) applyPostGameRewards(
 					keyData: notifData,
 				}); err != nil {
 					rgm.logger.Warn("Failed to send XP notification",
-						zap.String("user_id", p.UserID.String()),
+						zap.String(keyUserID, p.UserID.String()),
 						zap.Error(err),
 					)
 				}
@@ -1604,7 +1604,7 @@ func (rgm *RedisGameManager) applyPostGameRewards(
 
 		if err := rgm.userRepo.UpdateGameStats(p.UserID, isWinner, isDrawn, p.Score, durationSecs, string(mode)); err != nil {
 			rgm.logger.Warn("Failed to update game stats after game",
-				zap.String("user_id", p.UserID.String()),
+				zap.String(keyUserID, p.UserID.String()),
 				zap.Error(err),
 			)
 		}
@@ -1648,7 +1648,7 @@ func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID
 	winnerUser, err := rgm.userRepo.GetByID(winnerPlayer.UserID.String())
 	if err != nil {
 		rgm.logger.Warn("Failed to load winner for ELO update",
-			zap.String("user_id", winnerPlayer.UserID.String()),
+			zap.String(keyUserID, winnerPlayer.UserID.String()),
 			zap.Error(err),
 		)
 		return
@@ -1663,7 +1663,7 @@ func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID
 		loserUser, err := rgm.userRepo.GetByID(loserPlayer.UserID.String())
 		if err != nil {
 			rgm.logger.Warn("Failed to load loser for ELO update",
-				zap.String("user_id", loserPlayer.UserID.String()),
+				zap.String(keyUserID, loserPlayer.UserID.String()),
 				zap.Error(err),
 			)
 			continue
@@ -1678,19 +1678,19 @@ func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID
 
 		if err := rgm.userRepo.UpdateEloRating(loserPlayer.UserID, newLoserElo); err != nil {
 			rgm.logger.Warn("Failed to update loser ELO",
-				zap.String("user_id", loserPlayer.UserID.String()),
+				zap.String(keyUserID, loserPlayer.UserID.String()),
 				zap.Int("new_elo", newLoserElo),
 				zap.Error(err),
 			)
 		} else {
 			rgm.logger.Info("Loser ELO updated",
-				zap.String("user_id", loserPlayer.UserID.String()),
+				zap.String(keyUserID, loserPlayer.UserID.String()),
 				zap.Int("old_elo", loserUser.EloRating),
 				zap.Int("new_elo", newLoserElo),
 			)
 			if rgm.userNotifier != nil {
 				if err := rgm.userNotifier.SendToUser(loserPlayer.UserID, map[string]interface{}{
-					"type": keyEloUpdated,
+					keyType: keyEloUpdated,
 					keyData: map[string]interface{}{
 						keyEloDelta: newLoserElo - loserUser.EloRating,
 						keyNewElo:   newLoserElo,
@@ -1698,7 +1698,7 @@ func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID
 					},
 				}); err != nil {
 					rgm.logger.Warn("Failed to send ELO notification to loser",
-						zap.String("user_id", loserPlayer.UserID.String()),
+						zap.String(keyUserID, loserPlayer.UserID.String()),
 						zap.Error(err),
 					)
 				}
@@ -1708,19 +1708,19 @@ func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID
 
 	if err := rgm.userRepo.UpdateEloRating(winnerPlayer.UserID, runningWinnerElo); err != nil {
 		rgm.logger.Warn("Failed to update winner ELO",
-			zap.String("user_id", winnerPlayer.UserID.String()),
+			zap.String(keyUserID, winnerPlayer.UserID.String()),
 			zap.Int("new_elo", runningWinnerElo),
 			zap.Error(err),
 		)
 	} else {
 		rgm.logger.Info("Winner ELO updated",
-			zap.String("user_id", winnerPlayer.UserID.String()),
+			zap.String(keyUserID, winnerPlayer.UserID.String()),
 			zap.Int("old_elo", winnerUser.EloRating),
 			zap.Int("new_elo", runningWinnerElo),
 		)
 		if rgm.userNotifier != nil {
 			if err := rgm.userNotifier.SendToUser(winnerPlayer.UserID, map[string]interface{}{
-				"type": keyEloUpdated,
+				keyType: keyEloUpdated,
 				keyData: map[string]interface{}{
 					keyEloDelta: runningWinnerElo - winnerUser.EloRating,
 					keyNewElo:   runningWinnerElo,
@@ -1728,7 +1728,7 @@ func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID
 				},
 			}); err != nil {
 				rgm.logger.Warn("Failed to send ELO notification to winner",
-					zap.String("user_id", winnerPlayer.UserID.String()),
+					zap.String(keyUserID, winnerPlayer.UserID.String()),
 					zap.Error(err),
 				)
 			}
@@ -1743,12 +1743,12 @@ func (rgm *RedisGameManager) applyEloUpdateDraw(players []Player) {
 
 	userA, err := rgm.userRepo.GetByID(players[0].UserID.String())
 	if err != nil {
-		rgm.logger.Warn("Failed to load player A for draw ELO", zap.String("user_id", players[0].UserID.String()), zap.Error(err))
+		rgm.logger.Warn("Failed to load player A for draw ELO", zap.String(keyUserID, players[0].UserID.String()), zap.Error(err))
 		return
 	}
 	userB, err := rgm.userRepo.GetByID(players[1].UserID.String())
 	if err != nil {
-		rgm.logger.Warn("Failed to load player B for draw ELO", zap.String("user_id", players[1].UserID.String()), zap.Error(err))
+		rgm.logger.Warn("Failed to load player B for draw ELO", zap.String(keyUserID, players[1].UserID.String()), zap.Error(err))
 		return
 	}
 
@@ -1772,19 +1772,19 @@ func (rgm *RedisGameManager) applyEloUpdateDraw(players []Player) {
 	} {
 		if err := rgm.userRepo.UpdateEloRating(pair.player.UserID, pair.newElo); err != nil {
 			rgm.logger.Warn("Failed to update ELO on draw",
-				zap.String("user_id", pair.player.UserID.String()),
+				zap.String(keyUserID, pair.player.UserID.String()),
 				zap.Error(err),
 			)
 			continue
 		}
 		rgm.logger.Info("Draw ELO updated",
-			zap.String("user_id", pair.player.UserID.String()),
+			zap.String(keyUserID, pair.player.UserID.String()),
 			zap.Int("old_elo", pair.oldElo),
 			zap.Int("new_elo", pair.newElo),
 		)
 		if rgm.userNotifier != nil {
 			_ = rgm.userNotifier.SendToUser(pair.player.UserID, map[string]interface{}{
-				"type": keyEloUpdated,
+				keyType: keyEloUpdated,
 				keyData: map[string]interface{}{
 					keyEloDelta: pair.newElo - pair.oldElo,
 					keyNewElo:   pair.newElo,
@@ -1799,15 +1799,15 @@ func (rgm *RedisGameManager) QueueForArchiving(game GameEngine) {
 	select {
 	case rgm.archiveQueue <- game:
 		rgm.logger.Info("Game queued for async archiving",
-			zap.String("game_id", game.GetID().String()),
+			zap.String(keyGameID, game.GetID().String()),
 		)
 	default:
 		rgm.logger.Warn("Archive queue full, archiving synchronously",
-			zap.String("game_id", game.GetID().String()),
+			zap.String(keyGameID, game.GetID().String()),
 		)
 		if err := rgm.ArchiveGame(game); err != nil {
 			rgm.logger.Error("Synchronous archive failed",
-				zap.String("game_id", game.GetID().String()),
+				zap.String(keyGameID, game.GetID().String()),
 				zap.Error(err),
 			)
 		}
@@ -1821,7 +1821,7 @@ func (rgm *RedisGameManager) archiveWithRetry(game GameEngine) {
 		lastErr = rgm.ArchiveGame(game)
 		if lastErr == nil {
 			rgm.logger.Info("Game archived successfully",
-				zap.String("game_id", game.GetID().String()),
+				zap.String(keyGameID, game.GetID().String()),
 			)
 			return
 		}
@@ -1830,7 +1830,7 @@ func (rgm *RedisGameManager) archiveWithRetry(game GameEngine) {
 		}
 	}
 	rgm.logger.Error("Failed to archive game after retries",
-		zap.String("game_id", game.GetID().String()),
+		zap.String(keyGameID, game.GetID().String()),
 		zap.Int("attempts", maxAttempts),
 		zap.Error(lastErr),
 	)

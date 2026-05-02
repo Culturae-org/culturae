@@ -377,7 +377,7 @@ func (u *AdminDatasetsUsecase) GetDatasetStatistics(datasetType string, id uuid.
 		return map[string]interface{}{
 			"dataset": map[string]interface{}{
 				"id":          dataset.ID,
-				"slug":        dataset.Slug,
+				keySlug:      dataset.Slug,
 				keyName:        dataset.Name,
 				keyVersion:     dataset.Version,
 				keyIsActive:   dataset.IsActive,
@@ -475,7 +475,7 @@ func (u *AdminDatasetsUsecase) CreateQuestionDataset(req *model.CreateDatasetReq
 	}
 
 	u.logger.Info("Question dataset created",
-		zap.String("slug", dataset.Slug),
+		zap.String(keySlug,dataset.Slug),
 		zap.String(keyName, dataset.Name),
 		zap.String(keyVersion, dataset.Version),
 		zap.Bool(keyIsDefault, dataset.IsDefault),
@@ -647,7 +647,7 @@ func (u *AdminDatasetsUsecase) CheckForUpdates(manifestURL string, datasetType s
 			currentVersion = manifest.Version
 			if isAutomatic {
 				u.logger.Info("Dataset version already exists",
-					zap.String("slug", slug),
+					zap.String(keySlug,slug),
 					zap.String(keyVersion, manifest.Version),
 				)
 			}
@@ -701,7 +701,7 @@ func (u *AdminDatasetsUsecase) CheckForUpdates(manifestURL string, datasetType s
 			currentVersion = manifest.Version
 			if isAutomatic {
 				u.logger.Info("Geography dataset version already exists",
-					zap.String("slug", slug),
+					zap.String(keySlug,slug),
 					zap.String(keyVersion, manifest.Version),
 				)
 			}

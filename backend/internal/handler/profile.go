@@ -91,35 +91,35 @@ func (pc *ProfileHandler) UpdateProfile(c *gin.Context) {
 	changes := make(map[string]map[string]interface{})
 
 	if req.Username != "" && req.Username != currentUser.Username {
-		changes["username"] = map[string]interface{}{"from": currentUser.Username, "to": req.Username}
+		changes["username"] = map[string]interface{}{keyFrom: currentUser.Username, keyTo: req.Username}
 		currentUser.Username = req.Username
 	}
 	if req.Email != "" && req.Email != currentUser.Email {
-		changes["email"] = map[string]interface{}{"from": currentUser.Email, "to": req.Email}
+		changes["email"] = map[string]interface{}{keyFrom: currentUser.Email, keyTo: req.Email}
 		currentUser.Email = req.Email
 	}
 	if req.IsProfilePublic != nil && *req.IsProfilePublic != currentUser.IsProfilePublic {
-		changes["is_profile_public"] = map[string]interface{}{"from": currentUser.IsProfilePublic, "to": *req.IsProfilePublic}
+		changes["is_profile_public"] = map[string]interface{}{keyFrom: currentUser.IsProfilePublic, keyTo: *req.IsProfilePublic}
 		currentUser.IsProfilePublic = *req.IsProfilePublic
 	}
 	if req.ShowOnlineStatus != nil && *req.ShowOnlineStatus != currentUser.ShowOnlineStatus {
-		changes["show_online_status"] = map[string]interface{}{"from": currentUser.ShowOnlineStatus, "to": *req.ShowOnlineStatus}
+		changes["show_online_status"] = map[string]interface{}{keyFrom: currentUser.ShowOnlineStatus, keyTo: *req.ShowOnlineStatus}
 		currentUser.ShowOnlineStatus = *req.ShowOnlineStatus
 	}
 	if req.AllowFriendRequests != nil && *req.AllowFriendRequests != currentUser.AllowFriendRequests {
-		changes["allow_friend_requests"] = map[string]interface{}{"from": currentUser.AllowFriendRequests, "to": *req.AllowFriendRequests}
+		changes["allow_friend_requests"] = map[string]interface{}{keyFrom: currentUser.AllowFriendRequests, keyTo: *req.AllowFriendRequests}
 		currentUser.AllowFriendRequests = *req.AllowFriendRequests
 	}
 	if req.AllowPartyInvites != nil && *req.AllowPartyInvites != currentUser.AllowPartyInvites {
-		changes["allow_party_invites"] = map[string]interface{}{"from": currentUser.AllowPartyInvites, "to": *req.AllowPartyInvites}
+		changes["allow_party_invites"] = map[string]interface{}{keyFrom: currentUser.AllowPartyInvites, keyTo: *req.AllowPartyInvites}
 		currentUser.AllowPartyInvites = *req.AllowPartyInvites
 	}
 	if req.Language != "" && req.Language != currentUser.Language {
-		changes["language"] = map[string]interface{}{"from": currentUser.Language, "to": req.Language}
+		changes["language"] = map[string]interface{}{keyFrom: currentUser.Language, keyTo: req.Language}
 		currentUser.Language = req.Language
 	}
 	if req.Bio != nil && (currentUser.Bio == nil || *req.Bio != *currentUser.Bio) {
-		changes["bio"] = map[string]interface{}{"from": currentUser.Bio, "to": *req.Bio}
+		changes["bio"] = map[string]interface{}{keyFrom: currentUser.Bio, keyTo: *req.Bio}
 		currentUser.Bio = req.Bio
 	}
 
@@ -130,7 +130,7 @@ func (pc *ProfileHandler) UpdateProfile(c *gin.Context) {
 			if pc.LoggingService != nil {
 				errorMsg := err.Error()
 				_ = pc.LoggingService.LogUserAction(userID, "profile_update", httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-					"error":             "failed_to_update_user",
+					keyError:             "failed_to_update_user",
 					"attempted_changes": changes,
 				}, false, &errorMsg)
 			}

@@ -83,7 +83,7 @@ func (dc *AdminDatasetsHandler) ListDatasets(c *gin.Context) {
 	defaultOnlyPtr := httputil.QueryBool(c, "default_only")
 	defaultOnly := defaultOnlyPtr != nil && *defaultOnlyPtr
 
-	datasetType := c.Query("dataset_type")
+	datasetType := c.Query(keyDatasetType)
 
 	var allDatasets []model.UnifiedDataset
 
@@ -115,7 +115,7 @@ func (dc *AdminDatasetsHandler) ListDatasets(c *gin.Context) {
 			})
 		}
 
-	case "questions":
+	case datasetTypeQuestions:
 		questions, err := dc.AdminDatasetsUsecase.ListQuestionDatasets(activeOnly)
 		if err != nil {
 			dc.logger.Error("Failed to list question datasets", zap.Error(err))
@@ -125,7 +125,7 @@ func (dc *AdminDatasetsHandler) ListDatasets(c *gin.Context) {
 		for _, qd := range questions {
 			allDatasets = append(allDatasets, model.UnifiedDataset{
 				ID:                     qd.ID,
-				Type:                   "questions",
+				Type:                   datasetTypeQuestions,
 				Slug:                   qd.Slug,
 				Name:                   qd.Name,
 				Description:            qd.Description,
@@ -154,7 +154,7 @@ func (dc *AdminDatasetsHandler) ListDatasets(c *gin.Context) {
 		for _, qd := range questions {
 			allDatasets = append(allDatasets, model.UnifiedDataset{
 				ID:                     qd.ID,
-				Type:                   "questions",
+				Type:                   datasetTypeQuestions,
 				Slug:                   qd.Slug,
 				Name:                   qd.Name,
 				Description:            qd.Description,
@@ -243,7 +243,7 @@ func (dc *AdminDatasetsHandler) GetDataset(c *gin.Context) {
 }
 
 func (dc *AdminDatasetsHandler) GetDatasetBySlug(c *gin.Context) {
-	slug := c.Param("slug")
+	slug := c.Param(keySlug)
 
 	qDataset, qErr := dc.AdminDatasetsUsecase.GetQuestionDatasetBySlug(slug)
 	if qErr == nil {
@@ -257,7 +257,7 @@ func (dc *AdminDatasetsHandler) GetDatasetBySlug(c *gin.Context) {
 		return
 	}
 
-	dc.logger.Error("Failed to get dataset by slug", zap.String("slug", slug), zap.Error(qErr), zap.Error(gErr))
+	dc.logger.Error("Failed to get dataset by slug", zap.String(keySlug, slug), zap.Error(qErr), zap.Error(gErr))
 	httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, "Dataset not found")
 }
 
@@ -280,8 +280,8 @@ func (dc *AdminDatasetsHandler) CreateDataset(c *gin.Context) {
 	if adminUUID != uuid.Nil {
 		go func() {
 			httputil.LogAdminAction(dc.LoggingService, adminUUID, adminName, "dataset_create", "dataset", &dataset.ID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"name":    dataset.Name,
-				"slug":    dataset.Slug,
+				keyName:    dataset.Name,
+				keySlug:    dataset.Slug,
 				"version": dataset.Version,
 			}, true, nil)
 		}()
@@ -316,8 +316,8 @@ func (dc *AdminDatasetsHandler) UpdateDataset(c *gin.Context) {
 	if adminUUID != uuid.Nil {
 		go func() {
 			httputil.LogAdminAction(dc.LoggingService, adminUUID, adminName, "dataset_update", "dataset", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-				"name":    dataset.Name,
-				"slug":    dataset.Slug,
+				keyName:    dataset.Name,
+				keySlug:    dataset.Slug,
 				"version": dataset.Version,
 			}, true, nil)
 		}()
@@ -337,7 +337,7 @@ func (dc *AdminDatasetsHandler) DeleteDataset(c *gin.Context) {
 	force := c.Query("force") == "true"
 
 	dc.logger.Info("Deleting dataset",
-		zap.String("type", "questions"),
+		zap.String("type", datasetTypeQuestions),
 		zap.String("id", idParam),
 		zap.Bool("force", force),
 	)
@@ -347,15 +347,15 @@ func (dc *AdminDatasetsHandler) DeleteDataset(c *gin.Context) {
 	realIP := httputil.GetRealIP(c)
 	userAgent := httputil.GetUserAgent(c)
 
-	if err := dc.AdminDatasetsUsecase.DeleteDataset("questions", id, force); err != nil {
+	if err := dc.AdminDatasetsUsecase.DeleteDataset(datasetTypeQuestions, id, force); err != nil {
 		dc.logger.Error("Failed to delete dataset", zap.String("id", idParam), zap.Error(err))
 
 		if adminUUID != uuid.Nil {
 			errorMsg := err.Error()
 			go func() {
 				httputil.LogAdminAction(dc.LoggingService, adminUUID, adminName, "dataset_delete", "dataset", &id, realIP, userAgent, map[string]interface{}{
-					"dataset_id": id,
-					"error":      errorMsg,
+					keyDatasetID: id,
+					keyError:      errorMsg,
 				}, false, &errorMsg)
 			}()
 		}
@@ -377,11 +377,11 @@ func (dc *AdminDatasetsHandler) DeleteDataset(c *gin.Context) {
 	if adminUUID != uuid.Nil {
 		go func() {
 			details := map[string]interface{}{
-				"dataset_id": id,
+				keyDatasetID: id,
 			}
 			if dataset != nil {
-				details["name"] = dataset.Name
-				details["slug"] = dataset.Slug
+				details[keyName] = dataset.Name
+				details[keySlug] = dataset.Slug
 			}
 			httputil.LogAdminAction(dc.LoggingService, adminUUID, adminName, "dataset_delete", "dataset", &id, realIP, userAgent, details, true, nil)
 		}()
@@ -412,8 +412,8 @@ func (dc *AdminDatasetsHandler) SetDefaultDataset(c *gin.Context) {
 			errorMsg := "Dataset not found"
 			go func() {
 				httputil.LogAdminAction(dc.LoggingService, adminUUID, adminName, "dataset_set_default", "dataset", &id, realIP, userAgent, map[string]interface{}{
-					"dataset_id": id,
-					"error":      errorMsg,
+					keyDatasetID: id,
+					keyError:      errorMsg,
 				}, false, &errorMsg)
 			}()
 		}
@@ -422,17 +422,17 @@ func (dc *AdminDatasetsHandler) SetDefaultDataset(c *gin.Context) {
 		return
 	}
 
-	if err := dc.AdminDatasetsUsecase.SetDefaultDataset("questions", id); err != nil {
+	if err := dc.AdminDatasetsUsecase.SetDefaultDataset(datasetTypeQuestions, id); err != nil {
 		dc.logger.Error("Failed to set default dataset", zap.String("id", idParam), zap.Error(err))
 
 		if adminUUID != uuid.Nil {
 			errorMsg := err.Error()
 			go func() {
 				httputil.LogAdminAction(dc.LoggingService, adminUUID, adminName, "dataset_set_default", "dataset", &id, realIP, userAgent, map[string]interface{}{
-					"dataset_id": id,
-					"name":       dataset.Name,
-					"slug":       dataset.Slug,
-					"error":      errorMsg,
+					keyDatasetID: id,
+					keyName:       dataset.Name,
+					keySlug:       dataset.Slug,
+					keyError:      errorMsg,
 				}, false, &errorMsg)
 			}()
 		}
@@ -444,8 +444,8 @@ func (dc *AdminDatasetsHandler) SetDefaultDataset(c *gin.Context) {
 	if adminUUID != uuid.Nil {
 		go func() {
 			httputil.LogAdminAction(dc.LoggingService, adminUUID, adminName, "dataset_set_default", "dataset", &id, realIP, userAgent, map[string]interface{}{
-				"name": dataset.Name,
-				"slug": dataset.Slug,
+				keyName: dataset.Name,
+				keySlug: dataset.Slug,
 			}, true, nil)
 		}()
 	}
@@ -454,7 +454,7 @@ func (dc *AdminDatasetsHandler) SetDefaultDataset(c *gin.Context) {
 }
 
 func (dc *AdminDatasetsHandler) GetDefaultDataset(c *gin.Context) {
-	dataset, err := dc.AdminDatasetsUsecase.GetDefaultDataset("questions")
+	dataset, err := dc.AdminDatasetsUsecase.GetDefaultDataset(datasetTypeQuestions)
 	if err != nil {
 		dc.logger.Error("Failed to get default dataset", zap.Error(err))
 		httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, "No default dataset found")
@@ -483,8 +483,8 @@ func (dc *AdminDatasetsHandler) ImportDataset(c *gin.Context) {
 	}
 
 	dc.logger.Info("Starting dataset import from manifest",
-		zap.String("manifest_url", req.ManifestURL),
-		zap.String("dataset_type", req.DatasetType),
+		zap.String(keyManifestURL, req.ManifestURL),
+		zap.String(keyDatasetType, req.DatasetType),
 		zap.Bool("set_as_default", req.SetAsDefault),
 		zap.Bool("force", req.Force),
 	)
@@ -502,9 +502,9 @@ func (dc *AdminDatasetsHandler) ImportDataset(c *gin.Context) {
 			errorMsg := err.Error()
 			go func() {
 				httputil.LogAdminAction(dc.LoggingService, adminUUID, adminName, "dataset_import", "dataset", nil, realIP, userAgent, map[string]interface{}{
-					"manifest_url": req.ManifestURL,
-					"error":        errorMsg,
-					"error_type":   "import_failed",
+					keyManifestURL: req.ManifestURL,
+					keyError:        errorMsg,
+					keyErrorType:   "import_failed",
 				}, false, &errorMsg)
 			}()
 		}
@@ -526,9 +526,9 @@ func (dc *AdminDatasetsHandler) ImportDataset(c *gin.Context) {
 				errorMsg := err.Error()
 				go func() {
 					httputil.LogAdminAction(dc.LoggingService, adminUUID, adminName, "dataset_import", "dataset", nil, realIP, userAgent, map[string]interface{}{
-						"manifest_url": req.ManifestURL,
-						"error":        errorMsg,
-						"error_type":   "find_imported_dataset_failed",
+						keyManifestURL: req.ManifestURL,
+						keyError:        errorMsg,
+						keyErrorType:   "find_imported_dataset_failed",
 					}, false, &errorMsg)
 				}()
 			}
@@ -537,17 +537,17 @@ func (dc *AdminDatasetsHandler) ImportDataset(c *gin.Context) {
 			return
 		}
 
-		if err := dc.AdminDatasetsUsecase.SetDefaultDataset("questions", dataset.ID); err != nil {
+		if err := dc.AdminDatasetsUsecase.SetDefaultDataset(datasetTypeQuestions, dataset.ID); err != nil {
 			dc.logger.Error("Failed to set dataset as default", zap.Error(err))
 
 			if adminUUID != uuid.Nil {
 				errorMsg := err.Error()
 				go func() {
 					httputil.LogAdminAction(dc.LoggingService, adminUUID, adminName, "dataset_import", "dataset", nil, realIP, userAgent, map[string]interface{}{
-						"manifest_url": req.ManifestURL,
-						"dataset_id":   dataset.ID,
-						"error":        errorMsg,
-						"error_type":   "set_default_failed",
+						keyManifestURL: req.ManifestURL,
+						keyDatasetID:   dataset.ID,
+						keyError:        errorMsg,
+						keyErrorType:   "set_default_failed",
 					}, false, &errorMsg)
 				}()
 			}
@@ -556,13 +556,13 @@ func (dc *AdminDatasetsHandler) ImportDataset(c *gin.Context) {
 			return
 		}
 
-		dc.logger.Info("Dataset set as default", zap.String("dataset_id", dataset.ID.String()))
+		dc.logger.Info("Dataset set as default", zap.String(keyDatasetID, dataset.ID.String()))
 	}
 
 	if adminUUID != uuid.Nil {
 		go func() {
 			logData := map[string]interface{}{
-				"manifest_url":   req.ManifestURL,
+				keyManifestURL:   req.ManifestURL,
 				"set_as_default": req.SetAsDefault,
 			}
 
@@ -585,8 +585,8 @@ func (dc *AdminDatasetsHandler) ImportDataset(c *gin.Context) {
 	}
 
 	notificationData := map[string]interface{}{
-		"dataset_type": req.DatasetType,
-		"admin_name":   c.GetString("username"),
+		keyDatasetType: req.DatasetType,
+		keyAdminName:   c.GetString("username"),
 	}
 
 	if req.DatasetType == "geography" {
@@ -625,12 +625,12 @@ func (dc *AdminDatasetsHandler) UpdateDatasetStatistics(c *gin.Context) {
 	if err := dc.AdminDatasetsUsecase.UpdateQuestionDatasetStatistics(id); err != nil {
 		dc.logger.Error("Failed to update dataset statistics", zap.String("id", idParam), zap.Error(err))
 		errMsg := err.Error()
-		httputil.LogAdminAction(dc.LoggingService, adminUUID, adminName, "dataset_update_stats", "dataset", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{"dataset_id": id}, false, &errMsg)
+		httputil.LogAdminAction(dc.LoggingService, adminUUID, adminName, "dataset_update_stats", "dataset", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{keyDatasetID: id}, false, &errMsg)
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
 		return
 	}
 
-	httputil.LogAdminAction(dc.LoggingService, adminUUID, adminName, "dataset_update_stats", "dataset", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{"dataset_id": id}, true, nil)
+	httputil.LogAdminAction(dc.LoggingService, adminUUID, adminName, "dataset_update_stats", "dataset", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{keyDatasetID: id}, true, nil)
 	httputil.SuccessWithMessage(c, http.StatusOK, "Statistics updated", nil)
 }
 
@@ -642,7 +642,7 @@ func (dc *AdminDatasetsHandler) GetDatasetStatistics(c *gin.Context) {
 		return
 	}
 
-	stats, err := dc.AdminDatasetsUsecase.GetDatasetStatistics("questions", id)
+	stats, err := dc.AdminDatasetsUsecase.GetDatasetStatistics(datasetTypeQuestions, id)
 	if err != nil {
 		dc.logger.Error("Failed to get dataset statistics", zap.String("id", idParam), zap.Error(err))
 		httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, err.Error())

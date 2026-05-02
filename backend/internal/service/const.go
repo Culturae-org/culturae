@@ -14,4 +14,6 @@ const (
 	msgSubmitAnswer  = "submit_answer"
 	msgPing             = "ping"
 	answerTypeMCQ       = "mcq"
+	keyUserID           = "user_id"
+	keyClientID         = "client_id"
 )

@@ -253,7 +253,7 @@ func (u *AdminGeographyUsecase) ImportGeographyFromManifest(manifestURL string) 
 	}
 
 	u.logger.Info("Dataset created",
-		zap.String("slug", dataset.Slug),
+		zap.String(keySlug, dataset.Slug),
 		zap.String("id", dataset.ID.String()),
 	)
 

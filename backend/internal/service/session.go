@@ -224,7 +224,7 @@ func (ss *SessionService) RefreshSession(
 			if ss.config.EnableReuseDetection {
 				if prevSession, prevErr := ss.sessionRepo.GetSessionByPreviousRefreshToken(refreshToken); prevErr == nil {
 					ss.logger.Warn("Refresh token reuse detected, revoking compromised session",
-						zap.String("user_id", prevSession.UserID.String()),
+						zap.String(keyUserID, prevSession.UserID.String()),
 						zap.String("session_id", prevSession.ID.String()),
 						zap.String("ip", prevSession.IPAddress),
 					)
