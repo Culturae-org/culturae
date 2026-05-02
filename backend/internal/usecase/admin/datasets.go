@@ -91,7 +91,7 @@ func (u *AdminDatasetsUsecase) ListAllDatasets(datasetType *string) ([]model.Uni
 					UpdateAvailable:        qd.LatestAvailableVersion != "" && qd.LatestAvailableVersion != qd.Version,
 					LatestAvailableVersion: qd.LatestAvailableVersion,
 					Stats: map[string]interface{}{
-						"question_count": qd.QuestionCount,
+						keyQuestionCount: qd.QuestionCount,
 						"theme_count":    qd.ThemeCount,
 					},
 				})
@@ -158,7 +158,7 @@ func (u *AdminDatasetsUsecase) GetDataset(datasetType string, id uuid.UUID) (*mo
 			IsDefault:   qd.IsDefault,
 			ImportedAt:  qd.ImportedAt,
 			Stats: map[string]interface{}{
-				"question_count": qd.QuestionCount,
+				keyQuestionCount: qd.QuestionCount,
 				"theme_count":    qd.ThemeCount,
 			},
 		}, nil
@@ -530,7 +530,7 @@ func (u *AdminDatasetsUsecase) UpdateQuestionDatasetStatistics(datasetID uuid.UU
 	}
 
 	return u.questionDatasetRepo.UpdateDataset(datasetID, map[string]interface{}{
-		"question_count": questionCount,
+		keyQuestionCount: questionCount,
 		"theme_count":    themeCount,
 	})
 }

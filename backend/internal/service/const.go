@@ -12,5 +12,6 @@ const (
 	msgJoinGame      = "join_game"
 	msgLeaveGame     = "leave_game"
 	msgSubmitAnswer  = "submit_answer"
-	msgPing          = "ping"
+	msgPing             = "ping"
+	answerTypeMCQ       = "mcq"
 )

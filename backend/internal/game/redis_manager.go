@@ -1591,7 +1591,7 @@ func (rgm *RedisGameManager) applyPostGameRewards(
 					notifData["total_xp"] = newUser.Experience
 				}
 				if err := rgm.userNotifier.SendToUser(p.UserID, map[string]interface{}{
-					"type": "xp_updated",
+					keyType: "xp_updated",
 					keyData: notifData,
 				}); err != nil {
 					rgm.logger.Warn("Failed to send XP notification",

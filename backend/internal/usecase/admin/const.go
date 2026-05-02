@@ -3,6 +3,7 @@ package admin
 const (
 	keyCountryCount   = "country_count"
 	keyContinentCount = "continent_count"
+	keyQuestionCount  = "question_count"
 
 	scoreModeClassic = "classic"
 
