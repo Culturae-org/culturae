@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const defaultHourlyCron = "0 * * * *"
+
 type WebSocketConfig struct {
 	WriteWaitSeconds int   `json:"write_wait_seconds"`
 	PongWaitSeconds  int   `json:"pong_wait_seconds"`
@@ -169,12 +171,12 @@ func DefaultSystemConfig() SystemConfig {
 		AnalyticsActiveDays:         1,
 		AnalyticsArchiveDays:        30,
 		DatasetCheckEnabled: false,
-		DatasetCheckCron:    "0 * * * *",
+		DatasetCheckCron:    defaultHourlyCron,
 		VersionCheckEnabled: false,
-		VersionCheckCron:    "0 * * * *",
+		VersionCheckCron:    defaultHourlyCron,
 
 		SessionCleanupEnabled: true,
-		SessionCleanupCron:    "0 * * * *",
+		SessionCleanupCron:    defaultHourlyCron,
 		GameCleanupEnabled:    true,
 		GameCleanupCron:       "*/5 * * * *",
 	}
