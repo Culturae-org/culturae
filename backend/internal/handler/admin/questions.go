@@ -73,8 +73,8 @@ func (qc *AdminQuestionHandler) CreateQuestion(c *gin.Context) {
 		go func() {
 			if err := qc.LoggingService.LogAdminAction(adminID, adminName, "question_create", "question", &question.ID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
 				keySlug:       question.Slug,
-				"theme":      question.Theme,
-				"difficulty": question.Difficulty,
+				keyTheme:      question.Theme,
+				keyDifficulty: question.Difficulty,
 			}, true, nil); err != nil {
 				qc.logger.Warn("Failed to log admin action", zap.Error(err))
 			}
@@ -150,8 +150,8 @@ func (qc *AdminQuestionHandler) UpdateQuestion(c *gin.Context) {
 		go func() {
 			if err := qc.LoggingService.LogAdminAction(adminID, adminName, "question_update", "question", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
 				keySlug:       question.Slug,
-				"theme":      question.Theme,
-				"difficulty": question.Difficulty,
+				keyTheme:      question.Theme,
+				keyDifficulty: question.Difficulty,
 			}, true, nil); err != nil {
 				qc.logger.Warn("Failed to log admin action", zap.Error(err))
 			}
@@ -187,8 +187,8 @@ func (qc *AdminQuestionHandler) DeleteQuestion(c *gin.Context) {
 		go func() {
 			if err := qc.LoggingService.LogAdminAction(adminID, adminName, "question_delete", "question", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
 				keySlug:       question.Slug,
-				"theme":      question.Theme,
-				"difficulty": question.Difficulty,
+				keyTheme:      question.Theme,
+				keyDifficulty: question.Difficulty,
 			}, true, nil); err != nil {
 				qc.logger.Warn("Failed to log admin action", zap.Error(err))
 			}
@@ -202,9 +202,9 @@ func (qc *AdminQuestionHandler) ListQuestions(c *gin.Context) {
 	pagination := pagination.Parse(c, pagination.AdminConfig())
 
 	datasetIDStr := c.Query("dataset_id")
-	themeStr := c.Query("theme")
+	themeStr := c.Query(keyTheme)
 	subthemeStr := c.Query("subtheme")
-	difficultyStr := c.Query("difficulty")
+	difficultyStr := c.Query(keyDifficulty)
 	qtypeStr := c.Query("qtype")
 	tagsStr := c.Query("tags")
 	searchQuery := c.Query("search")

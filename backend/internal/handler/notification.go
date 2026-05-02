@@ -82,7 +82,7 @@ func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 		return
 	}
 
-	httputil.Success(c, http.StatusOK, gin.H{"message": "marked as read"})
+	httputil.Success(c, http.StatusOK, gin.H{keyMessage: "marked as read"})
 }
 
 func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
@@ -97,5 +97,5 @@ func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
 		return
 	}
 
-	httputil.Success(c, http.StatusOK, gin.H{"message": "all notifications marked as read"})
+	httputil.Success(c, http.StatusOK, gin.H{keyMessage: "all notifications marked as read"})
 }

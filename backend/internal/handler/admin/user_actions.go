@@ -50,7 +50,7 @@ func (ac *AdminUserHandler) DeactivateUser(c *gin.Context) {
 	details := map[string]interface{}{
 		keyAction:          "deactivate",
 		"new_status":      "inactive",
-		"previous_status": currentUser.AccountStatus,
+		keyPreviousStatus: currentUser.AccountStatus,
 		keyUserID:         currentUser.ID,
 		keyUserEmail:      currentUser.Email,
 		keyUserUsername:   currentUser.Username,
@@ -59,14 +59,14 @@ func (ac *AdminUserHandler) DeactivateUser(c *gin.Context) {
 	if err := ac.Usecase.DeactivateUserByID(id); err != nil {
 		errorMsg := err.Error()
 		go func() {
-			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, false, &errorMsg)
+			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, false, &errorMsg)
 		}()
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to deactivate user")
 		return
 	}
 
 	go func() {
-		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, true, nil)
+		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, true, nil)
 	}()
 
 	ac.wsService.BroadcastAdminNotification(service.AdminNotification{
@@ -74,9 +74,9 @@ func (ac *AdminUserHandler) DeactivateUser(c *gin.Context) {
 		Data: map[string]interface{}{
 			keyAction:          "deactivate",
 			keyAdminName:      adminName,
-			"target_username": currentUser.Username,
+			keyTargetUsername: currentUser.Username,
 		},
-		EntityType: "user",
+		EntityType: entityUser,
 		EntityID:   currentUser.PublicID,
 		ActionURL:  "/users/" + currentUser.PublicID,
 	})
@@ -111,7 +111,7 @@ func (ac *AdminUserHandler) UpdateUserStatus(c *gin.Context) {
 
 	details := map[string]interface{}{
 		"new_status":      statusUpdate.AccountStatus,
-		"previous_status": currentUser.AccountStatus,
+		keyPreviousStatus: currentUser.AccountStatus,
 		keyUserID:         currentUser.ID,
 		keyUserEmail:      currentUser.Email,
 		keyUserUsername:   currentUser.Username,
@@ -120,7 +120,7 @@ func (ac *AdminUserHandler) UpdateUserStatus(c *gin.Context) {
 	if updateStatusErr := ac.Usecase.UpdateUserStatusByID(id, statusUpdate.AccountStatus); updateStatusErr != nil {
 		errorMsg := updateStatusErr.Error()
 		go func() {
-			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, false, &errorMsg)
+			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, false, &errorMsg)
 		}()
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to update user status")
 		return
@@ -128,7 +128,7 @@ func (ac *AdminUserHandler) UpdateUserStatus(c *gin.Context) {
 
 	action = "user_status_" + statusUpdate.AccountStatus
 	go func() {
-		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, true, nil)
+		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, true, nil)
 	}()
 
 	ac.wsService.BroadcastAdminNotification(service.AdminNotification{
@@ -136,9 +136,9 @@ func (ac *AdminUserHandler) UpdateUserStatus(c *gin.Context) {
 		Data: map[string]interface{}{
 			keyAction:          "status_" + statusUpdate.AccountStatus,
 			keyAdminName:      adminName,
-			"target_username": currentUser.Username,
+			keyTargetUsername: currentUser.Username,
 		},
-		EntityType: "user",
+		EntityType: entityUser,
 		EntityID:   currentUser.PublicID,
 		ActionURL:  "/users/" + currentUser.PublicID,
 	})
@@ -178,7 +178,7 @@ func (ac *AdminUserHandler) BanUser(c *gin.Context) {
 	details := map[string]interface{}{
 		"duration":        banReq.Duration,
 		"reason":          banReq.Reason,
-		"previous_status": currentUser.AccountStatus,
+		keyPreviousStatus: currentUser.AccountStatus,
 		keyUserID:         currentUser.ID,
 		keyUserEmail:      currentUser.Email,
 		keyUserUsername:   currentUser.Username,
@@ -188,14 +188,14 @@ func (ac *AdminUserHandler) BanUser(c *gin.Context) {
 	if err != nil {
 		errorMsg := err.Error()
 		go func() {
-			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, false, &errorMsg)
+			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, false, &errorMsg)
 		}()
 		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
 		return
 	}
 
 	go func() {
-		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, true, nil)
+		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, true, nil)
 	}()
 
 	ac.wsService.BroadcastAdminNotification(service.AdminNotification{
@@ -203,9 +203,9 @@ func (ac *AdminUserHandler) BanUser(c *gin.Context) {
 		Data: map[string]interface{}{
 			keyAction:          "ban",
 			keyAdminName:      adminName,
-			"target_username": currentUser.Username,
+			keyTargetUsername: currentUser.Username,
 		},
-		EntityType: "user",
+		EntityType: entityUser,
 		EntityID:   currentUser.PublicID,
 		ActionURL:  "/users/" + currentUser.PublicID,
 	})
@@ -232,7 +232,7 @@ func (ac *AdminUserHandler) UnbanUser(c *gin.Context) {
 	}
 
 	details := map[string]interface{}{
-		"previous_status": currentUser.AccountStatus,
+		keyPreviousStatus: currentUser.AccountStatus,
 		keyUserID:         currentUser.ID,
 		keyUserEmail:      currentUser.Email,
 		keyUserUsername:   currentUser.Username,
@@ -242,14 +242,14 @@ func (ac *AdminUserHandler) UnbanUser(c *gin.Context) {
 	if err != nil {
 		errorMsg := err.Error()
 		go func() {
-			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, false, &errorMsg)
+			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, false, &errorMsg)
 		}()
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to unban user")
 		return
 	}
 
 	go func() {
-		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, true, nil)
+		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, true, nil)
 	}()
 
 	ac.wsService.BroadcastAdminNotification(service.AdminNotification{
@@ -257,9 +257,9 @@ func (ac *AdminUserHandler) UnbanUser(c *gin.Context) {
 		Data: map[string]interface{}{
 			keyAction:          "unban",
 			keyAdminName:      adminName,
-			"target_username": currentUser.Username,
+			keyTargetUsername: currentUser.Username,
 		},
-		EntityType: "user",
+		EntityType: entityUser,
 		EntityID:   currentUser.PublicID,
 		ActionURL:  "/users/" + currentUser.PublicID,
 	})
@@ -301,7 +301,7 @@ func (ac *AdminUserHandler) RegeneratePublicID(c *gin.Context) {
 	if err := ac.Usecase.RegeneratePublicID(id); err != nil {
 		errorMsg := err.Error()
 		go func() {
-			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, false, &errorMsg)
+			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, false, &errorMsg)
 		}()
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to regenerate public ID")
 		return
@@ -315,7 +315,7 @@ func (ac *AdminUserHandler) RegeneratePublicID(c *gin.Context) {
 
 	details["new_public_id"] = updatedUser.PublicID
 	go func() {
-		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, true, nil)
+		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, true, nil)
 	}()
 
 	httputil.SuccessWithMessage(c, http.StatusOK, "Public ID regenerated successfully", updatedUser)

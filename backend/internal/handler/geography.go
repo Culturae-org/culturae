@@ -110,7 +110,7 @@ func (gc *GeographyHandler) GetCountries(c *gin.Context) {
 	}
 
 	limit := 50
-	if l, err := strconv.Atoi(c.DefaultQuery("limit", "50")); err == nil && l > 0 && l <= 300 {
+	if l, err := strconv.Atoi(c.DefaultQuery(keyLimit, "50")); err == nil && l > 0 && l <= 300 {
 		limit = l
 	}
 	offset := 0
@@ -131,9 +131,9 @@ func (gc *GeographyHandler) GetCountries(c *gin.Context) {
 		httputil.Success(c, http.StatusOK, gin.H{
 			keyData:   countries,
 			"total":    total,
-			"limit":    limit,
+			keyLimit:    limit,
 			"offset":   offset,
-			"has_more": offset+len(countries) < int(total),
+			keyHasMore: offset+len(countries) < int(total),
 		})
 		return
 	}
@@ -146,9 +146,9 @@ func (gc *GeographyHandler) GetCountries(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, gin.H{
 		keyData:   countries,
 		"total":    total,
-		"limit":    limit,
+		keyLimit:    limit,
 		"offset":   offset,
-		"has_more": offset+len(countries) < int(total),
+		keyHasMore: offset+len(countries) < int(total),
 	})
 }
 

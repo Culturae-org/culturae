@@ -178,16 +178,16 @@ func (ac *AdminUserHandler) CreateUser(c *gin.Context) {
 		httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeMissingToken, "User not authenticated")
 		return
 	}
-	adminName := c.GetString("username")
+	adminName := c.GetString(keyUsername)
 	action := "user_create"
 
 	createdUser, createErr := ac.Usecase.CreateUser(createUser)
 	if createErr != nil {
 		errorMsg := createErr.Error()
 		go func() {
-			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", nil, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
+			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, nil, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
 				"email":          createUser.Email,
-				"username":       createUser.Username,
+				keyUsername:       createUser.Username,
 				"role":           createUser.Role,
 				"account_status": createUser.AccountStatus,
 			}, false, &errorMsg)
@@ -199,9 +199,9 @@ func (ac *AdminUserHandler) CreateUser(c *gin.Context) {
 
 	resourceID := createdUser.ID
 	go func() {
-		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
+		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
 			"email":          createUser.Email,
-			"username":       createUser.Username,
+			keyUsername:       createUser.Username,
 			"role":           createUser.Role,
 			"account_status": createUser.AccountStatus,
 		}, true, nil)
@@ -210,10 +210,10 @@ func (ac *AdminUserHandler) CreateUser(c *gin.Context) {
 	ac.wsService.BroadcastAdminNotification(service.AdminNotification{
 		Event: "user_created_admin",
 		Data: map[string]interface{}{
-			"username":   createUser.Username,
+			keyUsername:   createUser.Username,
 			keyAdminName: adminName,
 		},
-		EntityType: "user",
+		EntityType: entityUser,
 		EntityID:   createdUser.PublicID,
 		ActionURL:  "/users/" + createdUser.PublicID,
 	})
@@ -257,7 +257,7 @@ func (ac *AdminUserHandler) UpdateUser(c *gin.Context) {
 		httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeMissingToken, "User not authenticated")
 		return
 	}
-	adminName := c.GetString("username")
+	adminName := c.GetString(keyUsername)
 	action := "user_update"
 	resourceUUID := uuid.MustParse(id)
 
@@ -273,7 +273,7 @@ func (ac *AdminUserHandler) UpdateUser(c *gin.Context) {
 	if err != nil {
 		errorMsg := err.Error()
 		go func() {
-			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
+			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
 				keyUserID:       currentUser.ID,
 				keyUserEmail:    currentUser.Email,
 				keyUserUsername: currentUser.Username,
@@ -284,7 +284,7 @@ func (ac *AdminUserHandler) UpdateUser(c *gin.Context) {
 	}
 
 	go func() {
-		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
+		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
 			"changes":       changes,
 			"summary":       httputil.GenerateChangeSummary(changes),
 			keyUserID:       currentUser.ID,
@@ -309,7 +309,7 @@ func (ac *AdminUserHandler) UpdateUserPassword(c *gin.Context) {
 		httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeMissingToken, "User not authenticated")
 		return
 	}
-	adminName := c.GetString("username")
+	adminName := c.GetString(keyUsername)
 	action := "user_password_update"
 	resourceUUID := uuid.MustParse(id)
 
@@ -329,14 +329,14 @@ func (ac *AdminUserHandler) UpdateUserPassword(c *gin.Context) {
 	if updateErr := ac.Usecase.UpdateUserPassword(id, updatePassword.Password); updateErr != nil {
 		errorMsg := updateErr.Error()
 		go func() {
-			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, false, &errorMsg)
+			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, false, &errorMsg)
 		}()
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to update user password")
 		return
 	}
 
 	go func() {
-		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, true, nil)
+		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, true, nil)
 	}()
 	httputil.SuccessWithMessage(c, http.StatusOK, "Password updated successfully", nil)
 }
@@ -349,7 +349,7 @@ func (ac *AdminUserHandler) DeleteUser(c *gin.Context) {
 		httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeMissingToken, "User not authenticated")
 		return
 	}
-	adminName := c.GetString("username")
+	adminName := c.GetString(keyUsername)
 	action := "user_delete"
 	resourceUUID := uuid.MustParse(id)
 
@@ -369,14 +369,14 @@ func (ac *AdminUserHandler) DeleteUser(c *gin.Context) {
 	if deleteErr := ac.Usecase.DeleteUserByID(id); deleteErr != nil {
 		errorMsg := deleteErr.Error()
 		go func() {
-			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, false, &errorMsg)
+			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, false, &errorMsg)
 		}()
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to delete user")
 		return
 	}
 
 	go func() {
-		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "user", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, true, nil)
+		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, entityUser, &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), details, true, nil)
 	}()
 	httputil.SuccessWithMessage(c, http.StatusOK, "User deleted successfully", nil)
 }
@@ -385,7 +385,7 @@ func (ac *AdminUserHandler) buildUserChanges(current *model.UserAdminView, updat
 	changes := make(map[string]interface{})
 
 	if update.Username != "" && update.Username != current.Username {
-		changes["username"] = map[string]string{keyFrom: current.Username, keyTo: update.Username}
+		changes[keyUsername] = map[string]string{keyFrom: current.Username, keyTo: update.Username}
 	}
 	if update.Email != "" && update.Email != current.Email {
 		changes["email"] = map[string]string{keyFrom: current.Email, keyTo: update.Email}

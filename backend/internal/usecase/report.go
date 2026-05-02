@@ -66,7 +66,7 @@ func (u *ReportUsecase) CreateReportFromGame(userID uuid.UUID, gamePublicID stri
 	u.wsService.BroadcastAdminNotification(service.AdminNotification{
 		Event: "report_created",
 		Data: map[string]interface{}{
-			"reason": req.Reason,
+			keyReason: req.Reason,
 		},
 		EntityType: "report",
 		EntityID:   report.ID.String(),

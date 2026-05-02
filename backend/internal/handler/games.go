@@ -192,7 +192,7 @@ func (gc *GamesHandler) JoinGameByCode(c *gin.Context) {
 		return
 	}
 
-	httputil.Success(c, http.StatusOK, gin.H{"message": "joined game"})
+	httputil.Success(c, http.StatusOK, gin.H{keyMessage: "joined game"})
 }
 
 func (gc *GamesHandler) LeaveGame(c *gin.Context) {
@@ -475,5 +475,5 @@ func (gc *GamesHandler) CancelUserGameInvite(c *gin.Context) {
 		return
 	}
 
-	httputil.Success(c, http.StatusOK, gin.H{"message": "invite cancelled"})
+	httputil.Success(c, http.StatusOK, gin.H{keyMessage: "invite cancelled"})
 }

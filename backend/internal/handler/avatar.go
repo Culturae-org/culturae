@@ -84,8 +84,8 @@ func (ac *AvatarHandler) UploadAvatar(c *gin.Context) {
 				httputil.GetUserAgent(c),
 				map[string]interface{}{
 					keyError:     "invalid_file_type",
-					"file_name": file.Filename,
-					"file_size": file.Size,
+					keyFileName: file.Filename,
+					keyFileSize: file.Size,
 				},
 				false,
 				nil)
@@ -103,8 +103,8 @@ func (ac *AvatarHandler) UploadAvatar(c *gin.Context) {
 				httputil.GetUserAgent(c),
 				map[string]interface{}{
 					keyError:     "file_too_large",
-					"file_name": file.Filename,
-					"file_size": file.Size,
+					keyFileName: file.Filename,
+					keyFileSize: file.Size,
 					"max_size":  avatarCfg.MaxFileSizeBytes(),
 				},
 				false,
@@ -143,8 +143,8 @@ func (ac *AvatarHandler) UploadAvatar(c *gin.Context) {
 				httputil.GetUserAgent(c),
 				map[string]interface{}{
 					keyError:     "failed_to_upload_avatar",
-					"file_name": file.Filename,
-					"file_size": file.Size,
+					keyFileName: file.Filename,
+					keyFileSize: file.Size,
 				},
 				false,
 				&errorMsg)
@@ -160,8 +160,8 @@ func (ac *AvatarHandler) UploadAvatar(c *gin.Context) {
 			httputil.GetRealIP(c),
 			httputil.GetUserAgent(c),
 			map[string]interface{}{
-				"file_size": file.Size,
-				"file_name": file.Filename,
+				keyFileSize: file.Size,
+				keyFileName: file.Filename,
 			},
 			true,
 			nil)

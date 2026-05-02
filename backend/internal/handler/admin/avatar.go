@@ -94,8 +94,8 @@ func (ac *AdminAvatarHandler) UploadUserAvatar(c *gin.Context) {
 		go func() {
 			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "avatar", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
 				keyError:     "invalid_file_type",
-				"file_name": file.Filename,
-				"file_size": file.Size,
+				keyFileName: file.Filename,
+				keyFileSize: file.Size,
 			}, false, &errorMsg)
 		}()
 		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, "Invalid file type. Only .jpg, .jpeg, .png are allowed.")
@@ -107,8 +107,8 @@ func (ac *AdminAvatarHandler) UploadUserAvatar(c *gin.Context) {
 		go func() {
 			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "avatar", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
 				keyError:     "file_too_large",
-				"file_name": file.Filename,
-				"file_size": file.Size,
+				keyFileName: file.Filename,
+				keyFileSize: file.Size,
 				"max_size":  avatarCfg.MaxFileSizeBytes(),
 			}, false, &errorMsg)
 		}()
@@ -133,8 +133,8 @@ func (ac *AdminAvatarHandler) UploadUserAvatar(c *gin.Context) {
 		go func() {
 			httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "avatar", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
 				keyError:     "failed_to_upload_avatar",
-				"file_name": file.Filename,
-				"file_size": file.Size,
+				keyFileName: file.Filename,
+				keyFileSize: file.Size,
 			}, false, &errorMsg)
 		}()
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to upload avatar")
@@ -143,8 +143,8 @@ func (ac *AdminAvatarHandler) UploadUserAvatar(c *gin.Context) {
 
 	go func() {
 		httputil.LogAdminAction(ac.LoggingService, adminUUID, adminName, action, "avatar", &resourceUUID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-			"file_size": file.Size,
-			"file_name": file.Filename,
+			keyFileSize: file.Size,
+			keyFileName: file.Filename,
 		}, true, nil)
 	}()
 

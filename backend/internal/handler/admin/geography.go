@@ -371,7 +371,7 @@ func (gc *AdminGeographyHandler) ImportGeographyDataset(c *gin.Context) {
 	gc.wsService.BroadcastAdminNotification(service.AdminNotification{
 		Event: "geography_imported",
 		Data: map[string]interface{}{
-			keyDatasetType:     "geography",
+			keyDatasetType:     datasetTypeGeography,
 			keyAdminName:       c.GetString("username"),
 			"countries_added":  result.CountriesAdded,
 			"continents_added": result.ContinentsAdded,
@@ -501,7 +501,7 @@ func (gc *AdminGeographyHandler) UpdateCountry(c *gin.Context) {
 		go func() {
 			if err := gc.LoggingService.LogAdminAction(adminID, adminName, "geography_country_update", "country", &country.ID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
 				keySlug:    slug,
-				"updates": updates,
+				keyUpdates: updates,
 			}, true, nil); err != nil {
 				gc.logger.Warn("Failed to log admin action", zap.Error(err))
 			}
@@ -642,7 +642,7 @@ func (gc *AdminGeographyHandler) UpdateContinent(c *gin.Context) {
 		go func() {
 			if err := gc.LoggingService.LogAdminAction(adminID, adminName, "geography_continent_update", "continent", &continent.ID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
 				keySlug:    slug,
-				"updates": updates,
+				keyUpdates: updates,
 			}, true, nil); err != nil {
 				gc.logger.Warn("Failed to log admin action", zap.Error(err))
 			}
@@ -735,7 +735,7 @@ func (gc *AdminGeographyHandler) UpdateRegion(c *gin.Context) {
 		go func() {
 			if err := gc.LoggingService.LogAdminAction(adminID, adminName, "geography_region_update", "region", &region.ID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
 				keySlug:    slug,
-				"updates": updates,
+				keyUpdates: updates,
 			}, true, nil); err != nil {
 				gc.logger.Warn("Failed to log admin action", zap.Error(err))
 			}

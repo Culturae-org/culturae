@@ -314,7 +314,7 @@ func (gc *AdminGamesHandler) DeleteGameInvite(c *gin.Context) {
 		adminName := c.GetString("username")
 		errorMessage := err.Error()
 		_ = gc.LoggingService.LogAdminAction(adminID, adminName, "delete_game_invite", "game_invite", &inviteID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-			"invite_id": inviteID,
+			keyInviteID: inviteID,
 		}, false, &errorMessage)
 		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
 		return
@@ -323,7 +323,7 @@ func (gc *AdminGamesHandler) DeleteGameInvite(c *gin.Context) {
 	adminID := httputil.GetUserIDFromContext(c)
 	adminName := c.GetString("username")
 	_ = gc.LoggingService.LogAdminAction(adminID, adminName, "delete_game_invite", "game_invite", &inviteID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-		"invite_id": inviteID,
+		keyInviteID: inviteID,
 	}, true, nil)
 
 	httputil.SuccessWithMessage(c, http.StatusOK, "Game invite deleted successfully", nil)
@@ -342,7 +342,7 @@ func (gc *AdminGamesHandler) CancelGameInvite(c *gin.Context) {
 		adminName := c.GetString("username")
 		errorMessage := err.Error()
 		_ = gc.LoggingService.LogAdminAction(adminID, adminName, "cancel_game_invite", "game_invite", &inviteID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-			"invite_id": inviteID,
+			keyInviteID: inviteID,
 		}, false, &errorMessage)
 		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
 		return
@@ -351,7 +351,7 @@ func (gc *AdminGamesHandler) CancelGameInvite(c *gin.Context) {
 	adminID := httputil.GetUserIDFromContext(c)
 	adminName := c.GetString("username")
 	_ = gc.LoggingService.LogAdminAction(adminID, adminName, "cancel_game_invite", "game_invite", &inviteID, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{
-		"invite_id": inviteID,
+		keyInviteID: inviteID,
 	}, true, nil)
 
 	httputil.SuccessWithMessage(c, http.StatusOK, "Game invite cancelled successfully", nil)

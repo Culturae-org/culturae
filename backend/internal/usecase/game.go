@@ -125,7 +125,7 @@ func (u *GameUsecase) CreateMatchmakedGame(user1, user2 uuid.UUID, mode model.Ga
 	}
 
 	questionType := ""
-	if qt, ok := gameParams["question_type"].(string); ok {
+	if qt, ok := gameParams[keyQuestionType].(string); ok {
 		questionType = qt
 	}
 
@@ -291,7 +291,7 @@ func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.
 	questionCount := 10
 	pointsPerCorrect := 100
 	timeBonus := true
-	scoreMode := "time_bonus"
+	scoreMode := scoreModeTimeBonus
 	maxPlayers := 1
 	minPlayers := 1
 	var templateID *uuid.UUID
@@ -304,7 +304,7 @@ func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.
 	if req.Mode == model.GameModeMulti {
 		maxPlayers = 4
 		minPlayers = 2
-		scoreMode = "time_bonus"
+		scoreMode = scoreModeTimeBonus
 	}
 
 	if req.TemplateID != nil {
@@ -349,12 +349,12 @@ func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.
 			keySlug:               tmpl.Slug,
 			"category":           tmpl.Category,
 			"flag_variant":       tmpl.FlagVariant,
-			"question_type":      tmpl.QuestionType,
+			keyQuestionType:      tmpl.QuestionType,
 			"language":           tmpl.Language,
 			"continent":          tmpl.Continent,
 			"question_count":     tmpl.QuestionCount,
 			"points_per_correct": tmpl.PointsPerCorrect,
-			"time_bonus":         tmpl.TimeBonus,
+			scoreModeTimeBonus:         tmpl.TimeBonus,
 			"score_mode":         tmpl.ScoreMode,
 			"xp_multiplier":      tmpl.XPMultiplier,
 			keyMode:               tmpl.Mode,
@@ -811,7 +811,7 @@ func (u *GameUsecase) AcceptGameInvite(c *gin.Context, inviteID, userID uuid.UUI
 			acceptorData := map[string]interface{}{
 				keyInviteID:      inviteID.String(),
 				keyGamePublicID: gameModel.PublicID,
-				"status":         string(model.GameInviteStatusAccepted),
+				keyStatus:         string(model.GameInviteStatusAccepted),
 			}
 			if acceptor, err := u.userRepo.GetByID(userID.String()); err == nil {
 				acceptorData["from_username"] = acceptor.Username
@@ -826,7 +826,7 @@ func (u *GameUsecase) AcceptGameInvite(c *gin.Context, inviteID, userID uuid.UUI
 				keyData: map[string]interface{}{
 					keyInviteID:      inviteID.String(),
 					keyGamePublicID: gameModel.PublicID,
-					"status":         string(model.GameInviteStatusAccepted),
+					keyStatus:         string(model.GameInviteStatusAccepted),
 				},
 			})
 		}()
@@ -876,7 +876,7 @@ func (u *GameUsecase) RejectGameInvite(c *gin.Context, inviteID, userID uuid.UUI
 				keyData: map[string]interface{}{
 					keyInviteID:      inviteID.String(),
 					keyGamePublicID: gameModel.PublicID,
-					"status":         string(model.GameInviteStatusRejected),
+					keyStatus:         string(model.GameInviteStatusRejected),
 				},
 			})
 		}()
@@ -929,7 +929,7 @@ func (u *GameUsecase) JoinGame(c *gin.Context, gameID, userID uuid.UUID) error {
 			playerData := map[string]interface{}{keyAction: "joined"}
 			if joiner, err := u.userRepo.GetByID(userID.String()); err == nil {
 				playerData[keyUserPublicID] = joiner.PublicID
-				playerData["username"] = joiner.Username
+				playerData[keyUsername] = joiner.Username
 			}
 			_ = u.wsService.SendToGame(gameModel.PublicID, map[string]interface{}{
 				keyType:           msgLobbyUpdated,
@@ -1060,7 +1060,7 @@ func (u *GameUsecase) LeaveGame(c *gin.Context, gameID, userID uuid.UUID) error 
 			}
 			playersFinal = append(playersFinal, map[string]interface{}{
 				keyUserPublicID: p.UserPublicID,
-				"username":       username,
+				keyUsername:       username,
 				keyScore:          p.Score,
 			})
 		}
@@ -1072,7 +1072,7 @@ func (u *GameUsecase) LeaveGame(c *gin.Context, gameID, userID uuid.UUID) error 
 				keyType:      "game_cancelled",
 				keyPublicID: gameModel.PublicID,
 				keyData: map[string]interface{}{
-					"reason": "all_players_left",
+					keyReason: "all_players_left",
 				},
 			})
 		} else if winnerPublicID != "" {
@@ -1082,7 +1082,7 @@ func (u *GameUsecase) LeaveGame(c *gin.Context, gameID, userID uuid.UUID) error 
 				keyPublicID: gameModel.PublicID,
 				keyData: map[string]interface{}{
 					keyGameID:          gameID,
-					"players_final":    playersFinal,
+					keyPlayersFinal:    playersFinal,
 					keyWinnerPublicID: winnerPublicID,
 				},
 			})
@@ -1324,7 +1324,7 @@ func (u *GameUsecase) SubmitAnswer(c *gin.Context, gameID, userID uuid.UUID, req
 
 	richData := map[string]interface{}{
 		"question_slug":        currentQuestion.Slug,
-		"question_type":        currentQuestion.QType,
+		keyQuestionType:        currentQuestion.QType,
 		"user_answer":          answer.AnswerData,
 		"server_time_spent_ms": lastAnswer.ServerTimeSpent.Milliseconds(),
 	}
@@ -1357,7 +1357,7 @@ func (u *GameUsecase) SubmitAnswer(c *gin.Context, gameID, userID uuid.UUID, req
 		zap.String(keyUserID, userID.String()),
 		zap.String("question_id", currentQuestion.ID.String()),
 		zap.String("question_slug", currentQuestion.Slug),
-		zap.String("question_type", currentQuestion.QType),
+		zap.String(keyQuestionType, currentQuestion.QType),
 		zap.String("answer_slug", answerSlug),
 		zap.Bool("is_correct", lastAnswer.IsCorrect),
 		zap.Int("points", lastAnswer.Points),
@@ -1796,7 +1796,7 @@ func (u *GameUsecase) CancelGame(c *gin.Context, gameID, userID uuid.UUID) error
 		for _, p := range enginePlayers {
 			playersFinalData = append(playersFinalData, map[string]interface{}{
 				keyUserPublicID: p.PublicID,
-				"username":       p.Username,
+				keyUsername:       p.Username,
 				keyScore:          p.Score,
 			})
 			if p.UserID != userID && p.PublicID != "" {
@@ -1820,9 +1820,9 @@ func (u *GameUsecase) CancelGame(c *gin.Context, gameID, userID uuid.UUID) error
 	}
 
 	u.emitEvent(gameID, "game_cancelled", map[string]interface{}{
-		"reason":           "player_quit",
+		keyReason:           "player_quit",
 		keyWinnerPublicID: winnerPublicId,
-		"players_final":    playersFinalData,
+		keyPlayersFinal:    playersFinalData,
 	})
 
 	if u.wsService != nil {
@@ -1831,9 +1831,9 @@ func (u *GameUsecase) CancelGame(c *gin.Context, gameID, userID uuid.UUID) error
 			keyGameID:   gameID.String(),
 			keyPublicID: gameModel.PublicID,
 			keyData: map[string]interface{}{
-				"reason":           "player_quit",
+				keyReason:           "player_quit",
 				keyWinnerPublicID: winnerPublicId,
-				"players_final":    playersFinalData,
+				keyPlayersFinal:    playersFinalData,
 			},
 		})
 	}
@@ -1967,14 +1967,14 @@ func (u *GameUsecase) emitGameCompletedEvent(gameModel *model.Game, players []ga
 	for _, p := range players {
 		playersFinal = append(playersFinal, map[string]interface{}{
 			keyUserPublicID: p.PublicID,
-			"username":       p.Username,
+			keyUsername:       p.Username,
 			keyScore:          p.Score,
 		})
 	}
 
 	eventData := map[string]interface{}{
 		keyGameID:          gameModel.ID,
-		"players_final":    playersFinal,
+		keyPlayersFinal:    playersFinal,
 	}
 	if winnerID != nil {
 		for _, p := range players {
@@ -2085,7 +2085,7 @@ func (u *GameUsecase) HandleSubmitAnswer(userID uuid.UUID, gamePublicID string, 
 
 		wsRichData := map[string]interface{}{
 			"question_slug":        currentQuestion.Slug,
-			"question_type":        currentQuestion.QType,
+			keyQuestionType:        currentQuestion.QType,
 			"user_answer":          answer.AnswerData,
 			"server_time_spent_ms": lastAnswer.ServerTimeSpent.Milliseconds(),
 		}
@@ -2118,7 +2118,7 @@ func (u *GameUsecase) HandleSubmitAnswer(userID uuid.UUID, gamePublicID string, 
 			zap.String(keyUserID, userID.String()),
 			zap.String("question_id", currentQuestion.ID.String()),
 			zap.String("question_slug", currentQuestion.Slug),
-			zap.String("question_type", currentQuestion.QType),
+			zap.String(keyQuestionType, currentQuestion.QType),
 			zap.String("answer_slug", wsAnswerSlug),
 			zap.Bool("is_correct", lastAnswer.IsCorrect),
 			zap.Int("points", lastAnswer.Points),
@@ -2328,7 +2328,7 @@ func (u *GameUsecase) GetGameStateForReconnect(gamePublicID string) (map[string]
 	for _, p := range players {
 		playerSnapshots = append(playerSnapshots, map[string]interface{}{
 			keyUserPublicID: p.PublicID,
-			"username":       p.Username,
+			keyUsername:       p.Username,
 			keyScore:          p.Score,
 		})
 	}
@@ -2586,7 +2586,7 @@ func (u *GameUsecase) JoinGameByCode(c *gin.Context, code string, userID uuid.UU
 			playerData := map[string]interface{}{keyAction: "joined"}
 			if joiner, err := u.userRepo.GetByID(userID.String()); err == nil {
 				playerData[keyUserPublicID] = joiner.PublicID
-				playerData["username"] = joiner.Username
+				playerData[keyUsername] = joiner.Username
 			}
 			_ = u.wsService.SendToGame(g.PublicID, map[string]interface{}{
 				keyType:           msgLobbyUpdated,

@@ -566,7 +566,7 @@ func (dc *AdminDatasetsHandler) ImportDataset(c *gin.Context) {
 				"set_as_default": req.SetAsDefault,
 			}
 
-			if req.DatasetType == "geography" {
+			if req.DatasetType == datasetTypeGeography {
 				if geoResult, ok := result.(*model.GeographyImportResult); ok {
 					logData["countries_added"] = geoResult.CountriesAdded
 					logData["continents_added"] = geoResult.ContinentsAdded
@@ -589,7 +589,7 @@ func (dc *AdminDatasetsHandler) ImportDataset(c *gin.Context) {
 		keyAdminName:   c.GetString("username"),
 	}
 
-	if req.DatasetType == "geography" {
+	if req.DatasetType == datasetTypeGeography {
 		if geoResult, ok := result.(*model.GeographyImportResult); ok {
 			notificationData["countries_added"] = geoResult.CountriesAdded
 			notificationData["continents_added"] = geoResult.ContinentsAdded

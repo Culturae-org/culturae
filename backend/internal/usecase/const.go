@@ -30,4 +30,11 @@ const (
 
 	keySlug  = "slug"
 	keyScore = "score"
+
+	scoreModeTimeBonus = "time_bonus"
+	keyQuestionType    = "question_type"
+	keyStatus          = "status"
+	keyUsername        = "username"
+	keyReason          = "reason"
+	keyPlayersFinal    = "players_final"
 )

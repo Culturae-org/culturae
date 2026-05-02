@@ -203,7 +203,7 @@ func (ac *AuthHandler) Register(c *gin.Context) {
 
 	response := model.SessionResponse{
 		Created:        session.Created,
-		TokenType:      "Bearer",
+		TokenType:      keyBearer,
 		Token:          accessToken,
 		RefreshToken:   session.RefreshToken,
 		ExpiresAt:      session.ExpiresAt.Unix(),
@@ -330,7 +330,7 @@ func (ac *AuthHandler) Login(c *gin.Context) {
 
 	response := model.SessionResponse{
 		Created:        session.Created,
-		TokenType:      "Bearer",
+		TokenType:      keyBearer,
 		Token:          accessToken,
 		RefreshToken:   session.RefreshToken,
 		ExpiresAt:      session.ExpiresAt.Unix(),
@@ -422,7 +422,7 @@ func (ac *AuthHandler) RefreshToken(c *gin.Context) {
 
 	response := model.SessionResponse{
 		Created:        session.Created,
-		TokenType:      "Bearer",
+		TokenType:      keyBearer,
 		Token:          accessToken,
 		RefreshToken:   session.RefreshToken,
 		ExpiresAt:      session.ExpiresAt.Unix(),

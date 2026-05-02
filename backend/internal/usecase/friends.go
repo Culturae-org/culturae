@@ -104,7 +104,7 @@ func (u *FriendsUsecase) SendFriendRequest(c *gin.Context, fromUserID uuid.UUID,
 	if u.wsService != nil {
 		go func() {
 			_ = u.wsService.SendToUser(toUserID, map[string]interface{}{
-				"type":                "friend_request_received",
+				keyType:                "friend_request_received",
 				keyRequestID:         request.ID.String(),
 				"from_user_public_id": fromPublicID,
 			})
@@ -173,7 +173,7 @@ func (u *FriendsUsecase) RejectFriendRequest(c *gin.Context, requestID, userID u
 	if u.wsService != nil && reqErr == nil {
 		go func() {
 			_ = u.wsService.SendToUser(request.FromUserID, map[string]interface{}{
-				"type":       "friend_request_rejected",
+				keyType:       "friend_request_rejected",
 				keyRequestID: requestID.String(),
 			})
 		}()
@@ -197,7 +197,7 @@ func (u *FriendsUsecase) CancelFriendRequest(c *gin.Context, requestID, userID u
 	if u.wsService != nil && reqErr == nil {
 		go func() {
 			_ = u.wsService.SendToUser(request.ToUserID, map[string]interface{}{
-				"type":       "friend_request_cancelled",
+				keyType:       "friend_request_cancelled",
 				keyRequestID: requestID.String(),
 			})
 		}()
@@ -289,7 +289,7 @@ func (u *FriendsUsecase) RemoveFriend(c *gin.Context, userID uuid.UUID, friendUs
 		}
 		go func() {
 			_ = u.wsService.SendToUser(friendUserID, map[string]interface{}{
-				"type":              "friend_removed",
+				keyType:              "friend_removed",
 				"removed_by_public_id": removerPublicID,
 			})
 		}()

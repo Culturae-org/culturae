@@ -41,7 +41,7 @@ func (pc *UserHandler) SearchPublicProfiles(ctx *gin.Context) {
 	const maxLimit = 100
 
 	limit := defaultLimit
-	if l, err := strconv.Atoi(ctx.Query("limit")); err == nil {
+	if l, err := strconv.Atoi(ctx.Query(keyLimit)); err == nil {
 		if l < 1 {
 			l = 1
 		}
@@ -79,8 +79,8 @@ func (pc *UserHandler) SearchPublicProfiles(ctx *gin.Context) {
 	httputil.Success(ctx, http.StatusOK, gin.H{
 		"profiles": cards,
 		"page":     page,
-		"limit":    limit,
-		"has_more": len(cards) == limit,
+		keyLimit:    limit,
+		keyHasMore: len(cards) == limit,
 	})
 }
 

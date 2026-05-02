@@ -134,12 +134,12 @@ func (h *AdminGameTemplatesHandler) Update(c *gin.Context) {
 	if err != nil {
 		h.logger.Error("Failed to update game template", zap.String("id", id.String()), zap.Error(err))
 		errMsg := err.Error()
-		httputil.LogAdminAction(h.LoggingService, adminUUID, c.GetString("username"), "game_template_update", "game_template", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{"template_id": id}, false, &errMsg)
+		httputil.LogAdminAction(h.LoggingService, adminUUID, c.GetString("username"), "game_template_update", "game_template", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{keyTemplateID: id}, false, &errMsg)
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
 		return
 	}
 
-	httputil.LogAdminAction(h.LoggingService, adminUUID, c.GetString("username"), "game_template_update", "game_template", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{"template_id": id, keyName: t.Name}, true, nil)
+	httputil.LogAdminAction(h.LoggingService, adminUUID, c.GetString("username"), "game_template_update", "game_template", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{keyTemplateID: id, keyName: t.Name}, true, nil)
 	httputil.Success(c, http.StatusOK, t)
 }
 
@@ -155,12 +155,12 @@ func (h *AdminGameTemplatesHandler) Delete(c *gin.Context) {
 	if err := h.usecase.DeleteGameTemplate(id, adminUUID); err != nil {
 		h.logger.Error("Failed to delete game template", zap.String("id", id.String()), zap.Error(err))
 		errMsg := err.Error()
-		httputil.LogAdminAction(h.LoggingService, adminUUID, c.GetString("username"), "game_template_delete", "game_template", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{"template_id": id}, false, &errMsg)
+		httputil.LogAdminAction(h.LoggingService, adminUUID, c.GetString("username"), "game_template_delete", "game_template", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{keyTemplateID: id}, false, &errMsg)
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
 		return
 	}
 
-	httputil.LogAdminAction(h.LoggingService, adminUUID, c.GetString("username"), "game_template_delete", "game_template", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{"template_id": id}, true, nil)
+	httputil.LogAdminAction(h.LoggingService, adminUUID, c.GetString("username"), "game_template_delete", "game_template", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{keyTemplateID: id}, true, nil)
 	httputil.Success(c, http.StatusOK, gin.H{"message": "Game template deleted"})
 }
 
