@@ -111,7 +111,7 @@ func (uc *AdminUserUsecase) UpdateUserByID(id string, userUpdate model.UserUpdat
 		if userUpdate.AccountStatus == model.AccountStatusInactive || userUpdate.AccountStatus == model.AccountStatusBanned {
 			if err := uc.SessionRepo.RevokeAllUserSessions(updatedUser.ID); err != nil {
 				if uc.LoggingSvc != nil {
-					_ = uc.LoggingSvc.LogAdminAction(uuid.Nil, "system", "revoke_sessions_after_update", "user", &updatedUser.ID, "", "", map[string]interface{}{"new_status": userUpdate.AccountStatus}, false, nil)
+					_ = uc.LoggingSvc.LogAdminAction(uuid.Nil, "system", "revoke_sessions_after_update", "user", &updatedUser.ID, "", "", map[string]interface{}{keyNewStatus: userUpdate.AccountStatus}, false, nil)
 				}
 			}
 		}
@@ -185,7 +185,7 @@ func (uc *AdminUserUsecase) UpdateUserStatusByID(id string, accountStatus string
 	if accountStatus == model.AccountStatusInactive || accountStatus == model.AccountStatusBanned {
 		if err := uc.SessionRepo.RevokeAllUserSessions(updatedUser.ID); err != nil {
 			if uc.LoggingSvc != nil {
-				_ = uc.LoggingSvc.LogAdminAction(uuid.Nil, "system", "revoke_sessions_after_status_change", "user", &updatedUser.ID, "", "", map[string]interface{}{"new_status": accountStatus}, false, nil)
+				_ = uc.LoggingSvc.LogAdminAction(uuid.Nil, "system", "revoke_sessions_after_status_change", "user", &updatedUser.ID, "", "", map[string]interface{}{keyNewStatus: accountStatus}, false, nil)
 			}
 		}
 	}

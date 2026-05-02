@@ -205,42 +205,42 @@ func (u *AdminGameTemplatesUsecase) SeedDefaultGameTemplates() (int, error) {
 	}
 
 	modePrefix := map[string]model.I18nStrings{
-		"solo": {"en": labelSolo, "fr": labelSolo, "es": labelSolo},
-		"1v1":  {"en": label1v1, "fr": label1v1, "es": label1v1},
+		modeSolo: {"en": labelSolo, "fr": labelSolo, "es": labelSolo},
+		label1v1:  {"en": label1v1, "fr": label1v1, "es": label1v1},
 	}
 
 	qtLabel := map[string]model.I18nStrings{
-		"mcq_4":      {"en": labelMCQ4, "fr": "QCM ×4", "es": "Test ×4"},
-		"mcq_2":      {"en": labelMCQ2, "fr": "QCM ×2", "es": "Test ×2"},
-		"text_input": {"en": labelTextInput, "fr": "Texte libre", "es": "Texto libre"},
+		qtMCQ4:      {"en": labelMCQ4, "fr": "QCM ×4", "es": "Test ×4"},
+		qtMCQ2:      {"en": labelMCQ2, "fr": "QCM ×2", "es": "Test ×2"},
+		qtTextInput: {"en": labelTextInput, "fr": "Texte libre", "es": "Texto libre"},
 	}
 
 	fvLabel := map[string]model.I18nStrings{
-		"mix":               {"en": labelMix, "fr": labelMix, "es": labelMix},
-		"flag_to_name_4":    {"en": "Flag → Country ×4", "fr": "Drapeau → Pays ×4", "es": "Bandera → País ×4"},
-		"flag_to_name_2":    {"en": "Flag → Country ×2", "fr": "Drapeau → Pays ×2", "es": "Bandera → País ×2"},
-		"name_to_flag_4":    {"en": "Country → Flag ×4", "fr": "Pays → Drapeau ×4", "es": "País → Bandera ×4"},
-		"name_to_flag_2":    {"en": "Country → Flag ×2", "fr": "Pays → Drapeau ×2", "es": "País → Bandera ×2"},
+		fvMix:               {"en": labelMix, "fr": labelMix, "es": labelMix},
+		fvFlagToName4:    {"en": "Flag → Country ×4", "fr": "Drapeau → Pays ×4", "es": "Bandera → País ×4"},
+		fvFlagToName2:    {"en": "Flag → Country ×2", "fr": "Drapeau → Pays ×2", "es": "Bandera → País ×2"},
+		fvNameToFlag4:    {"en": "Country → Flag ×4", "fr": "Pays → Drapeau ×4", "es": "País → Bandera ×4"},
+		fvNameToFlag2:    {"en": "Country → Flag ×2", "fr": "Pays → Drapeau ×2", "es": "País → Bandera ×2"},
 		slugCapitalToFlag4: {"en": "Capital → Flag ×4", "fr": "Capitale → Drapeau ×4", "es": "Capital → Bandera ×4"},
 		slugCapitalToFlag2: {"en": "Capital → Flag ×2", "fr": "Capitale → Drapeau ×2", "es": "Capital → Bandera ×2"},
 		slugCapitalToName4: {"en": "Capital → Country ×4", "fr": "Capitale → Pays ×4", "es": "Capital → País ×4"},
 		slugCapitalToName2: {"en": "Capital → Country ×2", "fr": "Capitale → Pays ×2", "es": "Capital → País ×2"},
-		"flag_to_capital":   {"en": "Flag → Capital", "fr": "Drapeau → Capitale", "es": "Bandera → Capital"},
-		"flag_to_text":      {"en": "Flag → Country (text)", "fr": "Drapeau → Pays (texte)", "es": "Bandera → País (texto)"},
+		fvFlagToCapital:   {"en": "Flag → Capital", "fr": "Drapeau → Capitale", "es": "Bandera → Capital"},
+		fvFlagToText:      {"en": "Flag → Country (text)", "fr": "Drapeau → Pays (texte)", "es": "Bandera → País (texto)"},
 	}
 
 	fvDesc := map[string]model.I18nStrings{
-		"mix": {"en": "A mix of flag exercises", "fr": "Un mélange d'exercices sur les drapeaux", "es": "Una combinación de ejercicios de banderas"},
-		"flag_to_name_4":    {"en": "See a flag, pick the country from 4 options", "fr": "Voyez un drapeau, choisissez le pays parmi 4 options", "es": "Ve una bandera, elige el país entre 4 opciones"},
-		"flag_to_name_2":    {"en": "See a flag, pick the country from 2 options", "fr": "Voyez un drapeau, choisissez le pays parmi 2 options", "es": "Ve una bandera, elige el país entre 2 opciones"},
-		"name_to_flag_4":    {"en": "See a country name, pick the flag from 4 options", "fr": "Voyez un nom de pays, choisissez le drapeau parmi 4 options", "es": "Ve un nombre de país, elige la bandera entre 4 opciones"},
-		"name_to_flag_2":    {"en": "See a country name, pick the flag from 2 options", "fr": "Voyez un nom de pays, choisissez le drapeau parmi 2 options", "es": "Ve un nombre de país, elige la bandera entre 2 opciones"},
+		fvMix: {"en": "A mix of flag exercises", "fr": "Un mélange d'exercices sur les drapeaux", "es": "Una combinación de ejercicios de banderas"},
+		fvFlagToName4:    {"en": "See a flag, pick the country from 4 options", "fr": "Voyez un drapeau, choisissez le pays parmi 4 options", "es": "Ve una bandera, elige el país entre 4 opciones"},
+		fvFlagToName2:    {"en": "See a flag, pick the country from 2 options", "fr": "Voyez un drapeau, choisissez le pays parmi 2 options", "es": "Ve una bandera, elige el país entre 2 opciones"},
+		fvNameToFlag4:    {"en": "See a country name, pick the flag from 4 options", "fr": "Voyez un nom de pays, choisissez le drapeau parmi 4 options", "es": "Ve un nombre de país, elige la bandera entre 4 opciones"},
+		fvNameToFlag2:    {"en": "See a country name, pick the flag from 2 options", "fr": "Voyez un nom de pays, choisissez le drapeau parmi 2 options", "es": "Ve un nombre de país, elige la bandera entre 2 opciones"},
 		slugCapitalToFlag4: {"en": "See a capital, pick the flag from 4 options", "fr": "Voyez une capitale, choisissez le drapeau parmi 4 options", "es": "Ve una capital, elige la bandera entre 4 opciones"},
 		slugCapitalToFlag2: {"en": "See a capital, pick the flag from 2 options", "fr": "Voyez une capitale, choisissez le drapeau parmi 2 options", "es": "Ve una capital, elige la bandera entre 2 opciones"},
 		slugCapitalToName4: {"en": "See a capital, pick the country from 4 options", "fr": "Voyez une capitale, choisissez le pays parmi 4 options", "es": "Ve una capital, elige el país entre 4 opciones"},
 		slugCapitalToName2: {"en": "See a capital, pick the country from 2 options", "fr": "Voyez une capitale, choisissez le pays parmi 2 options", "es": "Ve una capital, elige el país entre 2 opciones"},
-		"flag_to_capital":   {"en": "See a flag, name the capital city", "fr": "Voyez un drapeau, nommez la capitale", "es": "Ve una bandera, nombra la capital"},
-		"flag_to_text":      {"en": "See a flag, type the country name", "fr": "Voyez un drapeau, tapez le nom du pays", "es": "Ve una bandera, escribe el nombre del país"},
+		fvFlagToCapital:   {"en": "See a flag, name the capital city", "fr": "Voyez un drapeau, nommez la capitale", "es": "Ve una bandera, nombra la capital"},
+		fvFlagToText:      {"en": "See a flag, type the country name", "fr": "Voyez un drapeau, tapez le nom du pays", "es": "Ve una bandera, escribe el nombre del país"},
 	}
 
 	combineI18n := func(prefix model.I18nStrings, sep string, label model.I18nStrings) model.I18nStrings {
@@ -259,44 +259,44 @@ func (u *AdminGameTemplatesUsecase) SeedDefaultGameTemplates() (int, error) {
 	}
 
 	flagVariants := []struct{ variant, label string }{
-		{"mix", labelMix},
-		{"flag_to_name_4", "Flag → Country ×4"},
-		{"flag_to_name_2", "Flag → Country ×2"},
-		{"name_to_flag_4", "Country → Flag ×4"},
-		{"name_to_flag_2", "Country → Flag ×2"},
-		{"capital_to_flag_4", "Capital → Flag ×4"},
-		{"capital_to_flag_2", "Capital → Flag ×2"},
-		{"capital_to_name_4", "Capital → Country ×4"},
-		{"capital_to_name_2", "Capital → Country ×2"},
-		{"flag_to_capital", "Flag → Capital"},
-		{"flag_to_text", "Flag → Country (text)"},
+		{fvMix, labelMix},
+		{fvFlagToName4, "Flag → Country ×4"},
+		{fvFlagToName2, "Flag → Country ×2"},
+		{fvNameToFlag4, "Country → Flag ×4"},
+		{fvNameToFlag2, "Country → Flag ×2"},
+		{slugCapitalToFlag4, "Capital → Flag ×4"},
+		{slugCapitalToFlag2, "Capital → Flag ×2"},
+		{slugCapitalToName4, "Capital → Country ×4"},
+		{slugCapitalToName2, "Capital → Country ×2"},
+		{fvFlagToCapital, "Flag → Capital"},
+		{fvFlagToText, "Flag → Country (text)"},
 	}
 
 	var defs []def
 
 	defs = append(defs, def{
 		name: "Solo — General Knowledge", slug: "solo-general",
-		mode: "solo", category: "general",
+		mode: modeSolo, category: categoryGeneral,
 		minPlayers: 1, maxPlayers: 1, scoreMode: scoreModeClassic, timeBonus: false,
 		qCount: 10, points: 100,
-		nameI18n: combineI18n(modePrefix["solo"], " — ", generalName),
+		nameI18n: combineI18n(modePrefix[modeSolo], " — ", generalName),
 		descI18n: generalDesc,
 	})
 
 	for _, qt := range []struct{ label, slug, qtype string }{
-		{labelMCQ4, "solo-general-mcq4", "mcq_4"},
-		{labelMCQ2, "solo-general-mcq2", "mcq_2"},
-		{labelTextInput, "solo-general-text", "text_input"},
+		{labelMCQ4, "solo-general-mcq4", qtMCQ4},
+		{labelMCQ2, "solo-general-mcq2", qtMCQ2},
+		{labelTextInput, "solo-general-text", qtTextInput},
 	} {
 		qtLabelI18n := qtLabel[qt.qtype]
 		nameI18n := model.I18nStrings{
-			"en": modePrefix["solo"]["en"] + " — " + generalName["en"] + " (" + qtLabelI18n["en"] + ")",
-			"fr": modePrefix["solo"]["fr"] + " — " + generalName["fr"] + " (" + qtLabelI18n["fr"] + ")",
-			"es": modePrefix["solo"]["es"] + " — " + generalName["es"] + " (" + qtLabelI18n["es"] + ")",
+			"en": modePrefix[modeSolo]["en"] + " — " + generalName["en"] + " (" + qtLabelI18n["en"] + ")",
+			"fr": modePrefix[modeSolo]["fr"] + " — " + generalName["fr"] + " (" + qtLabelI18n["fr"] + ")",
+			"es": modePrefix[modeSolo]["es"] + " — " + generalName["es"] + " (" + qtLabelI18n["es"] + ")",
 		}
 		defs = append(defs, def{
 			name: "Solo — General Knowledge (" + qt.label + ")", slug: qt.slug,
-			mode: "solo", category: "general", questionType: qt.qtype,
+			mode: modeSolo, category: categoryGeneral, questionType: qt.qtype,
 			minPlayers: 1, maxPlayers: 1, scoreMode: scoreModeClassic, timeBonus: false,
 			qCount: 10, points: 100,
 			nameI18n: nameI18n, descI18n: generalDesc,
@@ -307,37 +307,37 @@ func (u *AdminGameTemplatesUsecase) SeedDefaultGameTemplates() (int, error) {
 		defs = append(defs, def{
 			name: "Solo — " + fv.label,
 			slug: "solo-flags-" + strings.ReplaceAll(fv.variant, "_", "-"),
-			mode: "solo", category: "flags", flagVariant: fv.variant,
+			mode: modeSolo, category: "flags", flagVariant: fv.variant,
 			minPlayers: 1, maxPlayers: 1, scoreMode: scoreModeClassic, timeBonus: false,
 			qCount: 10, points: 100,
-			nameI18n: combineI18n(modePrefix["solo"], " — ", fvLabel[fv.variant]),
+			nameI18n: combineI18n(modePrefix[modeSolo], " — ", fvLabel[fv.variant]),
 			descI18n: fvDesc[fv.variant],
 		})
 	}
 
 	defs = append(defs, def{
 		name: "1v1 — General Knowledge", slug: "1v1-general",
-		mode: "1v1", category: "general",
+		mode: label1v1, category: categoryGeneral,
 		minPlayers: 2, maxPlayers: 2, scoreMode: scoreModeClassic, timeBonus: false,
 		qCount: 10, points: 100,
-		nameI18n: combineI18n(modePrefix["1v1"], " — ", generalName),
+		nameI18n: combineI18n(modePrefix[label1v1], " — ", generalName),
 		descI18n: generalDesc,
 	})
 
 	for _, qt := range []struct{ label, slug, qtype string }{
-		{labelMCQ4, "1v1-general-mcq4", "mcq_4"},
-		{labelMCQ2, "1v1-general-mcq2", "mcq_2"},
-		{labelTextInput, "1v1-general-text", "text_input"},
+		{labelMCQ4, "1v1-general-mcq4", qtMCQ4},
+		{labelMCQ2, "1v1-general-mcq2", qtMCQ2},
+		{labelTextInput, "1v1-general-text", qtTextInput},
 	} {
 		qtLabelI18n := qtLabel[qt.qtype]
 		nameI18n := model.I18nStrings{
-			"en": modePrefix["1v1"]["en"] + " — " + generalName["en"] + " (" + qtLabelI18n["en"] + ")",
-			"fr": modePrefix["1v1"]["fr"] + " — " + generalName["fr"] + " (" + qtLabelI18n["fr"] + ")",
-			"es": modePrefix["1v1"]["es"] + " — " + generalName["es"] + " (" + qtLabelI18n["es"] + ")",
+			"en": modePrefix[label1v1]["en"] + " — " + generalName["en"] + " (" + qtLabelI18n["en"] + ")",
+			"fr": modePrefix[label1v1]["fr"] + " — " + generalName["fr"] + " (" + qtLabelI18n["fr"] + ")",
+			"es": modePrefix[label1v1]["es"] + " — " + generalName["es"] + " (" + qtLabelI18n["es"] + ")",
 		}
 		defs = append(defs, def{
 			name: "1v1 — General Knowledge (" + qt.label + ")", slug: qt.slug,
-			mode: "1v1", category: "general", questionType: qt.qtype,
+			mode: label1v1, category: categoryGeneral, questionType: qt.qtype,
 			minPlayers: 2, maxPlayers: 2, scoreMode: scoreModeClassic, timeBonus: false,
 			qCount: 10, points: 100,
 			nameI18n: nameI18n, descI18n: generalDesc,
@@ -348,10 +348,10 @@ func (u *AdminGameTemplatesUsecase) SeedDefaultGameTemplates() (int, error) {
 		defs = append(defs, def{
 			name: "1v1 — " + fv.label,
 			slug: "1v1-flags-" + strings.ReplaceAll(fv.variant, "_", "-"),
-			mode: "1v1", category: "flags", flagVariant: fv.variant,
+			mode: label1v1, category: "flags", flagVariant: fv.variant,
 			minPlayers: 2, maxPlayers: 2, scoreMode: scoreModeClassic, timeBonus: false,
 			qCount: 10, points: 100,
-			nameI18n: combineI18n(modePrefix["1v1"], " — ", fvLabel[fv.variant]),
+			nameI18n: combineI18n(modePrefix[label1v1], " — ", fvLabel[fv.variant]),
 			descI18n: fvDesc[fv.variant],
 		})
 	}

@@ -89,7 +89,7 @@ func (u *AdminGameUsecase) GetGameStats() (map[string]interface{}, error) {
 	totalGames := stats.ActiveGames + stats.CompletedGames + stats.CancelledGames + stats.AbandonedGames
 
 	return map[string]interface{}{
-		"total_games":      totalGames,
+		keyTotalGames:      totalGames,
 		"active_games":     stats.ActiveGames,
 		"completed_games":  stats.CompletedGames,
 		"cancelled_games":  stats.CancelledGames,
@@ -319,7 +319,7 @@ func (u *AdminGameUsecase) AdminCancelGame(c *gin.Context, gameID, adminID uuid.
 	}
 
 	_ = u.loggingService.LogAdminAction(adminID, adminName, "cancel_game", "game", &gameID, httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{
-		"game_id":      gameID,
+		keyGameID:      gameID,
 		"game_status":  gameModel.Status,
 		"creator_id":   gameModel.CreatorID,
 		"player_count": len(gameModel.Players),
@@ -331,7 +331,7 @@ func (u *AdminGameUsecase) AdminCancelGame(c *gin.Context, gameID, adminID uuid.
 
 func (u *AdminGameUsecase) DeleteGame(gameID uuid.UUID) error {
 	u.logger.Info("Admin deleting game",
-		zap.String("game_id", gameID.String()),
+		zap.String(keyGameID, gameID.String()),
 		zap.String("action", "delete_game"),
 	)
 
@@ -344,7 +344,7 @@ func (u *AdminGameUsecase) DeleteGame(gameID uuid.UUID) error {
 
 func (u *AdminGameUsecase) ArchiveGame(gameID uuid.UUID) error {
 	u.logger.Info("Admin archiving game",
-		zap.String("game_id", gameID.String()),
+		zap.String(keyGameID, gameID.String()),
 		zap.String("action", "archive_game"),
 	)
 
@@ -353,7 +353,7 @@ func (u *AdminGameUsecase) ArchiveGame(gameID uuid.UUID) error {
 
 func (u *AdminGameUsecase) UnarchiveGame(gameID uuid.UUID) error {
 	u.logger.Info("Admin unarchiving game",
-		zap.String("game_id", gameID.String()),
+		zap.String(keyGameID, gameID.String()),
 		zap.String("action", "unarchive_game"),
 	)
 
@@ -400,7 +400,7 @@ func (u *AdminGameUsecase) GetDailyGameStats(startDate, endDate *time.Time, mode
 	for _, ds := range dailyStats {
 		stats = append(stats, map[string]interface{}{
 			"date":            ds.Date,
-			"total_games":     ds.TotalGames,
+			keyTotalGames:     ds.TotalGames,
 			"completed_games": ds.CompletedGames,
 			"cancelled_games": ds.CancelledGames,
 			"total_players":   ds.TotalPlayers,
@@ -437,7 +437,7 @@ func (u *AdminGameUsecase) GetUserGameStats(userID uuid.UUID) (map[string]interf
 	return map[string]interface{}{
 		"user_id":       userID,
 		"username":      user.Username,
-		"total_games":   gameStats.TotalGames,
+		keyTotalGames:   gameStats.TotalGames,
 		"wins":          gameStats.GamesWon,
 		"losses":        gameStats.GamesLost,
 		"win_rate":      winRate,
@@ -485,7 +485,7 @@ func (u *AdminGameUsecase) CleanupAbandonedGames(adminID uuid.UUID) (map[string]
 
 	return map[string]interface{}{
 		"abandoned_games_cancelled": cancelledCount,
-		"message":                   "Cleanup completed successfully",
+		keyMessage:                   "Cleanup completed successfully",
 	}, nil
 }
 
@@ -524,7 +524,7 @@ func (u *AdminGameUsecase) RunGameMaintenance(adminID uuid.UUID) (map[string]int
 
 	result["old_games_deleted"] = deletedCount
 	result["expired_invites_cancelled"] = expiredCount
-	result["message"] = "Maintenance completed successfully"
+	result[keyMessage] = "Maintenance completed successfully"
 
 	return result, nil
 }

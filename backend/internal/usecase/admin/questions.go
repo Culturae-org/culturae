@@ -285,7 +285,7 @@ func (u *AdminQuestionsUsecase) ImportFromManifest(manifestURL string) (*model.I
 		"updated":     result.QuestionsUpdated,
 		"skipped":     result.QuestionsSkipped,
 		"errors":      len(result.Errors),
-		"message":     result.Message,
+		keyMessage:     result.Message,
 	}
 	if err := u.importsRepo.UpdateImportJobStatus(job.ID, jobUpdates); err != nil {
 		u.logger.Error("Failed to update import job summary", zap.Error(err))

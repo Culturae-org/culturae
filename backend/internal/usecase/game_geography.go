@@ -99,9 +99,9 @@ func (u *GameUsecase) generateGeographyQuestions(datasetID uuid.UUID, count int,
 		if err == nil && existingQ != nil {
 			questionID = &existingQ.ID
 		} else {
-			theme, _ := u.adminQuestionRepo.FindOrCreateTheme("geography")
+			theme, _ := u.adminQuestionRepo.FindOrCreateTheme(categoryGeography)
 			newQ := &model.Question{
-				Kind:             "geography",
+				Kind:             categoryGeography,
 				Version:          "1.0",
 				Slug:             slug,
 				QType:            mode,
@@ -133,7 +133,7 @@ func (u *GameUsecase) generateGeographyQuestions(datasetID uuid.UUID, count int,
 
 		vq := &model.Question{
 			ID:               uuid.New(),
-			Kind:             "geography",
+			Kind:             categoryGeography,
 			EstimatedSeconds: 20,
 			I18n:             datatypes.JSON{},
 		}
@@ -146,7 +146,7 @@ func (u *GameUsecase) generateGeographyQuestions(datasetID uuid.UUID, count int,
 		switch mode {
 		case model.QTypeTextInput:
 			vq.QType = model.QTypeTextInput
-			data["flag"] = getFlagCode(country)
+			data[keyFlag] = getFlagCode(country)
 			data["variant"] = activeVariant
 
 			nameByLang := parseCountryNamesByLang(country.Name)
@@ -167,8 +167,8 @@ func (u *GameUsecase) generateGeographyQuestions(datasetID uuid.UUID, count int,
 
 			data["correct_answer"] = map[string]interface{}{
 				"slug": country.Slug,
-				"name": parseCountryNamesByLang(country.Name),
-				"flag": getFlagCode(country),
+				keyName: parseCountryNamesByLang(country.Name),
+				keyFlag: getFlagCode(country),
 			}
 
 			if activeVariant == model.FlagVariantFlagToCapital {
@@ -193,8 +193,8 @@ func (u *GameUsecase) generateGeographyQuestions(datasetID uuid.UUID, count int,
 				_ = json.Unmarshal(country.Capital, &capitalNames)
 				data["correct_answer"] = map[string]interface{}{
 					"slug": country.Slug,
-					"name": capitalNames,
-					"flag": getFlagCode(country),
+					keyName: capitalNames,
+					keyFlag: getFlagCode(country),
 				}
 			}
 
@@ -248,8 +248,8 @@ func (u *GameUsecase) generateGeographyQuestions(datasetID uuid.UUID, count int,
 
 			options = append(options, map[string]interface{}{
 				"slug": country.Slug,
-				"name": parseCountryNamesByLang(country.Name),
-				"flag": getFlagCode(country),
+				keyName: parseCountryNamesByLang(country.Name),
+				keyFlag: getFlagCode(country),
 			})
 			validatorAnswers = append(validatorAnswers, model.Answer{
 				Slug:      country.Slug,
@@ -266,8 +266,8 @@ func (u *GameUsecase) generateGeographyQuestions(datasetID uuid.UUID, count int,
 				}
 				options = append(options, map[string]interface{}{
 					"slug": d.Slug,
-					"name": parseCountryNamesByLang(d.Name),
-					"flag": getFlagCode(d),
+					keyName: parseCountryNamesByLang(d.Name),
+					keyFlag: getFlagCode(d),
 				})
 				validatorAnswers = append(validatorAnswers, model.Answer{
 					Slug:      d.Slug,
@@ -283,31 +283,31 @@ func (u *GameUsecase) generateGeographyQuestions(datasetID uuid.UUID, count int,
 
 			data["correct_answer"] = map[string]interface{}{
 				"slug": country.Slug,
-				"name": parseCountryNamesByLang(country.Name),
-				"flag": getFlagCode(country),
+				keyName: parseCountryNamesByLang(country.Name),
+				keyFlag: getFlagCode(country),
 			}
 
 			switch subMode {
 			case modeFlagToName:
-				data["flag"] = country.Flag
+				data[keyFlag] = country.Flag
 				data["mode"] = modeFlagToName
-				i18n["fr"] = model.QuestionI18n{Title: "Quiz", Stem: "A qui appartient ce drapeau ?"}
-				i18n["en"] = model.QuestionI18n{Title: "Quiz", Stem: "Whose flag is this?"}
+				i18n["fr"] = model.QuestionI18n{Title: labelQuiz, Stem: "A qui appartient ce drapeau ?"}
+				i18n["en"] = model.QuestionI18n{Title: labelQuiz, Stem: "Whose flag is this?"}
 			case modeNameToFlag:
 				data["target_name"] = country.Name
 				data["mode"] = modeNameToFlag
-				i18n["fr"] = model.QuestionI18n{Title: "Quiz", Stem: "Quel est le drapeau de : " + getCountryName(country.Name, "fr")}
-				i18n["en"] = model.QuestionI18n{Title: "Quiz", Stem: "Which flag belongs to: " + getCountryName(country.Name, "en")}
+				i18n["fr"] = model.QuestionI18n{Title: labelQuiz, Stem: "Quel est le drapeau de : " + getCountryName(country.Name, "fr")}
+				i18n["en"] = model.QuestionI18n{Title: labelQuiz, Stem: "Which flag belongs to: " + getCountryName(country.Name, "en")}
 			case modeCapitalToFlag:
 				data["target_capital"] = country.Capital
 				data["mode"] = modeCapitalToFlag
-				i18n["fr"] = model.QuestionI18n{Title: "Quiz", Stem: "Quel est le drapeau du pays dont la capitale est : " + getCapitalName(country.Capital, "fr")}
-				i18n["en"] = model.QuestionI18n{Title: "Quiz", Stem: "Which flag belongs to the country with capital: " + getCapitalName(country.Capital, "en")}
+				i18n["fr"] = model.QuestionI18n{Title: labelQuiz, Stem: "Quel est le drapeau du pays dont la capitale est : " + getCapitalName(country.Capital, "fr")}
+				i18n["en"] = model.QuestionI18n{Title: labelQuiz, Stem: "Which flag belongs to the country with capital: " + getCapitalName(country.Capital, "en")}
 			case modeCapitalToName:
 				data["target_capital"] = country.Capital
 				data["mode"] = modeCapitalToName
-				i18n["fr"] = model.QuestionI18n{Title: "Quiz", Stem: "Quel pays a pour capitale : " + getCapitalName(country.Capital, "fr")}
-				i18n["en"] = model.QuestionI18n{Title: "Quiz", Stem: "Which country has the capital: " + getCapitalName(country.Capital, "en")}
+				i18n["fr"] = model.QuestionI18n{Title: labelQuiz, Stem: "Quel pays a pour capitale : " + getCapitalName(country.Capital, "fr")}
+				i18n["en"] = model.QuestionI18n{Title: labelQuiz, Stem: "Which country has the capital: " + getCapitalName(country.Capital, "en")}
 			}
 		}
 
@@ -321,8 +321,8 @@ func (u *GameUsecase) generateGeographyQuestions(datasetID uuid.UUID, count int,
 		vq.Answers = datatypes.JSON(jsonAnswers)
 
 		vqData := map[string]interface{}{}
-		if data["flag"] != nil {
-			vqData["flag"] = data["flag"]
+		if data[keyFlag] != nil {
+			vqData[keyFlag] = data[keyFlag]
 		}
 		if data["variant"] != nil {
 			vqData["variant"] = data["variant"]

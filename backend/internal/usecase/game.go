@@ -250,15 +250,15 @@ func (u *GameUsecase) CreateMatchmakedGame(user1, user2 uuid.UUID, mode model.Ga
 	for _, uid := range []uuid.UUID{user1, user2} {
 		_ = u.userRepo.UpdateUserGameStatus(uid, &gameModel.ID)
 		_ = u.wsService.SendToUser(uid, map[string]interface{}{
-			"type":           "match_found",
-			"game_public_id": publicID,
-			"mode":           string(mode),
+			keyType:           "match_found",
+			keyGamePublicID: publicID,
+			keyMode:           string(mode),
 		})
 	}
 
 	u.logger.Info("Match found, notifying clients",
-		zap.String("game_id", gameModel.ID.String()),
-		zap.String("public_id", publicID),
+		zap.String(keyGameID, gameModel.ID.String()),
+		zap.String(keyPublicID, publicID),
 		zap.String("u1", user1.String()),
 		zap.String("u2", user2.String()),
 	)
@@ -274,8 +274,8 @@ func (u *GameUsecase) CreateMatchmakedGame(user1, user2 uuid.UUID, mode model.Ga
 	_ = u.gameRepo.UpdateGame(gameModel)
 
 	u.logger.Info("Matchmaked game started",
-		zap.String("game_id", gameModel.ID.String()),
-		zap.String("public_id", publicID),
+		zap.String(keyGameID, gameModel.ID.String()),
+		zap.String(keyPublicID, publicID),
 		zap.String("u1", user1.String()),
 		zap.String("u2", user2.String()),
 	)
@@ -345,7 +345,7 @@ func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.
 		templateID = &tmpl.ID
 
 		if snapshot, err := json.Marshal(map[string]interface{}{
-			"name":               tmpl.Name,
+			keyName:               tmpl.Name,
 			"slug":               tmpl.Slug,
 			"category":           tmpl.Category,
 			"flag_variant":       tmpl.FlagVariant,
@@ -357,7 +357,7 @@ func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.
 			"time_bonus":         tmpl.TimeBonus,
 			"score_mode":         tmpl.ScoreMode,
 			"xp_multiplier":      tmpl.XPMultiplier,
-			"mode":               tmpl.Mode,
+			keyMode:               tmpl.Mode,
 		}); err == nil {
 			req.TemplateSnapshot = string(snapshot)
 		}
@@ -456,7 +456,7 @@ func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.
 		if !gameCreationSucceeded {
 			if delErr := u.gameRepo.DeleteGameRecord(gameModel); delErr != nil {
 				u.logger.Warn("Failed to clean up game record after creation error",
-					zap.String("game_id", gameModel.ID.String()),
+					zap.String(keyGameID, gameModel.ID.String()),
 					zap.Error(delErr),
 				)
 			}
@@ -517,7 +517,7 @@ func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.
 		}
 
 		for _, q := range questions {
-			if q.Kind == "geography" || q.Kind == "flags" {
+			if q.Kind == categoryGeography || q.Kind == "flags" {
 				var answers []model.Answer
 				if err := json.Unmarshal(q.Answers, &answers); err != nil {
 					continue
@@ -621,14 +621,14 @@ func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.
 	gameCreationSucceeded = true
 
 	_ = u.loggingService.LogUserAction(creatorID, "create_game", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{
-		"game_id": gameModel.ID,
-		"mode":    req.Mode,
+		keyGameID: gameModel.ID,
+		keyMode:    req.Mode,
 	}, true, nil)
 
 	u.wsService.BroadcastAdminNotification(service.AdminNotification{
 		Event: "game_created",
 		Data: map[string]interface{}{
-			"mode":       string(req.Mode),
+			keyMode:       string(req.Mode),
 			"creator_id": creatorID.String(),
 		},
 		EntityType: "game",
@@ -704,7 +704,7 @@ func (u *GameUsecase) InviteToGame(c *gin.Context, gameID, fromUserID uuid.UUID,
 	invite.ToUserPublicID = toUser.PublicID
 
 	_ = u.loggingService.LogUserAction(fromUserID, "invite_to_game", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{
-		"game_id":           gameID,
+		keyGameID:           gameID,
 		"to_user_public_id": toUserPublicID,
 	}, true, nil)
 
@@ -718,13 +718,13 @@ func (u *GameUsecase) InviteToGame(c *gin.Context, gameID, fromUserID uuid.UUID,
 	if u.wsService != nil {
 		go func() {
 			_ = u.wsService.SendToUser(toUser.ID, map[string]interface{}{
-				"type": "game_invite",
-				"data": map[string]interface{}{
-					"invite_id":      invite.ID.String(),
-					"game_id":        gameID.String(),
-					"game_public_id": gameModel.PublicID,
+				keyType: "game_invite",
+				keyData: map[string]interface{}{
+					keyInviteID:      invite.ID.String(),
+					keyGameID:        gameID.String(),
+					keyGamePublicID: gameModel.PublicID,
 					"from_username":  username,
-					"from_public_id": invite.FromUserPublicID,
+					keyFromPublicID: invite.FromUserPublicID,
 					"game_mode":      string(gameModel.Mode),
 				},
 			})
@@ -732,7 +732,7 @@ func (u *GameUsecase) InviteToGame(c *gin.Context, gameID, fromUserID uuid.UUID,
 	}
 
 	if u.notifRepo != nil {
-		data, _ := json.Marshal(map[string]string{"invite_id": invite.ID.String()})
+		data, _ := json.Marshal(map[string]string{keyInviteID: invite.ID.String()})
 		_ = u.notifRepo.Create(&model.Notification{
 			UserID: toUser.ID,
 			Type:   "game_invite",
@@ -802,30 +802,30 @@ func (u *GameUsecase) AcceptGameInvite(c *gin.Context, inviteID, userID uuid.UUI
 	}
 
 	_ = u.loggingService.LogUserAction(userID, "accept_game_invite", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{
-		"invite_id": inviteID,
-		"game_id":   invite.GameID,
+		keyInviteID: inviteID,
+		keyGameID:   invite.GameID,
 	}, true, nil)
 
 	if u.wsService != nil {
 		go func() {
 			acceptorData := map[string]interface{}{
-				"invite_id":      inviteID.String(),
-				"game_public_id": gameModel.PublicID,
+				keyInviteID:      inviteID.String(),
+				keyGamePublicID: gameModel.PublicID,
 				"status":         string(model.GameInviteStatusAccepted),
 			}
 			if acceptor, err := u.userRepo.GetByID(userID.String()); err == nil {
 				acceptorData["from_username"] = acceptor.Username
-				acceptorData["from_public_id"] = acceptor.PublicID
+				acceptorData[keyFromPublicID] = acceptor.PublicID
 			}
 			_ = u.wsService.SendToUser(invite.FromUserID, map[string]interface{}{
-				"type": "game_invite_accepted",
-				"data": acceptorData,
+				keyType: "game_invite_accepted",
+				keyData: acceptorData,
 			})
 			_ = u.wsService.SendToUser(userID, map[string]interface{}{
-				"type": "game_invite_updated",
-				"data": map[string]interface{}{
-					"invite_id":      inviteID.String(),
-					"game_public_id": gameModel.PublicID,
+				keyType: "game_invite_updated",
+				keyData: map[string]interface{}{
+					keyInviteID:      inviteID.String(),
+					keyGamePublicID: gameModel.PublicID,
 					"status":         string(model.GameInviteStatusAccepted),
 				},
 			})
@@ -859,23 +859,23 @@ func (u *GameUsecase) RejectGameInvite(c *gin.Context, inviteID, userID uuid.UUI
 	}
 
 	_ = u.loggingService.LogUserAction(userID, "reject_game_invite", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{
-		"invite_id": inviteID,
+		keyInviteID: inviteID,
 	}, true, nil)
 
 	if u.wsService != nil {
 		go func() {
 			_ = u.wsService.SendToUser(invite.FromUserID, map[string]interface{}{
-				"type": "game_invite_rejected",
-				"data": map[string]interface{}{
-					"invite_id":      inviteID.String(),
-					"game_public_id": gameModel.PublicID,
+				keyType: "game_invite_rejected",
+				keyData: map[string]interface{}{
+					keyInviteID:      inviteID.String(),
+					keyGamePublicID: gameModel.PublicID,
 				},
 			})
 			_ = u.wsService.SendToUser(userID, map[string]interface{}{
-				"type": "game_invite_updated",
-				"data": map[string]interface{}{
-					"invite_id":      inviteID.String(),
-					"game_public_id": gameModel.PublicID,
+				keyType: "game_invite_updated",
+				keyData: map[string]interface{}{
+					keyInviteID:      inviteID.String(),
+					keyGamePublicID: gameModel.PublicID,
 					"status":         string(model.GameInviteStatusRejected),
 				},
 			})
@@ -926,21 +926,21 @@ func (u *GameUsecase) JoinGame(c *gin.Context, gameID, userID uuid.UUID) error {
 
 	if u.wsService != nil {
 		go func() {
-			playerData := map[string]interface{}{"action": "joined"}
+			playerData := map[string]interface{}{keyAction: "joined"}
 			if joiner, err := u.userRepo.GetByID(userID.String()); err == nil {
-				playerData["user_public_id"] = joiner.PublicID
+				playerData[keyUserPublicID] = joiner.PublicID
 				playerData["username"] = joiner.Username
 			}
 			_ = u.wsService.SendToGame(gameModel.PublicID, map[string]interface{}{
-				"type":           "lobby_updated",
-				"game_public_id": gameModel.PublicID,
-				"data":           playerData,
+				keyType:           msgLobbyUpdated,
+				keyGamePublicID: gameModel.PublicID,
+				keyData:           playerData,
 			})
 		}()
 	}
 
 	_ = u.loggingService.LogUserAction(userID, "join_game", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{
-		"game_id": gameID,
+		keyGameID: gameID,
 	}, true, nil)
 
 	return nil
@@ -1036,16 +1036,16 @@ func (u *GameUsecase) LeaveGame(c *gin.Context, gameID, userID uuid.UUID) error 
 		u.logger.Warn("Failed to clear user game status", zap.Error(err))
 	}
 
-	u.emitEvent(gameID, "player_left", map[string]interface{}{"user_id": userID})
+	u.emitEvent(gameID, "player_left", map[string]interface{}{keyUserID: userID})
 
 	if !wasInProgress && u.wsService != nil {
 		go func() {
 			_ = u.wsService.SendToGame(gameModel.PublicID, map[string]interface{}{
-				"type":           "lobby_updated",
-				"game_public_id": gameModel.PublicID,
-				"data": map[string]interface{}{
-					"user_id": userID.String(),
-					"action":  "left",
+				keyType:           msgLobbyUpdated,
+				keyGamePublicID: gameModel.PublicID,
+				keyData: map[string]interface{}{
+					keyUserID: userID.String(),
+					keyAction:  "left",
 				},
 			})
 		}()
@@ -1059,7 +1059,7 @@ func (u *GameUsecase) LeaveGame(c *gin.Context, gameID, userID uuid.UUID) error 
 				username = p.User.Username
 			}
 			playersFinal = append(playersFinal, map[string]interface{}{
-				"user_public_id": p.UserPublicID,
+				keyUserPublicID: p.UserPublicID,
 				"username":       username,
 				"score":          p.Score,
 			})
@@ -1069,21 +1069,21 @@ func (u *GameUsecase) LeaveGame(c *gin.Context, gameID, userID uuid.UUID) error 
 				u.logger.Warn("Failed to cancel game in manager", zap.Error(err))
 			}
 			_ = u.wsService.SendToGame(gameModel.PublicID, map[string]interface{}{
-				"type":      "game_cancelled",
-				"public_id": gameModel.PublicID,
-				"data": map[string]interface{}{
+				keyType:      "game_cancelled",
+				keyPublicID: gameModel.PublicID,
+				keyData: map[string]interface{}{
 					"reason": "all_players_left",
 				},
 			})
 		} else if winnerPublicID != "" {
 			_ = u.wsService.SendToGame(gameModel.PublicID, map[string]interface{}{
-				"type":      "game_completed",
-				"game_id":   gameID,
-				"public_id": gameModel.PublicID,
-				"data": map[string]interface{}{
-					"game_id":          gameID,
+				keyType:      "game_completed",
+				keyGameID:   gameID,
+				keyPublicID: gameModel.PublicID,
+				keyData: map[string]interface{}{
+					keyGameID:          gameID,
 					"players_final":    playersFinal,
-					"winner_public_id": winnerPublicID,
+					keyWinnerPublicID: winnerPublicID,
 				},
 			})
 		}
@@ -1091,7 +1091,7 @@ func (u *GameUsecase) LeaveGame(c *gin.Context, gameID, userID uuid.UUID) error 
 
 	if c != nil {
 		_ = u.loggingService.LogUserAction(userID, "leave_game", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{
-			"game_id": gameID,
+			keyGameID: gameID,
 		}, true, nil)
 	}
 
@@ -1202,13 +1202,13 @@ func (u *GameUsecase) StartGame(c *gin.Context, gameID, userID uuid.UUID) error 
 		}
 
 		_ = u.loggingService.LogUserAction(userID, "start_game", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{
-			"game_id": gameID,
+			keyGameID: gameID,
 		}, true, nil)
 
 		u.wsService.BroadcastAdminNotification(service.AdminNotification{
 			Event: "game_started",
 			Data: map[string]interface{}{
-				"mode": string(gameModel.Mode),
+				keyMode: string(gameModel.Mode),
 			},
 			EntityType: "game",
 			EntityID:   gameModel.PublicID,
@@ -1353,8 +1353,8 @@ func (u *GameUsecase) SubmitAnswer(c *gin.Context, gameID, userID uuid.UUID, req
 	}
 
 	u.logger.Info("Answer recorded",
-		zap.String("game_id", gameID.String()),
-		zap.String("user_id", userID.String()),
+		zap.String(keyGameID, gameID.String()),
+		zap.String(keyUserID, userID.String()),
 		zap.String("question_id", currentQuestion.ID.String()),
 		zap.String("question_slug", currentQuestion.Slug),
 		zap.String("question_type", currentQuestion.QType),
@@ -1447,13 +1447,13 @@ func (u *GameUsecase) finalizeGame(c *gin.Context, gameID uuid.UUID) error {
 		isWinner := winnerID != nil && *winnerID == player.UserID
 
 		if err := u.userRepo.UpdateGameStats(player.UserID, isWinner, isDrawn, player.Score, durationSec, string(gameModel.Mode)); err != nil {
-			u.logger.Warn("Failed to update user game stats", zap.String("user_id", player.UserID.String()), zap.Error(err))
+			u.logger.Warn("Failed to update user game stats", zap.String(keyUserID, player.UserID.String()), zap.Error(err))
 		}
 
 		xp := u.xpCalc.CalculateXPWithTemplateMultiplier(gameModel.Mode, player.Score, isWinner, xpCfg, templateXPMultiplier)
 		if xp > 0 {
 			if err := u.userRepo.AddExperience(player.UserID, xp, xpCfg); err != nil {
-				u.logger.Warn("Failed to add user experience", zap.String("user_id", player.UserID.String()), zap.Error(err))
+				u.logger.Warn("Failed to add user experience", zap.String(keyUserID, player.UserID.String()), zap.Error(err))
 			}
 		}
 
@@ -1462,9 +1462,9 @@ func (u *GameUsecase) finalizeGame(c *gin.Context, gameID uuid.UUID) error {
 		}
 
 		_ = u.wsService.SendToUser(player.UserID, map[string]interface{}{
-			"type":      "game_results",
-			"public_id": gameModel.PublicID,
-			"data": map[string]interface{}{
+			keyType:      "game_results",
+			keyPublicID: gameModel.PublicID,
+			keyData: map[string]interface{}{
 				"score":     player.Score,
 				"xp_gained": xp,
 				"is_winner": isWinner,
@@ -1476,14 +1476,14 @@ func (u *GameUsecase) finalizeGame(c *gin.Context, gameID uuid.UUID) error {
 
 	if err := u.gameManager.RemoveGame(gameID); err != nil {
 		u.logger.Warn("Failed to remove finalized game from Redis",
-			zap.String("game_id", gameID.String()),
+			zap.String(keyGameID, gameID.String()),
 			zap.Error(err),
 		)
 	}
 
 	if err := u.updateQuestionStats(gameID); err != nil {
 		u.logger.Warn("Failed to update question stats",
-			zap.String("game_id", gameID.String()),
+			zap.String(keyGameID, gameID.String()),
 			zap.Error(err),
 		)
 	}
@@ -1521,10 +1521,10 @@ func (u *GameUsecase) finalizeGame(c *gin.Context, gameID uuid.UUID) error {
 				eloCfg,
 			)
 			if err := u.userRepo.UpdateEloRating(winPlayer.UserID, newWinRating); err != nil {
-				u.logger.Warn("Failed to update winner ELO", zap.String("user_id", winPlayer.UserID.String()), zap.Error(err))
+				u.logger.Warn("Failed to update winner ELO", zap.String(keyUserID, winPlayer.UserID.String()), zap.Error(err))
 			}
 			if err := u.userRepo.UpdateEloRating(losePlayer.UserID, newLoseRating); err != nil {
-				u.logger.Warn("Failed to update loser ELO", zap.String("user_id", losePlayer.UserID.String()), zap.Error(err))
+				u.logger.Warn("Failed to update loser ELO", zap.String(keyUserID, losePlayer.UserID.String()), zap.Error(err))
 			}
 		}
 	}
@@ -1795,7 +1795,7 @@ func (u *GameUsecase) CancelGame(c *gin.Context, gameID, userID uuid.UUID) error
 		enginePlayers := gameEngine.GetPlayers()
 		for _, p := range enginePlayers {
 			playersFinalData = append(playersFinalData, map[string]interface{}{
-				"user_public_id": p.PublicID,
+				keyUserPublicID: p.PublicID,
 				"username":       p.Username,
 				"score":          p.Score,
 			})
@@ -1821,18 +1821,18 @@ func (u *GameUsecase) CancelGame(c *gin.Context, gameID, userID uuid.UUID) error
 
 	u.emitEvent(gameID, "game_cancelled", map[string]interface{}{
 		"reason":           "player_quit",
-		"winner_public_id": winnerPublicId,
+		keyWinnerPublicID: winnerPublicId,
 		"players_final":    playersFinalData,
 	})
 
 	if u.wsService != nil {
 		_ = u.wsService.SendToGame(gameModel.PublicID, map[string]interface{}{
-			"type":      "game_cancelled",
-			"game_id":   gameID.String(),
-			"public_id": gameModel.PublicID,
-			"data": map[string]interface{}{
+			keyType:      "game_cancelled",
+			keyGameID:   gameID.String(),
+			keyPublicID: gameModel.PublicID,
+			keyData: map[string]interface{}{
 				"reason":           "player_quit",
-				"winner_public_id": winnerPublicId,
+				keyWinnerPublicID: winnerPublicId,
 				"players_final":    playersFinalData,
 			},
 		})
@@ -1845,10 +1845,10 @@ func (u *GameUsecase) CancelGame(c *gin.Context, gameID, userID uuid.UUID) error
 				invCopy := inv
 				go func() {
 					_ = u.wsService.SendToUser(invCopy.ToUserID, map[string]interface{}{
-						"type": "game_invite_cancelled",
-						"data": map[string]interface{}{
-							"invite_id":      invCopy.ID.String(),
-							"game_public_id": gameModel.PublicID,
+						keyType: "game_invite_cancelled",
+						keyData: map[string]interface{}{
+							keyInviteID:      invCopy.ID.String(),
+							keyGamePublicID: gameModel.PublicID,
 						},
 					})
 				}()
@@ -1857,7 +1857,7 @@ func (u *GameUsecase) CancelGame(c *gin.Context, gameID, userID uuid.UUID) error
 	}
 
 	_ = u.loggingService.LogUserAction(userID, "cancel_game", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{
-		"game_id": gameID,
+		keyGameID: gameID,
 	}, true, nil)
 
 	return nil
@@ -1955,7 +1955,7 @@ func (u *GameUsecase) validateGameCanBeModified(gameModel *model.Game) error {
 }
 
 func (u *GameUsecase) emitEvent(gameID uuid.UUID, eventType string, data map[string]interface{}) {
-	u.logger.Info("Game event emitted", zap.String("game_id", gameID.String()), zap.String("event", eventType), zap.Any("data", data))
+	u.logger.Info("Game event emitted", zap.String(keyGameID, gameID.String()), zap.String("event", eventType), zap.Any(keyData, data))
 }
 
 func (u *GameUsecase) emitGameCompletedEvent(gameModel *model.Game, players []game.Player, winnerID *uuid.UUID) {
@@ -1966,29 +1966,29 @@ func (u *GameUsecase) emitGameCompletedEvent(gameModel *model.Game, players []ga
 	playersFinal := make([]map[string]interface{}, 0, len(players))
 	for _, p := range players {
 		playersFinal = append(playersFinal, map[string]interface{}{
-			"user_public_id": p.PublicID,
+			keyUserPublicID: p.PublicID,
 			"username":       p.Username,
 			"score":          p.Score,
 		})
 	}
 
 	eventData := map[string]interface{}{
-		"game_id":          gameModel.ID,
+		keyGameID:          gameModel.ID,
 		"players_final":    playersFinal,
 	}
 	if winnerID != nil {
 		for _, p := range players {
 			if p.UserID == *winnerID {
-				eventData["winner_public_id"] = p.PublicID
+				eventData[keyWinnerPublicID] = p.PublicID
 				break
 			}
 		}
 	}
 
 	_ = u.wsService.SendToGame(gameModel.PublicID, map[string]interface{}{
-		"type":      "game_completed",
-		"public_id": gameModel.PublicID,
-		"data":      eventData,
+		keyType:      "game_completed",
+		keyPublicID: gameModel.PublicID,
+		keyData:      eventData,
 	})
 }
 
@@ -2114,8 +2114,8 @@ func (u *GameUsecase) HandleSubmitAnswer(userID uuid.UUID, gamePublicID string, 
 		}
 
 		u.logger.Info("Answer recorded (WS)",
-			zap.String("game_id", gameModel.ID.String()),
-			zap.String("user_id", userID.String()),
+			zap.String(keyGameID, gameModel.ID.String()),
+			zap.String(keyUserID, userID.String()),
 			zap.String("question_id", currentQuestion.ID.String()),
 			zap.String("question_slug", currentQuestion.Slug),
 			zap.String("question_type", currentQuestion.QType),
@@ -2139,8 +2139,8 @@ func (u *GameUsecase) HandleSubmitAnswer(userID uuid.UUID, gamePublicID string, 
 	}
 
 	u.logger.Debug("Answer submitted via WebSocket",
-		zap.String("game_public_id", gamePublicID),
-		zap.String("user_id", userID.String()),
+		zap.String(keyGamePublicID, gamePublicID),
+		zap.String(keyUserID, userID.String()),
 	)
 
 	return nil
@@ -2157,8 +2157,8 @@ func (u *GameUsecase) HandlePlayerReady(userID uuid.UUID, gamePublicID string, r
 	}
 
 	u.logger.Debug("Player ready status updated via WebSocket",
-		zap.String("game_public_id", gamePublicID),
-		zap.String("user_id", userID.String()),
+		zap.String(keyGamePublicID, gamePublicID),
+		zap.String(keyUserID, userID.String()),
 		zap.Bool("ready", ready),
 	)
 
@@ -2187,8 +2187,8 @@ func (u *GameUsecase) HandleStartGame(userID uuid.UUID, gamePublicID string) err
 	}
 
 	u.logger.Info("Game started via WebSocket",
-		zap.String("game_public_id", gamePublicID),
-		zap.String("user_id", userID.String()),
+		zap.String(keyGamePublicID, gamePublicID),
+		zap.String(keyUserID, userID.String()),
 	)
 
 	return nil
@@ -2233,24 +2233,24 @@ func (u *GameUsecase) OnUserConnected(userID uuid.UUID) {
 	payload := make([]map[string]interface{}, 0, len(invites))
 	for _, inv := range invites {
 		entry := map[string]interface{}{
-			"invite_id":      inv.ID.String(),
-			"game_id":        inv.GameID.String(),
-			"from_public_id": inv.FromUserPublicID,
+			keyInviteID:      inv.ID.String(),
+			keyGameID:        inv.GameID.String(),
+			keyFromPublicID: inv.FromUserPublicID,
 		}
 		if gameModel, err := u.gameRepo.GetGameByID(inv.GameID); err == nil {
-			entry["game_public_id"] = gameModel.PublicID
+			entry[keyGamePublicID] = gameModel.PublicID
 			entry["game_mode"] = string(gameModel.Mode)
 		}
 		if fromUser, err := u.userRepo.GetByID(inv.FromUserID.String()); err == nil {
 			entry["from_username"] = fromUser.Username
-			entry["from_public_id"] = fromUser.PublicID
+			entry[keyFromPublicID] = fromUser.PublicID
 		}
 		payload = append(payload, entry)
 	}
 
 	_ = u.wsService.SendToUser(userID, map[string]interface{}{
-		"type": "pending_invites",
-		"data": payload,
+		keyType: "pending_invites",
+		keyData: payload,
 	})
 }
 
@@ -2327,7 +2327,7 @@ func (u *GameUsecase) GetGameStateForReconnect(gamePublicID string) (map[string]
 	playerSnapshots := make([]map[string]interface{}, 0, len(players))
 	for _, p := range players {
 		playerSnapshots = append(playerSnapshots, map[string]interface{}{
-			"user_public_id": p.PublicID,
+			keyUserPublicID: p.PublicID,
 			"username":       p.Username,
 			"score":          p.Score,
 		})
@@ -2395,8 +2395,8 @@ func (u *GameUsecase) CancelUserGameInvite(c *gin.Context, inviteID, userID uuid
 	if u.wsService != nil {
 		go func() {
 			_ = u.wsService.SendToUser(invite.ToUserID, map[string]interface{}{
-				"type":      "game_invite_cancelled",
-				"invite_id": inviteID.String(),
+				keyType:      "game_invite_cancelled",
+				keyInviteID: inviteID.String(),
 			})
 		}()
 	}
@@ -2583,21 +2583,21 @@ func (u *GameUsecase) JoinGameByCode(c *gin.Context, code string, userID uuid.UU
 
 	if u.wsService != nil {
 		go func() {
-			playerData := map[string]interface{}{"action": "joined"}
+			playerData := map[string]interface{}{keyAction: "joined"}
 			if joiner, err := u.userRepo.GetByID(userID.String()); err == nil {
-				playerData["user_public_id"] = joiner.PublicID
+				playerData[keyUserPublicID] = joiner.PublicID
 				playerData["username"] = joiner.Username
 			}
 			_ = u.wsService.SendToGame(g.PublicID, map[string]interface{}{
-				"type":           "lobby_updated",
-				"game_public_id": g.PublicID,
-				"data":           playerData,
+				keyType:           msgLobbyUpdated,
+				keyGamePublicID: g.PublicID,
+				keyData:           playerData,
 			})
 		}()
 	}
 
 	_ = u.loggingService.LogUserAction(userID, "join_game_by_code", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{
-		"game_public_id": code,
+		keyGamePublicID: code,
 	}, true, nil)
 
 	return nil

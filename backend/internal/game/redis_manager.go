@@ -174,7 +174,7 @@ func (rgm *RedisGameManager) loadCountdownConfig() model.CountdownConfig {
 
 type GameStateData struct {
 	ID          uuid.UUID         `json:"id"`
-	PublicID    string            `json:"public_id"`
+	PublicID    string            `json:keyPublicID`
 	Mode        model.GameMode    `json:"mode"`
 	Status      model.GameStatus  `json:"status"`
 	Players     []Player          `json:"players"`
@@ -353,7 +353,7 @@ func (rgm *RedisGameManager) CreateGame(
 
 	rgm.logger.Info("Game created in Redis",
 		zap.String("game_id", gameID.String()),
-		zap.String("public_id", publicID),
+		zap.String(keyPublicID, publicID),
 		zap.String("mode", string(mode)),
 	)
 
@@ -1583,7 +1583,7 @@ func (rgm *RedisGameManager) applyPostGameRewards(
 					"xp_gained": xp,
 					"is_winner": isWinner,
 					"game_mode": string(mode),
-					"public_id": game.GetPublicID(),
+					keyPublicID: game.GetPublicID(),
 				}
 				if userErr == nil {
 					notifData["new_level"] = newUser.Level
@@ -1611,8 +1611,8 @@ func (rgm *RedisGameManager) applyPostGameRewards(
 
 		if rgm.userNotifier != nil {
 			_ = rgm.userNotifier.SendToUser(p.UserID, map[string]interface{}{
-				"type":      "game_results",
-				"public_id": game.GetPublicID(),
+				keyType:     "game_results",
+				keyPublicID: game.GetPublicID(),
 				keyData: map[string]interface{}{
 					keyScore:     p.Score,
 					"xp_gained": xp,

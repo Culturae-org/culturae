@@ -140,7 +140,7 @@ func (u *AdminGeographyUsecase) UpdateDatasetStatistics(datasetID uuid.UUID) err
 	return u.repo.UpdateDatasetByID(datasetID, map[string]interface{}{
 		keyCountryCount:   countryCount,
 		keyContinentCount: continentCount,
-		"region_count":    regionCount,
+		keyRegionCount:    regionCount,
 	})
 }
 
@@ -156,17 +156,17 @@ func (u *AdminGeographyUsecase) GetGeographyDatasetStatistics(datasetID uuid.UUI
 
 	return map[string]interface{}{
 		"dataset_id":         datasetID,
-		"name":               dataset.Name,
-		"version":            dataset.Version,
+		keyName:               dataset.Name,
+		keyVersion:            dataset.Version,
 		keyCountryCount:      countryCount,
 		keyContinentCount:    continentCount,
-		"region_count":       regionCount,
-		"flag_count":         dataset.FlagCount,
+		keyRegionCount:       regionCount,
+		keyFlagCount:         dataset.FlagCount,
 		"flag_png512_count":  dataset.FlagPNG512Count,
 		"flag_png1024_count": dataset.FlagPNG1024Count,
-		"is_active":          dataset.IsActive,
-		"is_default":         dataset.IsDefault,
-		"imported_at":        dataset.ImportedAt,
+		keyIsActive:          dataset.IsActive,
+		keyIsDefault:         dataset.IsDefault,
+		keyImportedAt:        dataset.ImportedAt,
 	}, nil
 }
 
@@ -198,7 +198,7 @@ func (u *AdminGeographyUsecase) ImportGeographyFromManifest(manifestURL string) 
 
 	u.logger.Info("Manifest loaded successfully",
 		zap.String("dataset", manifest.Dataset),
-		zap.String("version", manifest.Version),
+		zap.String(keyVersion, manifest.Version),
 		zap.String("type", manifest.Type),
 		zap.Int("expected_countries", manifest.Counts.Countries),
 		zap.Int("expected_continents", manifest.Counts.Continents),
@@ -337,8 +337,8 @@ func (u *AdminGeographyUsecase) ImportGeographyFromManifest(manifestURL string) 
 	if err := u.repo.UpdateDatasetByID(dataset.ID, map[string]interface{}{
 		keyCountryCount:   dataset.CountryCount,
 		keyContinentCount: dataset.ContinentCount,
-		"region_count":    dataset.RegionCount,
-		"flag_count":      dataset.FlagCount,
+		keyRegionCount:    dataset.RegionCount,
+		keyFlagCount:      dataset.FlagCount,
 	}); err != nil {
 		return nil, fmt.Errorf("failed to update dataset statistics: %w", err)
 	}
@@ -361,7 +361,7 @@ func (u *AdminGeographyUsecase) ImportGeographyFromManifest(manifestURL string) 
 		"updated":     result.CountriesUpdated + result.ContinentsUpdated + result.RegionsUpdated,
 		"skipped":     result.CountriesSkipped,
 		"errors":      len(result.Errors),
-		"message":     result.Message,
+		keyMessage:     result.Message,
 	}
 
 	if err := u.importsRepo.UpdateImportJobStatus(job.ID, jobUpdates); err != nil {
@@ -489,7 +489,7 @@ func (u *AdminGeographyUsecase) importFlagsAsync(svgBaseURL, png512BaseURL, png1
 
 	updates := map[string]interface{}{}
 	if svgBaseURL != "" {
-		updates["flag_count"] = svgCount
+		updates[keyFlagCount] = svgCount
 	}
 	if png512BaseURL != "" {
 		updates["flag_png512_count"] = png512Count
@@ -523,7 +523,7 @@ func (u *AdminGeographyUsecase) UpdateCountry(datasetID uuid.UUID, slug string, 
 		return nil, fmt.Errorf("country not found: %w", err)
 	}
 
-	if name, ok := updates["name"].(map[string]interface{}); ok {
+	if name, ok := updates[keyName].(map[string]interface{}); ok {
 		jsonName, err := json.Marshal(name)
 		if err == nil {
 			country.Name = datatypes.JSON(jsonName)
@@ -585,7 +585,7 @@ func (u *AdminGeographyUsecase) UpdateContinent(datasetID uuid.UUID, slug string
 		return nil, fmt.Errorf("continent not found: %w", err)
 	}
 
-	if name, ok := updates["name"].(map[string]interface{}); ok {
+	if name, ok := updates[keyName].(map[string]interface{}); ok {
 		jsonName, err := json.Marshal(name)
 		if err == nil {
 			continent.Name = datatypes.JSON(jsonName)
@@ -611,7 +611,7 @@ func (u *AdminGeographyUsecase) UpdateRegion(datasetID uuid.UUID, slug string, u
 		return nil, fmt.Errorf("region not found: %w", err)
 	}
 
-	if name, ok := updates["name"].(map[string]interface{}); ok {
+	if name, ok := updates[keyName].(map[string]interface{}); ok {
 		jsonName, err := json.Marshal(name)
 		if err == nil {
 			region.Name = datatypes.JSON(jsonName)

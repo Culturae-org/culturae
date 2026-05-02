@@ -92,7 +92,7 @@ func (u *AdminDatasetsUsecase) ListAllDatasets(datasetType *string) ([]model.Uni
 					LatestAvailableVersion: qd.LatestAvailableVersion,
 					Stats: map[string]interface{}{
 						keyQuestionCount: qd.QuestionCount,
-						"theme_count":    qd.ThemeCount,
+						keyThemeCount:    qd.ThemeCount,
 					},
 				})
 			}
@@ -122,8 +122,8 @@ func (u *AdminDatasetsUsecase) ListAllDatasets(datasetType *string) ([]model.Uni
 					Stats: map[string]interface{}{
 						keyCountryCount:   gd.CountryCount,
 						keyContinentCount: gd.ContinentCount,
-						"region_count":    gd.RegionCount,
-						"flag_count":      gd.FlagCount,
+						keyRegionCount:    gd.RegionCount,
+						keyFlagCount:      gd.FlagCount,
 					},
 				})
 			}
@@ -159,7 +159,7 @@ func (u *AdminDatasetsUsecase) GetDataset(datasetType string, id uuid.UUID) (*mo
 			ImportedAt:  qd.ImportedAt,
 			Stats: map[string]interface{}{
 				keyQuestionCount: qd.QuestionCount,
-				"theme_count":    qd.ThemeCount,
+				keyThemeCount:    qd.ThemeCount,
 			},
 		}, nil
 
@@ -183,8 +183,8 @@ func (u *AdminDatasetsUsecase) GetDataset(datasetType string, id uuid.UUID) (*mo
 			Stats: map[string]interface{}{
 				keyCountryCount:   gd.CountryCount,
 				keyContinentCount: gd.ContinentCount,
-				"region_count":    gd.RegionCount,
-				"flag_count":      gd.FlagCount,
+				keyRegionCount:    gd.RegionCount,
+				keyFlagCount:      gd.FlagCount,
 			},
 		}, nil
 
@@ -378,11 +378,11 @@ func (u *AdminDatasetsUsecase) GetDatasetStatistics(datasetType string, id uuid.
 			"dataset": map[string]interface{}{
 				"id":          dataset.ID,
 				"slug":        dataset.Slug,
-				"name":        dataset.Name,
-				"version":     dataset.Version,
-				"is_active":   dataset.IsActive,
-				"is_default":  dataset.IsDefault,
-				"imported_at": dataset.ImportedAt,
+				keyName:        dataset.Name,
+				keyVersion:     dataset.Version,
+				keyIsActive:   dataset.IsActive,
+				keyIsDefault:  dataset.IsDefault,
+				keyImportedAt: dataset.ImportedAt,
 			},
 			"questions": map[string]interface{}{
 				"total":         totalQuestions,
@@ -406,15 +406,15 @@ func (u *AdminDatasetsUsecase) GetDatasetStatistics(datasetType string, id uuid.
 
 		return map[string]interface{}{
 			"dataset_id":      id,
-			"name":            dataset.Name,
-			"version":         dataset.Version,
+			keyName:            dataset.Name,
+			keyVersion:         dataset.Version,
 			keyCountryCount:   countryCount,
 			keyContinentCount: continentCount,
-			"region_count":    regionCount,
-			"flag_count":      dataset.FlagCount,
-			"is_active":       dataset.IsActive,
-			"is_default":      dataset.IsDefault,
-			"imported_at":     dataset.ImportedAt,
+			keyRegionCount:    regionCount,
+			keyFlagCount:      dataset.FlagCount,
+			keyIsActive:       dataset.IsActive,
+			keyIsDefault:      dataset.IsDefault,
+			keyImportedAt:     dataset.ImportedAt,
 		}, nil
 
 	default:
@@ -476,9 +476,9 @@ func (u *AdminDatasetsUsecase) CreateQuestionDataset(req *model.CreateDatasetReq
 
 	u.logger.Info("Question dataset created",
 		zap.String("slug", dataset.Slug),
-		zap.String("name", dataset.Name),
-		zap.String("version", dataset.Version),
-		zap.Bool("is_default", dataset.IsDefault),
+		zap.String(keyName, dataset.Name),
+		zap.String(keyVersion, dataset.Version),
+		zap.Bool(keyIsDefault, dataset.IsDefault),
 	)
 
 	return dataset, nil
@@ -493,19 +493,19 @@ func (u *AdminDatasetsUsecase) UpdateQuestionDataset(id uuid.UUID, req *model.Up
 	updates := make(map[string]interface{})
 
 	if req.Name != nil {
-		updates["name"] = *req.Name
+		updates[keyName] = *req.Name
 	}
 	if req.Description != nil {
 		updates["description"] = *req.Description
 	}
 	if req.IsActive != nil {
-		updates["is_active"] = *req.IsActive
+		updates[keyIsActive] = *req.IsActive
 	}
 	if req.IsDefault != nil && *req.IsDefault {
 		if err := u.questionDatasetRepo.SetDefaultDataset(id); err != nil {
 			u.logger.Warn("Failed to unset previous defaults", zap.Error(err))
 		}
-		updates["is_default"] = true
+		updates[keyIsDefault] = true
 	}
 
 	if len(updates) > 0 {
@@ -531,7 +531,7 @@ func (u *AdminDatasetsUsecase) UpdateQuestionDatasetStatistics(datasetID uuid.UU
 
 	return u.questionDatasetRepo.UpdateDataset(datasetID, map[string]interface{}{
 		keyQuestionCount: questionCount,
-		"theme_count":    themeCount,
+		keyThemeCount:    themeCount,
 	})
 }
 
@@ -648,7 +648,7 @@ func (u *AdminDatasetsUsecase) CheckForUpdates(manifestURL string, datasetType s
 			if isAutomatic {
 				u.logger.Info("Dataset version already exists",
 					zap.String("slug", slug),
-					zap.String("version", manifest.Version),
+					zap.String(keyVersion, manifest.Version),
 				)
 			}
 		} else {
@@ -702,7 +702,7 @@ func (u *AdminDatasetsUsecase) CheckForUpdates(manifestURL string, datasetType s
 			if isAutomatic {
 				u.logger.Info("Geography dataset version already exists",
 					zap.String("slug", slug),
-					zap.String("version", manifest.Version),
+					zap.String(keyVersion, manifest.Version),
 				)
 			}
 		} else {
@@ -763,7 +763,7 @@ func (u *AdminDatasetsUsecase) CheckForUpdates(manifestURL string, datasetType s
 	if hasUpdate && isAutomatic {
 		u.logger.Info("New version available",
 			zap.String("dataset", manifest.Dataset),
-			zap.String("version", manifest.Version),
+			zap.String(keyVersion, manifest.Version),
 		)
 	}
 

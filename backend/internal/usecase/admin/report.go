@@ -46,7 +46,7 @@ func (u *AdminReportUsecase) UpdateReportStatus(id uuid.UUID, status model.Repor
 	u.wsService.BroadcastAdminNotification(service.AdminNotification{
 		Event: "report_resolved",
 		Data: map[string]interface{}{
-			"new_status": string(status),
+			keyNewStatus: string(status),
 		},
 		EntityType: "report",
 		EntityID:   id.String(),

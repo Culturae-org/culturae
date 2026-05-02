@@ -62,37 +62,37 @@ func (u *FriendsUsecase) SendFriendRequest(c *gin.Context, fromUserID uuid.UUID,
 	toUserID, err := u.GetUserUUIDByPublicID(toUserPublicID)
 	if err != nil {
 		errorMsg := err.Error()
-		_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"to_user_public_id": toUserPublicID}, false, &errorMsg)
+		_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyToUserPublicID: toUserPublicID}, false, &errorMsg)
 		return nil, errors.New("user not found")
 	}
 
 	toUser, err := u.userRepo.GetByID(toUserID.String())
 	if err != nil {
 		errorMsg := err.Error()
-		_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"to_user_public_id": toUserPublicID}, false, &errorMsg)
+		_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyToUserPublicID: toUserPublicID}, false, &errorMsg)
 		return nil, errors.New("user not found")
 	}
 	if !toUser.AllowFriendRequests {
 		errMsg := "user does not allow friend requests"
-		_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"to_user_public_id": toUserPublicID}, false, &errMsg)
+		_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyToUserPublicID: toUserPublicID}, false, &errMsg)
 		return nil, errors.New(errMsg)
 	}
 
 	blocked, err := u.friendsRepo.IsBlocked(fromUserID, toUserID)
 	if err == nil && blocked {
 		errMsg := "cannot send friend request to blocked user"
-		_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"to_user_public_id": toUserPublicID}, false, &errMsg)
+		_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyToUserPublicID: toUserPublicID}, false, &errMsg)
 		return nil, errors.New(errMsg)
 	}
 
 	request, err := u.friendsRepo.SendFriendRequest(fromUserID, toUserID)
 	if err != nil {
 		errorMsg := err.Error()
-		_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"to_user_public_id": toUserPublicID}, false, &errorMsg)
+		_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyToUserPublicID: toUserPublicID}, false, &errorMsg)
 		return nil, err
 	}
 
-	_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"to_user_public_id": toUserPublicID, "request_id": request.ID}, true, nil)
+	_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyToUserPublicID: toUserPublicID, "request_id": request.ID}, true, nil)
 
 	fromUser, _ := u.userRepo.GetByID(fromUserID.String())
 
@@ -268,18 +268,18 @@ func (u *FriendsUsecase) RemoveFriend(c *gin.Context, userID uuid.UUID, friendUs
 	friendUserID, err := u.GetUserUUIDByPublicID(friendUserPublicID)
 	if err != nil {
 		errorMsg := err.Error()
-		_ = u.loggingSvc.LogUserAction(userID, "remove_friend", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"friend_user_public_id": friendUserPublicID}, false, &errorMsg)
+		_ = u.loggingSvc.LogUserAction(userID, "remove_friend", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyFriendUserPublicID: friendUserPublicID}, false, &errorMsg)
 		return errors.New("user not found")
 	}
 
 	err = u.friendsRepo.RemoveFriend(userID, friendUserID)
 	if err != nil {
 		errorMsg := err.Error()
-		_ = u.loggingSvc.LogUserAction(userID, "remove_friend", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"friend_user_public_id": friendUserPublicID}, false, &errorMsg)
+		_ = u.loggingSvc.LogUserAction(userID, "remove_friend", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyFriendUserPublicID: friendUserPublicID}, false, &errorMsg)
 		return err
 	}
 
-	_ = u.loggingSvc.LogUserAction(userID, "remove_friend", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"friend_user_public_id": friendUserPublicID}, true, nil)
+	_ = u.loggingSvc.LogUserAction(userID, "remove_friend", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyFriendUserPublicID: friendUserPublicID}, true, nil)
 
 	if u.wsService != nil {
 		remover, _ := u.userRepo.GetByID(userID.String())
@@ -344,11 +344,11 @@ func (u *FriendsUsecase) BlockUser(c *gin.Context, blockerID uuid.UUID, blockedP
 
 	if err := u.friendsRepo.BlockUserDirect(blockerID, blockedID); err != nil {
 		errorMsg := err.Error()
-		_ = u.loggingSvc.LogUserAction(blockerID, "block_user", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"blocked_user_public_id": blockedPublicID}, false, &errorMsg)
+		_ = u.loggingSvc.LogUserAction(blockerID, "block_user", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyBlockedUserPublicID: blockedPublicID}, false, &errorMsg)
 		return err
 	}
 
-	_ = u.loggingSvc.LogUserAction(blockerID, "block_user", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"blocked_user_public_id": blockedPublicID}, true, nil)
+	_ = u.loggingSvc.LogUserAction(blockerID, "block_user", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyBlockedUserPublicID: blockedPublicID}, true, nil)
 	return nil
 }
 
@@ -360,11 +360,11 @@ func (u *FriendsUsecase) UnblockUser(c *gin.Context, blockerID uuid.UUID, blocke
 
 	if err := u.friendsRepo.UnblockUser(blockerID, blockedID); err != nil {
 		errorMsg := err.Error()
-		_ = u.loggingSvc.LogUserAction(blockerID, "unblock_user", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"blocked_user_public_id": blockedPublicID}, false, &errorMsg)
+		_ = u.loggingSvc.LogUserAction(blockerID, "unblock_user", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyBlockedUserPublicID: blockedPublicID}, false, &errorMsg)
 		return err
 	}
 
-	_ = u.loggingSvc.LogUserAction(blockerID, "unblock_user", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{"blocked_user_public_id": blockedPublicID}, true, nil)
+	_ = u.loggingSvc.LogUserAction(blockerID, "unblock_user", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyBlockedUserPublicID: blockedPublicID}, true, nil)
 	return nil
 }
 
