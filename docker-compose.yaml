@@ -89,7 +89,9 @@ services:
       timeout: 20s
 
   culturae:
-    build: .
+    # build: .
+    image: ghcr.io/culturae-org/culturae:1.0.0-beta.1
+    
     restart: unless-stopped
     container_name: culturae_server
     environment:

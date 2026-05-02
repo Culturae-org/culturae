@@ -92,7 +92,9 @@ services:
       timeout: 20s
 
   culturae-main:
-    build: .
+    # build: .
+    image: ghcr.io/culturae-org/culturae:1.0.0-beta.1
+
     restart: unless-stopped
     environment:
       APP_MODE: full
