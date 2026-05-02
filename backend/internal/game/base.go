@@ -750,7 +750,7 @@ func (g *BaseGame) handleStartGame() {
 		g.emitEvent(GameEvent{
 			Type: EventGameStarting,
 			Data: map[string]interface{}{
-				"countdown_secs": countdownSecs,
+				keyCountdownSecs: countdownSecs,
 				"players":        playerPayloads,
 			},
 		})
@@ -1545,7 +1545,7 @@ func (g *BaseGame) pauseForReconnect(graceSecs int) {
 	g.emitEvent(GameEvent{
 		Type: EventGamePaused,
 		Data: map[string]interface{}{
-			"countdown_secs": graceSecs,
+			keyCountdownSecs: graceSecs,
 		},
 	})
 }

@@ -21,6 +21,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const testGameID1 = "game-1"
+
 func init() {
 	gin.SetMode(gin.TestMode)
 }
@@ -116,6 +118,7 @@ type mockGameHandler struct {
 
 	disconnectedPlayers []uuid.UUID
 	reconnectedPlayers  []uuid.UUID
+	leaveGameCalls      int
 }
 
 func (m *mockGameHandler) HandleSubmitAnswer(_ uuid.UUID, _ string, _ map[string]interface{}) error {
@@ -125,7 +128,12 @@ func (m *mockGameHandler) HandlePlayerReady(_ uuid.UUID, _ string, _ bool) error
 	return m.playerReadyErr
 }
 func (m *mockGameHandler) HandleStartGame(_ uuid.UUID, _ string) error { return m.startGameErr }
-func (m *mockGameHandler) HandleLeaveGame(_ uuid.UUID, _ string) error  { return m.leaveGameErr }
+func (m *mockGameHandler) HandleLeaveGame(_ uuid.UUID, _ string) error {
+	m.mu.Lock()
+	m.leaveGameCalls++
+	m.mu.Unlock()
+	return m.leaveGameErr
+}
 func (m *mockGameHandler) GetCurrentQuestionPayload(_ string) (map[string]interface{}, error) {
 	return m.currentQuestion, m.currentQErr
 }
@@ -218,7 +226,7 @@ func send(t *testing.T, conn *websocket.Conn, payload interface{}) {
 // Use this to verify the connection is alive and the message queue is otherwise empty.
 func pingPong(t *testing.T, conn *websocket.Conn) {
 	t.Helper()
-	send(t, conn, map[string]string{"type": "ping"})
+	send(t, conn, map[string]string{"type": msgPing})
 	msg := readMsg(t, conn)
 	assert.Equal(t, "pong", msg["type"], "expected pong in response to ping")
 }
@@ -292,15 +300,15 @@ func TestUnknownMessageType_AckWithError(t *testing.T) {
 
 	send(t, conn, map[string]string{
 		"type":           "not_a_real_type",
-		"correlation_id": "cid-001",
+		keyCorrelationID: "cid-001",
 	})
 
 	msg := readMsg(t, conn)
-	assert.Equal(t, "ack", msg["type"])
+	assert.Equal(t, msgAck, msg["type"])
 	assert.Equal(t, "not_a_real_type", msg["action"])
 	assert.Equal(t, false, msg["success"])
 	assert.Contains(t, msg["error"], "unknown message type")
-	assert.Equal(t, "cid-001", msg["correlation_id"])
+	assert.Equal(t, "cid-001", msg[keyCorrelationID])
 }
 
 func TestInvalidJSON_SilentlyDropped_ConnectionSurvives(t *testing.T) {
@@ -325,7 +333,7 @@ func TestMessageMissingTypeField_SilentlyDropped(t *testing.T) {
 	skipHello(t, conn)
 
 	// Valid JSON but no "type" field.
-	send(t, conn, map[string]string{"action": "join_game", "game_public_id": "x"})
+	send(t, conn, map[string]string{"action": msgJoinGame, keyGamePublicID: "x"})
 
 	pingPong(t, conn)
 }
@@ -339,16 +347,16 @@ func TestJoinGame_AckSuccess(t *testing.T) {
 	skipHello(t, conn)
 
 	send(t, conn, map[string]string{
-		"type":           "join_game",
-		"game_public_id": "game-1",
-		"correlation_id": "cid-join",
+		"type":           msgJoinGame,
+		keyGamePublicID: testGameID1,
+		keyCorrelationID: "cid-join",
 	})
 
 	msg := readMsg(t, conn)
-	assert.Equal(t, "ack", msg["type"])
-	assert.Equal(t, "join_game", msg["action"])
+	assert.Equal(t, msgAck, msg["type"])
+	assert.Equal(t, msgJoinGame, msg["action"])
 	assert.Equal(t, true, msg["success"])
-	assert.Equal(t, "cid-join", msg["correlation_id"])
+	assert.Equal(t, "cid-join", msg[keyCorrelationID])
 }
 
 func TestJoinGame_Idempotent_NoDuplicateInRoom(t *testing.T) {
@@ -360,7 +368,7 @@ func TestJoinGame_Idempotent_NoDuplicateInRoom(t *testing.T) {
 	skipHello(t, conn)
 
 	for range 3 {
-		send(t, conn, map[string]string{"type": "join_game", "game_public_id": "game-dup"})
+		send(t, conn, map[string]string{"type": msgJoinGame, keyGamePublicID: "game-dup"})
 		msg := readMsg(t, conn)
 		assert.Equal(t, true, msg["success"])
 	}
@@ -385,10 +393,10 @@ func TestJoinGame_SendsCurrentQuestion_WhenGameIsActive(t *testing.T) {
 	conn := dial(t, srv, "/ws", uuid.New())
 	skipHello(t, conn)
 
-	send(t, conn, map[string]string{"type": "join_game", "game_public_id": "game-live"})
+	send(t, conn, map[string]string{"type": msgJoinGame, keyGamePublicID: "game-live"})
 
 	ack := readMsg(t, conn)
-	assert.Equal(t, "join_game", ack["action"])
+	assert.Equal(t, msgJoinGame, ack["action"])
 	assert.Equal(t, true, ack["success"])
 
 	question := readMsg(t, conn)
@@ -406,9 +414,9 @@ func TestJoinGame_NoCurrentQuestion_NoExtraMessage(t *testing.T) {
 	conn := dial(t, srv, "/ws", uuid.New())
 	skipHello(t, conn)
 
-	send(t, conn, map[string]string{"type": "join_game", "game_public_id": "game-lobby"})
+	send(t, conn, map[string]string{"type": msgJoinGame, keyGamePublicID: "game-lobby"})
 	msg := readMsg(t, conn) // ack
-	assert.Equal(t, "join_game", msg["action"])
+	assert.Equal(t, msgJoinGame, msg["action"])
 
 	// The next message must be the pong we ask for — not some stray extra message.
 	pingPong(t, conn)
@@ -423,14 +431,14 @@ func TestLeaveGame_WhenNotInAnyGame_AckError(t *testing.T) {
 	skipHello(t, conn)
 
 	send(t, conn, map[string]interface{}{
-		"type":           "leave_game",
-		"correlation_id": "cid-leave",
+		"type":           msgLeaveGame,
+		keyCorrelationID: "cid-leave",
 	})
 
 	msg := readMsg(t, conn)
 	assert.Equal(t, false, msg["success"])
 	assert.Equal(t, "not in a game", msg["error"])
-	assert.Equal(t, "cid-leave", msg["correlation_id"])
+	assert.Equal(t, "cid-leave", msg[keyCorrelationID])
 }
 
 func TestLeaveGame_RemovesClientFromRoom(t *testing.T) {
@@ -439,10 +447,10 @@ func TestLeaveGame_RemovesClientFromRoom(t *testing.T) {
 	conn := dial(t, srv, "/ws", uuid.New())
 	skipHello(t, conn)
 
-	send(t, conn, map[string]string{"type": "join_game", "game_public_id": "game-bye"})
+	send(t, conn, map[string]string{"type": msgJoinGame, keyGamePublicID: "game-bye"})
 	readMsg(t, conn) // ack
 
-	send(t, conn, map[string]string{"type": "leave_game", "game_public_id": "game-bye"})
+	send(t, conn, map[string]string{"type": msgLeaveGame, keyGamePublicID: "game-bye"})
 	msg := readMsg(t, conn)
 	assert.Equal(t, true, msg["success"])
 
@@ -459,10 +467,10 @@ func TestLeaveGame_SpecificGameID_LeavesCorrectGame(t *testing.T) {
 	conn := dial(t, srv, "/ws", uuid.New())
 	skipHello(t, conn)
 
-	send(t, conn, map[string]string{"type": "join_game", "game_public_id": "game-A"})
+	send(t, conn, map[string]string{"type": msgJoinGame, keyGamePublicID: "game-A"})
 	readMsg(t, conn)
 
-	send(t, conn, map[string]string{"type": "leave_game", "game_public_id": "game-B"})
+	send(t, conn, map[string]string{"type": msgLeaveGame, keyGamePublicID: "game-B"})
 	msg := readMsg(t, conn)
 	// game-B: client was never in it, handler will be called but game-B room is empty — fine.
 	// More importantly, game-A must be untouched.
@@ -483,17 +491,17 @@ func TestSubmitAnswer_NoGameHandler_AckError(t *testing.T) {
 	skipHello(t, conn)
 
 	send(t, conn, map[string]interface{}{
-		"type":           "submit_answer",
-		"game_public_id": "game-1",
-		"answer":         map[string]interface{}{"type": "mcq", "answer": "Paris"},
-		"correlation_id": "cid-ans",
+		"type":           msgSubmitAnswer,
+		keyGamePublicID: testGameID1,
+		keyAnswer:         map[string]interface{}{"type": "mcq", keyAnswer: "Paris"},
+		keyCorrelationID: "cid-ans",
 	})
 
 	msg := readMsg(t, conn)
-	assert.Equal(t, "ack", msg["type"])
-	assert.Equal(t, "submit_answer", msg["action"])
+	assert.Equal(t, msgAck, msg["type"])
+	assert.Equal(t, msgSubmitAnswer, msg["action"])
 	assert.Equal(t, false, msg["success"])
-	assert.Equal(t, "cid-ans", msg["correlation_id"])
+	assert.Equal(t, "cid-ans", msg[keyCorrelationID])
 }
 
 func TestSubmitAnswer_MissingGamePublicID_AckError(t *testing.T) {
@@ -504,8 +512,8 @@ func TestSubmitAnswer_MissingGamePublicID_AckError(t *testing.T) {
 	skipHello(t, conn)
 
 	send(t, conn, map[string]interface{}{
-		"type":   "submit_answer",
-		"answer": map[string]interface{}{"type": "mcq", "answer": "Paris"},
+		"type":   msgSubmitAnswer,
+		keyAnswer: map[string]interface{}{"type": "mcq", keyAnswer: "Paris"},
 		// game_public_id intentionally absent
 	})
 
@@ -524,9 +532,9 @@ func TestSubmitAnswer_HandlerError_AckError(t *testing.T) {
 	skipHello(t, conn)
 
 	send(t, conn, map[string]interface{}{
-		"type":           "submit_answer",
-		"game_public_id": "game-1",
-		"answer":         map[string]interface{}{"type": "mcq", "answer": "Berlin"},
+		"type":           msgSubmitAnswer,
+		keyGamePublicID: testGameID1,
+		keyAnswer:         map[string]interface{}{"type": "mcq", keyAnswer: "Berlin"},
 	})
 
 	msg := readMsg(t, conn)
@@ -542,7 +550,7 @@ func TestBroadcastToGame_ClientReceives(t *testing.T) {
 	conn := dial(t, srv, "/ws", uuid.New())
 	skipHello(t, conn)
 
-	send(t, conn, map[string]string{"type": "join_game", "game_public_id": "game-bcast"})
+	send(t, conn, map[string]string{"type": msgJoinGame, keyGamePublicID: "game-bcast"})
 	readMsg(t, conn) // ack
 
 	require.NoError(t, svc.SendToGame("game-bcast", map[string]interface{}{
@@ -571,7 +579,7 @@ func TestBroadcastToGame_ExcludesSpecifiedUser(t *testing.T) {
 		conn *websocket.Conn
 		uid  uuid.UUID
 	}{{connA, userA}, {connB, userB}} {
-		send(t, tc.conn, map[string]string{"type": "join_game", "game_public_id": "game-ex"})
+		send(t, tc.conn, map[string]string{"type": msgJoinGame, keyGamePublicID: "game-ex"})
 		readMsg(t, tc.conn) // ack
 	}
 
@@ -656,7 +664,7 @@ func TestRateLimit_BlocksAfterLimit(t *testing.T) {
 
 	// Fire 4 pings back-to-back.
 	for range 4 {
-		send(t, conn, map[string]string{"type": "ping"})
+		send(t, conn, map[string]string{"type": msgPing})
 	}
 
 	pongs := 0
@@ -666,7 +674,7 @@ func TestRateLimit_BlocksAfterLimit(t *testing.T) {
 		switch msg["type"] {
 		case "pong":
 			pongs++
-		case "ack":
+		case msgAck:
 			limited++
 			assert.Equal(t, false, msg["success"])
 			assert.Contains(t, msg["error"], "rate limit exceeded")
@@ -689,21 +697,21 @@ func TestRateLimit_WindowReset_AllowsAgain(t *testing.T) {
 
 	// Use up the 2-message limit.
 	for range 2 {
-		send(t, conn, map[string]string{"type": "ping"})
+		send(t, conn, map[string]string{"type": msgPing})
 		assert.Equal(t, "pong", readMsg(t, conn)["type"])
 	}
 
 	// 3rd message within the window must be rate-limited.
-	send(t, conn, map[string]string{"type": "ping"})
+	send(t, conn, map[string]string{"type": msgPing})
 	msg := readMsg(t, conn)
-	assert.Equal(t, "ack", msg["type"])
+	assert.Equal(t, msgAck, msg["type"])
 	assert.Equal(t, false, msg["success"])
 
 	// Wait for the 1-second window to expire.
 	time.Sleep(1100 * time.Millisecond)
 
 	// Now the window has reset — should work again.
-	send(t, conn, map[string]string{"type": "ping"})
+	send(t, conn, map[string]string{"type": msgPing})
 	assert.Equal(t, "pong", readMsg(t, conn)["type"], "rate limit window must have reset")
 }
 

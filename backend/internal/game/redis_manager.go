@@ -565,7 +565,7 @@ func (rgm *RedisGameManager) MarkPlayerDisconnected(gameID, userID uuid.UUID) er
 			Type:     EventGamePaused,
 			GameID:   gameID,
 			PublicID: publicID,
-			Data:     map[string]interface{}{"countdown_secs": graceSecs},
+			Data:     map[string]interface{}{keyCountdownSecs: graceSecs},
 		})
 		go func() {
 			time.Sleep(time.Duration(graceSecs) * time.Second)
@@ -841,7 +841,7 @@ func (rgm *RedisGameManager) StartGame(gameID uuid.UUID) error {
 				GameID:   gameID,
 				PublicID: game.GetPublicID(),
 				Data: map[string]interface{}{
-					"countdown_secs": countdownSecs,
+					keyCountdownSecs: countdownSecs,
 					"players":        playerPayloads,
 				},
 			})
@@ -1592,7 +1592,7 @@ func (rgm *RedisGameManager) applyPostGameRewards(
 				}
 				if err := rgm.userNotifier.SendToUser(p.UserID, map[string]interface{}{
 					"type": "xp_updated",
-					"data": notifData,
+					keyData: notifData,
 				}); err != nil {
 					rgm.logger.Warn("Failed to send XP notification",
 						zap.String("user_id", p.UserID.String()),
@@ -1613,7 +1613,7 @@ func (rgm *RedisGameManager) applyPostGameRewards(
 			_ = rgm.userNotifier.SendToUser(p.UserID, map[string]interface{}{
 				"type":      "game_results",
 				"public_id": game.GetPublicID(),
-				"data": map[string]interface{}{
+				keyData: map[string]interface{}{
 					"score":     p.Score,
 					"xp_gained": xp,
 					"is_winner": isWinner,
@@ -1690,9 +1690,9 @@ func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID
 			)
 			if rgm.userNotifier != nil {
 				if err := rgm.userNotifier.SendToUser(loserPlayer.UserID, map[string]interface{}{
-					"type": "elo_updated",
-					"data": map[string]interface{}{
-						"elo_delta": newLoserElo - loserUser.EloRating,
+					"type": keyEloUpdated,
+					keyData: map[string]interface{}{
+						keyEloDelta: newLoserElo - loserUser.EloRating,
 						"new_elo":   newLoserElo,
 						"result":    "loss",
 					},
@@ -1720,9 +1720,9 @@ func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID
 		)
 		if rgm.userNotifier != nil {
 			if err := rgm.userNotifier.SendToUser(winnerPlayer.UserID, map[string]interface{}{
-				"type": "elo_updated",
-				"data": map[string]interface{}{
-					"elo_delta": runningWinnerElo - winnerUser.EloRating,
+				"type": keyEloUpdated,
+				keyData: map[string]interface{}{
+					keyEloDelta: runningWinnerElo - winnerUser.EloRating,
 					"new_elo":   runningWinnerElo,
 					"result":    "win",
 				},
@@ -1784,9 +1784,9 @@ func (rgm *RedisGameManager) applyEloUpdateDraw(players []Player) {
 		)
 		if rgm.userNotifier != nil {
 			_ = rgm.userNotifier.SendToUser(pair.player.UserID, map[string]interface{}{
-				"type": "elo_updated",
-				"data": map[string]interface{}{
-					"elo_delta": pair.newElo - pair.oldElo,
+				"type": keyEloUpdated,
+				keyData: map[string]interface{}{
+					keyEloDelta: pair.newElo - pair.oldElo,
 					"new_elo":   pair.newElo,
 					"result":    "draw",
 				},

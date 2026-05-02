@@ -225,7 +225,7 @@ func (r *GameRepository) CancelUserWaitingGames(userID uuid.UUID) ([]uuid.UUID, 
 	now := time.Now()
 	if err := r.DB.Model(&model.Game{}).
 		Where("id IN ? AND status = ?", ids, model.GameStatusWaiting).
-		Updates(map[string]interface{}{"status": model.GameStatusCancelled, "updated_at": now}).Error; err != nil {
+		Updates(map[string]interface{}{keyStatus: model.GameStatusCancelled, keyUpdatedAt: now}).Error; err != nil {
 		return nil, err
 	}
 
@@ -472,8 +472,8 @@ func (r *GameRepository) UpdateGameInviteStatus(inviteID uuid.UUID, status model
 	return r.DB.Model(&model.GameInvite{}).
 		Where("id = ?", inviteID).
 		Updates(map[string]interface{}{
-			"status":     status,
-			"updated_at": time.Now(),
+			keyStatus:     status,
+			keyUpdatedAt: time.Now(),
 		}).Error
 }
 

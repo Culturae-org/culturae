@@ -50,8 +50,8 @@ func (lb *LobbyBroadcaster) Stop() {
 func (lb *LobbyBroadcaster) Broadcast() {
 	stats := lb.buildStats()
 	msg := map[string]interface{}{
-		"type": "lobby_stats",
-		"data": stats,
+		keyType: "lobby_stats",
+		keyData: stats,
 	}
 	if err := lb.wsService.BroadcastToAll(msg); err != nil {
 		lb.logger.Warn("Failed to broadcast lobby_stats", zap.Error(err))

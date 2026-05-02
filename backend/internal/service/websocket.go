@@ -342,7 +342,7 @@ func (ws *WebSocketService) handleMessage(client *WSClient, message []byte) {
 			ws.logger.Warn("Client rate limited", zap.String("client_id", client.ID.String()))
 			errMsg := "rate limit exceeded"
 			data, _ := json.Marshal(AckMessage{
-				Type:    "ack",
+				Type:    msgAck,
 				Action:  "message",
 				Success: false,
 				Error:   &errMsg,
@@ -367,14 +367,14 @@ func (ws *WebSocketService) handleMessage(client *WSClient, message []byte) {
 	correlationID := ws.extractCorrelationID(msg)
 
 	switch msgType {
-	case "join_game":
+	case msgJoinGame:
 		var joinMsg JoinGameMessage
 		if err := ws.unmarshalMessage(message, &joinMsg); err != nil {
-			ws.sendAck(client, "join_game", false, "invalid message format", correlationID)
+			ws.sendAck(client, msgJoinGame, false, "invalid message format", correlationID)
 			return
 		}
 		ws.addClientToGame(client, joinMsg.GamePublicID)
-		ws.sendAck(client, "join_game", true, "", correlationID)
+		ws.sendAck(client, msgJoinGame, true, "", correlationID)
 
 		if ws.gameActionHandler != nil {
 			if payload, err := ws.gameActionHandler.GetCurrentQuestionPayload(joinMsg.GamePublicID); err == nil && payload != nil {
@@ -386,20 +386,20 @@ func (ws *WebSocketService) handleMessage(client *WSClient, message []byte) {
 					qNum = v
 				}
 				ws.logger.Debug("Sending current question to joining player",
-					zap.String("game_public_id", joinMsg.GamePublicID),
+					zap.String(keyGamePublicID, joinMsg.GamePublicID),
 					zap.String("user_id", client.UserID.String()),
 					zap.Int("question_number", qNum),
 				)
 				data, _ := json.Marshal(map[string]interface{}{
-					"type":      "question_sent",
-					"public_id": joinMsg.GamePublicID,
-					"data":      payload,
-					"timestamp": time.Now(),
+					keyType:      "question_sent",
+					keyPublicID: joinMsg.GamePublicID,
+					keyData:      payload,
+					keyTimestamp: time.Now(),
 				})
 				ws.trySend(client, data)
 			} else if err != nil {
 				ws.logger.Warn("GetCurrentQuestionPayload failed for joining player",
-					zap.String("game_public_id", joinMsg.GamePublicID),
+					zap.String(keyGamePublicID, joinMsg.GamePublicID),
 					zap.String("user_id", client.UserID.String()),
 					zap.Error(err),
 				)
@@ -407,23 +407,23 @@ func (ws *WebSocketService) handleMessage(client *WSClient, message []byte) {
 
 			if statePayload, err := ws.gameActionHandler.GetGameStateForReconnect(joinMsg.GamePublicID); err == nil && statePayload != nil {
 				ws.logger.Debug("Sending game state to joining player",
-					zap.String("game_public_id", joinMsg.GamePublicID),
+					zap.String(keyGamePublicID, joinMsg.GamePublicID),
 					zap.String("user_id", client.UserID.String()),
 				)
 				data, _ := json.Marshal(map[string]interface{}{
-					"type":      "game_state",
-					"public_id": joinMsg.GamePublicID,
-					"data":      statePayload,
-					"timestamp": time.Now(),
+					keyType:      "game_state",
+					keyPublicID: joinMsg.GamePublicID,
+					keyData:      statePayload,
+					keyTimestamp: time.Now(),
 				})
 				ws.trySend(client, data)
 			}
 		}
 
-	case "leave_game":
+	case msgLeaveGame:
 		var leaveMsg LeaveGameMessage
 		if err := ws.unmarshalMessage(message, &leaveMsg); err != nil {
-			ws.sendAck(client, "leave_game", false, "invalid message format", correlationID)
+			ws.sendAck(client, msgLeaveGame, false, "invalid message format", correlationID)
 			return
 		}
 
@@ -431,12 +431,12 @@ func (ws *WebSocketService) handleMessage(client *WSClient, message []byte) {
 			ws.removeClientFromGame(client, *leaveMsg.GamePublicID)
 			if ws.gameActionHandler != nil {
 				if err := ws.gameActionHandler.HandleLeaveGame(client.UserID, *leaveMsg.GamePublicID); err != nil {
-					ws.sendAck(client, "leave_game", false, err.Error(), correlationID)
+					ws.sendAck(client, msgLeaveGame, false, err.Error(), correlationID)
 				} else {
-					ws.sendAck(client, "leave_game", true, "", correlationID)
+					ws.sendAck(client, msgLeaveGame, true, "", correlationID)
 				}
 			} else {
-				ws.sendAck(client, "leave_game", true, "", correlationID)
+				ws.sendAck(client, msgLeaveGame, true, "", correlationID)
 			}
 		} else {
 			ws.mutex.RLock()
@@ -451,19 +451,19 @@ func (ws *WebSocketService) handleMessage(client *WSClient, message []byte) {
 				ws.removeClientFromGame(client, gameIDCopy)
 				if ws.gameActionHandler != nil {
 					if err := ws.gameActionHandler.HandleLeaveGame(client.UserID, gameIDCopy); err != nil {
-						ws.sendAck(client, "leave_game", false, err.Error(), correlationID)
+						ws.sendAck(client, msgLeaveGame, false, err.Error(), correlationID)
 					} else {
-						ws.sendAck(client, "leave_game", true, "", correlationID)
+						ws.sendAck(client, msgLeaveGame, true, "", correlationID)
 					}
 				} else {
-					ws.sendAck(client, "leave_game", true, "", correlationID)
+					ws.sendAck(client, msgLeaveGame, true, "", correlationID)
 				}
 			} else {
-				ws.sendAck(client, "leave_game", false, "not in a game", correlationID)
+				ws.sendAck(client, msgLeaveGame, false, "not in a game", correlationID)
 			}
 		}
 
-	case "submit_answer":
+	case msgSubmitAnswer:
 		ws.handleSubmitAnswer(client, message, correlationID)
 
 	case "player_ready":
@@ -481,7 +481,7 @@ func (ws *WebSocketService) handleMessage(client *WSClient, message []byte) {
 			return ws.gameActionHandler.HandleStartGame(client.UserID, gamePublicID)
 		})
 
-	case "ping":
+	case msgPing:
 		ws.sendPong(client)
 
 	default:
@@ -491,7 +491,7 @@ func (ws *WebSocketService) handleMessage(client *WSClient, message []byte) {
 }
 
 func (ws *WebSocketService) extractCorrelationID(msg map[string]interface{}) *string {
-	if correlationID, ok := msg["correlation_id"].(string); ok && correlationID != "" {
+	if correlationID, ok := msg[keyCorrelationID].(string); ok && correlationID != "" {
 		return &correlationID
 	}
 	generatedID := uuid.New().String()
@@ -504,35 +504,35 @@ func (ws *WebSocketService) unmarshalMessage(data []byte, v interface{}) error {
 
 func (ws *WebSocketService) handleSubmitAnswer(client *WSClient, message []byte, correlationID *string) {
 	if ws.gameActionHandler == nil {
-		ws.sendAck(client, "submit_answer", false, "game actions not available", correlationID)
+		ws.sendAck(client, msgSubmitAnswer, false, "game actions not available", correlationID)
 		return
 	}
 
 	var submitMsg SubmitAnswerMessage
 	if err := ws.unmarshalMessage(message, &submitMsg); err != nil {
-		ws.sendAck(client, "submit_answer", false, "invalid message format", correlationID)
+		ws.sendAck(client, msgSubmitAnswer, false, "invalid message format", correlationID)
 		return
 	}
 
 	if submitMsg.GamePublicID == "" {
-		ws.sendAck(client, "submit_answer", false, "game_public_id required", correlationID)
+		ws.sendAck(client, msgSubmitAnswer, false, "game_public_id required", correlationID)
 		return
 	}
 
 	if err := ws.gameActionHandler.HandleSubmitAnswer(client.UserID, submitMsg.GamePublicID, map[string]interface{}{
-		"type":        submitMsg.Answer.Type,
-		"answer":      submitMsg.Answer.Answer,
+		keyType:        submitMsg.Answer.Type,
+		keyAnswer:      submitMsg.Answer.Answer,
 		"question_id": submitMsg.Answer.QuestionID,
 		"time_spent":  submitMsg.Answer.TimeSpent,
 	}); err != nil {
 		ws.logger.Warn("Submit answer failed",
-			zap.String("action", "submit_answer"),
-			zap.String("game_public_id", submitMsg.GamePublicID),
+			zap.String("action", msgSubmitAnswer),
+			zap.String(keyGamePublicID, submitMsg.GamePublicID),
 			zap.Error(err),
 		)
-		ws.sendAck(client, "submit_answer", false, err.Error(), correlationID)
+		ws.sendAck(client, msgSubmitAnswer, false, err.Error(), correlationID)
 	} else {
-		ws.sendAck(client, "submit_answer", true, "", correlationID)
+		ws.sendAck(client, msgSubmitAnswer, true, "", correlationID)
 	}
 }
 
@@ -542,7 +542,7 @@ func (ws *WebSocketService) handleGameAction(client *WSClient, msg map[string]in
 		return
 	}
 
-	gamePublicID, ok := msg["game_public_id"].(string)
+	gamePublicID, ok := msg[keyGamePublicID].(string)
 	if !ok {
 		ws.mutex.RLock()
 		gameIDPtr := client.GameID
@@ -559,7 +559,7 @@ func (ws *WebSocketService) handleGameAction(client *WSClient, msg map[string]in
 	if err := action(gamePublicID); err != nil {
 		ws.logger.Warn("Game action failed",
 			zap.String("action", actionType),
-			zap.String("game_public_id", gamePublicID),
+			zap.String(keyGamePublicID, gamePublicID),
 			zap.Error(err),
 		)
 		ws.sendAck(client, actionType, false, err.Error(), correlationID)
@@ -581,7 +581,7 @@ func (ws *WebSocketService) trySend(client *WSClient, data []byte) {
 
 func (ws *WebSocketService) sendAck(client *WSClient, action string, success bool, errMsg string, correlationID *string) {
 	ack := AckMessage{
-		Type:          "ack",
+		Type:          msgAck,
 		Action:        action,
 		Success:       success,
 		CorrelationID: correlationID,
@@ -674,7 +674,7 @@ func (ws *WebSocketService) disconnectClient(client *WSClient) {
 				if err := ws.gameActionHandler.MarkPlayerDisconnected(userID, gamePublicID); err != nil {
 					ws.logger.Warn("Failed to mark player disconnected",
 						zap.String("user_id", userID.String()),
-						zap.String("game_public_id", gamePublicID),
+						zap.String(keyGamePublicID, gamePublicID),
 						zap.Error(err),
 					)
 				}
@@ -698,13 +698,13 @@ func (ws *WebSocketService) disconnectClient(client *WSClient) {
 			if err := ws.gameActionHandler.HandleLeaveGame(userID, gamePublicID); err != nil {
 				ws.logger.Warn("Failed to auto-leave game after disconnect",
 					zap.String("user_id", userID.String()),
-					zap.String("game_public_id", gamePublicID),
+					zap.String(keyGamePublicID, gamePublicID),
 					zap.Error(err),
 				)
 			} else {
 				ws.logger.Info("Auto-left game after disconnect grace period",
 					zap.String("user_id", userID.String()),
-					zap.String("game_public_id", gamePublicID),
+					zap.String(keyGamePublicID, gamePublicID),
 				)
 			}
 		})
@@ -728,7 +728,7 @@ func (ws *WebSocketService) updateUserStatus(userID uuid.UUID, isOnline bool) er
 		ws.mutex.RUnlock()
 
 		msg := map[string]interface{}{
-			"type":           "presence",
+			keyType:           "presence",
 			"user_public_id": publicID,
 			"is_online":      isOnline,
 		}
@@ -931,7 +931,7 @@ func (ws *WebSocketService) BroadcastToGame(gamePublicID string, message interfa
 		defer pubCancel()
 		if err := ws.relay.PublishGameMessage(pubCtx, gamePublicID, data, excludeUserID); err != nil {
 			ws.logger.Warn("Failed to publish game message to relay",
-				zap.String("game_public_id", gamePublicID), zap.Error(err))
+				zap.String(keyGamePublicID, gamePublicID), zap.Error(err))
 		}
 	}
 
@@ -956,7 +956,7 @@ func (ws *WebSocketService) addClientToGame(client *WSClient, gamePublicID strin
 		delete(ws.gameDisconnectTimers, client.UserID)
 		ws.logger.Info("Game disconnect timer cancelled, player rejoined",
 			zap.String("user_id", client.UserID.String()),
-			zap.String("game_public_id", gamePublicID),
+			zap.String(keyGamePublicID, gamePublicID),
 		)
 		gamePublicIDCopy := gamePublicID
 		userIDCopy := client.UserID
@@ -969,7 +969,7 @@ func (ws *WebSocketService) addClientToGame(client *WSClient, gamePublicID strin
 
 	ws.logger.Info("Client joined game room",
 		zap.String("client_id", client.ID.String()),
-		zap.String("game_public_id", gamePublicID),
+		zap.String(keyGamePublicID, gamePublicID),
 	)
 }
 
@@ -994,16 +994,16 @@ func (ws *WebSocketService) removeClientFromGame(client *WSClient, gamePublicID 
 
 	ws.logger.Info("Client left game room",
 		zap.String("client_id", client.ID.String()),
-		zap.String("game_public_id", gamePublicID),
+		zap.String(keyGamePublicID, gamePublicID),
 	)
 }
 
 func (ws *WebSocketService) BroadcastAdminNotification(notif AdminNotification) {
 	msg := map[string]interface{}{
-		"type":      "admin_notification",
+		keyType:      "admin_notification",
 		"event":     notif.Event,
-		"data":      notif.Data,
-		"timestamp": time.Now().Format(time.RFC3339),
+		keyData:      notif.Data,
+		keyTimestamp: time.Now().Format(time.RFC3339),
 	}
 	if notif.EntityType != "" {
 		msg["entity_type"] = notif.EntityType

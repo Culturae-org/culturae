@@ -22,7 +22,7 @@ func (v *TextInputValidator) Validate(answer types.Answer, question *model.Quest
 			IsCorrect: false,
 			Score:     0,
 			Feedback: map[string]interface{}{
-				"error": "invalid answer type for text question",
+				keyError: "invalid answer type for text question",
 			},
 		}
 	}
@@ -33,7 +33,7 @@ func (v *TextInputValidator) Validate(answer types.Answer, question *model.Quest
 			IsCorrect: false,
 			Score:     0,
 			Feedback: map[string]interface{}{
-				"error": "no accepted answers configured",
+				keyError: "no accepted answers configured",
 			},
 		}
 	}
@@ -48,8 +48,8 @@ func (v *TextInputValidator) Validate(answer types.Answer, question *model.Quest
 				IsCorrect: true,
 				Score:     100,
 				Feedback: map[string]interface{}{
-					"match_type":  "exact",
-					"user_answer": userAnswer,
+					keyMatchType:  "exact",
+					keyUserAnswer: userAnswer,
 				},
 			}
 		}
@@ -76,10 +76,10 @@ func (v *TextInputValidator) Validate(answer types.Answer, question *model.Quest
 					IsCorrect: true,
 					Score:     score,
 					Feedback: map[string]interface{}{
-						"match_type":  "fuzzy",
+						keyMatchType:  "fuzzy",
 						"similarity":  similarity,
 						"typos":       distance,
-						"user_answer": userAnswer,
+						keyUserAnswer: userAnswer,
 					},
 				}
 			}
@@ -95,7 +95,7 @@ func (v *TextInputValidator) Validate(answer types.Answer, question *model.Quest
 		IsCorrect: false,
 		Score:     0,
 		Feedback: map[string]interface{}{
-			"user_answer":    userAnswer,
+			keyUserAnswer:  userAnswer,
 			"correct_answer": correctHint,
 		},
 	}

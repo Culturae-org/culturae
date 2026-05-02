@@ -10,7 +10,7 @@ import (
 )
 
 func SetAuthCookie(c *gin.Context, token string, maxAge time.Duration, secure bool) {
-	http.SetCookie(c.Writer, &http.Cookie{
+	http.SetCookie(c.Writer, &http.Cookie{ //nolint:gosec // G124: Secure is set via config parameter
 		Name:     "culturae_token",
 		Value:    token,
 		Path:     "/",
@@ -22,7 +22,7 @@ func SetAuthCookie(c *gin.Context, token string, maxAge time.Duration, secure bo
 }
 
 func SetRefreshCookie(c *gin.Context, token string, maxAge time.Duration, secure bool) {
-	http.SetCookie(c.Writer, &http.Cookie{
+	http.SetCookie(c.Writer, &http.Cookie{ //nolint:gosec // G124: Secure is set via config parameter
 		Name:     "culturae_refresh",
 		Value:    token,
 		Path:     "/",
@@ -34,7 +34,7 @@ func SetRefreshCookie(c *gin.Context, token string, maxAge time.Duration, secure
 }
 
 func ClearAuthCookie(c *gin.Context, secure bool) {
-	http.SetCookie(c.Writer, &http.Cookie{
+	http.SetCookie(c.Writer, &http.Cookie{ //nolint:gosec // G124: Secure is set via config parameter
 		Name:     "culturae_token",
 		Value:    "",
 		Path:     "/",
@@ -46,7 +46,7 @@ func ClearAuthCookie(c *gin.Context, secure bool) {
 }
 
 func ClearRefreshCookie(c *gin.Context, secure bool) {
-	http.SetCookie(c.Writer, &http.Cookie{
+	http.SetCookie(c.Writer, &http.Cookie{ //nolint:gosec // G124: Secure is set via config parameter
 		Name:     "culturae_refresh",
 		Value:    "",
 		Path:     "/",

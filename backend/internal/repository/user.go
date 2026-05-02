@@ -410,7 +410,7 @@ func (r *UserRepository) UpdateUserOnlineStatus(userID uuid.UUID, isOnline bool)
 	}
 
 	if err := r.DB.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
-		"status":    status,
+		keyStatus:    status,
 		"is_online": isOnline,
 	}).Error; err != nil {
 		r.logger.Error("Failed to update user online status in database", zap.String("userID", userID.String()), zap.Error(err))
@@ -472,14 +472,14 @@ func (r *UserRepository) CreateWithoutHash(user *model.User) error {
 func (r *UserRepository) UpdateDates(userID uuid.UUID, createdAt, updatedAt time.Time) error {
 	return r.DB.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
 		"created_at": createdAt,
-		"updated_at": updatedAt,
+		keyUpdatedAt: updatedAt,
 	}).Error
 }
 
 func (r *UserRepository) AddExperience(userID uuid.UUID, xp int64, cfg model.XPConfig) error {
 	return r.DB.Transaction(func(tx *gorm.DB) error {
 		var user model.User
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&user, "id = ?", userID).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: lockStrengthUpdate}).First(&user, "id = ?", userID).Error; err != nil {
 			return err
 		}
 
@@ -506,7 +506,7 @@ func (r *UserRepository) UpdateGameStats(userID uuid.UUID, isWinner bool, isDraw
 
 	return r.DB.Transaction(func(tx *gorm.DB) error {
 		var stats model.UserGameStats
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		if err := tx.Clauses(clause.Locking{Strength: lockStrengthUpdate}).
 			Where("user_id = ?", userID).
 			FirstOrCreate(&stats, model.UserGameStats{UserID: userID}).Error; err != nil {
 			return err
@@ -562,7 +562,7 @@ func (r *UserRepository) UpdateGameStats(userID uuid.UUID, isWinner bool, isDraw
 		}
 
 		var modeStats model.UserGameStatsByMode
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		if err := tx.Clauses(clause.Locking{Strength: lockStrengthUpdate}).
 			Where("user_id = ? AND mode = ?", userID, mode).
 			FirstOrCreate(&modeStats, model.UserGameStatsByMode{UserID: userID, Mode: mode}).Error; err != nil {
 			return err

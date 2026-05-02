@@ -73,18 +73,18 @@ func (geb *GameEventBroadcaster) run() {
 func (geb *GameEventBroadcaster) handleEvent(event RawGameEvent) {
 	geb.logger.Debug("Broadcasting game event",
 		zap.String("type", event.Type),
-		zap.String("game_public_id", event.PublicID),
+		zap.String(keyGamePublicID, event.PublicID),
 	)
 
 	if err := geb.wsService.SendToGame(event.PublicID, map[string]interface{}{
-		"type":      event.Type,
-		"public_id": event.PublicID,
-		"data":      event.Data,
-		"timestamp": event.Timestamp,
+		keyType:      event.Type,
+		keyPublicID: event.PublicID,
+		keyData:      event.Data,
+		keyTimestamp: event.Timestamp,
 	}); err != nil {
 		geb.logger.Error("Failed to broadcast game event",
 			zap.String("type", event.Type),
-			zap.String("game_public_id", event.PublicID),
+			zap.String(keyGamePublicID, event.PublicID),
 			zap.Error(err),
 		)
 	}

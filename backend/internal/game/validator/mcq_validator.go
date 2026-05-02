@@ -18,7 +18,7 @@ func (v *MCQValidator) Validate(answer types.Answer, question *model.Question) V
 			IsCorrect: false,
 			Score:     0,
 			Feedback: map[string]interface{}{
-				"error": "failed to parse question answers",
+				keyError: "failed to parse question answers",
 			},
 		}
 	}
@@ -34,7 +34,7 @@ func (v *MCQValidator) Validate(answer types.Answer, question *model.Question) V
 			IsCorrect: false,
 			Score:     0,
 			Feedback: map[string]interface{}{
-				"error": "invalid answer type for MCQ question",
+				keyError: "invalid answer type for MCQ question",
 			},
 		}
 	}
@@ -55,7 +55,7 @@ func (v *MCQValidator) Validate(answer types.Answer, question *model.Question) V
 				Feedback: map[string]interface{}{
 					"answer_slug":         answerSlug,
 					"correct_answer_slug": correctSlug,
-					"match_type":          "exact",
+					keyMatchType:          "exact",
 				},
 			}
 		}

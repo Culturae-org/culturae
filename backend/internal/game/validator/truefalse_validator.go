@@ -18,7 +18,7 @@ func (v *TrueFalseValidator) Validate(answer types.Answer, question *model.Quest
 			IsCorrect: false,
 			Score:     0,
 			Feedback: map[string]interface{}{
-				"error": "invalid answer type for true/false question",
+				keyError: "invalid answer type for true/false question",
 			},
 		}
 	}
@@ -29,7 +29,7 @@ func (v *TrueFalseValidator) Validate(answer types.Answer, question *model.Quest
 			IsCorrect: false,
 			Score:     0,
 			Feedback: map[string]interface{}{
-				"error": "failed to parse question answers",
+				keyError: "failed to parse question answers",
 			},
 		}
 	}
@@ -53,7 +53,7 @@ func (v *TrueFalseValidator) Validate(answer types.Answer, question *model.Quest
 			return 0
 		}(),
 		Feedback: map[string]interface{}{
-			"user_answer":    userAnswer,
+			keyUserAnswer:    userAnswer,
 			"correct_answer": correctAnswer,
 		},
 	}

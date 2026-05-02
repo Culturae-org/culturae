@@ -69,8 +69,8 @@ func (r *ReportRepository) ListReports(limit, offset int, status string) ([]mode
 
 func (r *ReportRepository) UpdateReportStatus(id uuid.UUID, status model.ReportStatus, notes string) error {
 	updates := map[string]interface{}{
-		"status":     status,
-		"updated_at": gorm.Expr("NOW()"),
+		keyStatus:     status,
+		keyUpdatedAt: gorm.Expr("NOW()"),
 	}
 	if notes != "" {
 		updates["resolution_notes"] = notes

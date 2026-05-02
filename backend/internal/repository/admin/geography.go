@@ -290,7 +290,7 @@ func (r *AdminGeographyRepository) ImportContinents(url string, datasetID uuid.U
 		var raw model.ContinentRaw
 		if err := json.Unmarshal([]byte(line), &raw); err != nil {
 			logger.Warn("Failed to parse continent", zap.Int("line", lineNum), zap.Error(err))
-			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: "", Action: "error", Message: err.Error()})
+			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: "", Action: actionError, Message: err.Error()})
 			continue
 		}
 
@@ -309,7 +309,7 @@ func (r *AdminGeographyRepository) ImportContinents(url string, datasetID uuid.U
 			UpdatedAt:  time.Now(),
 		}
 		continents = append(continents, continent)
-		_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: raw.Slug, Action: "created", Message: "new continent"})
+		_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: raw.Slug, Action: actionCreated, Message: "new continent"})
 		added++
 	}
 
@@ -369,7 +369,7 @@ func (r *AdminGeographyRepository) ImportRegions(url string, datasetID uuid.UUID
 		var raw model.RegionRaw
 		if err := json.Unmarshal([]byte(line), &raw); err != nil {
 			logger.Warn("Failed to parse region", zap.Int("line", lineNum), zap.Error(err))
-			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: "", Action: "error", Message: err.Error()})
+			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: "", Action: actionError, Message: err.Error()})
 			continue
 		}
 
@@ -387,7 +387,7 @@ func (r *AdminGeographyRepository) ImportRegions(url string, datasetID uuid.UUID
 			UpdatedAt: time.Now(),
 		}
 		regions = append(regions, region)
-		_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: raw.Slug, Action: "created", Message: "new region"})
+		_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: raw.Slug, Action: actionCreated, Message: "new region"})
 		added++
 	}
 
@@ -447,7 +447,7 @@ func (r *AdminGeographyRepository) ImportCountries(url string, datasetID uuid.UU
 		var raw model.CountryRaw
 		if err := json.Unmarshal([]byte(line), &raw); err != nil {
 			logger.Warn("Failed to parse country", zap.Int("line", lineNum), zap.Error(err))
-			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: "", Action: "error", Message: err.Error()})
+			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: "", Action: actionError, Message: err.Error()})
 			continue
 		}
 
@@ -486,7 +486,7 @@ func (r *AdminGeographyRepository) ImportCountries(url string, datasetID uuid.UU
 			UpdatedAt:    time.Now(),
 		}
 		countries = append(countries, country)
-		_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: raw.Slug, Action: "created", Message: "new country"})
+		_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: raw.Slug, Action: actionCreated, Message: "new country"})
 		added++
 	}
 

@@ -115,8 +115,8 @@ func (r *FriendsRepository) AcceptFriendRequest(requestID, userID uuid.UUID) err
 	}()
 
 	if err := tx.Model(&request).Updates(map[string]interface{}{
-		"status":     model.FriendRequestStatusAccepted,
-		"updated_at": time.Now(),
+		keyStatus:     model.FriendRequestStatusAccepted,
+		keyUpdatedAt: time.Now(),
 	}).Error; err != nil {
 		tx.Rollback()
 		return err
@@ -143,22 +143,22 @@ func (r *FriendsRepository) AcceptFriendRequest(requestID, userID uuid.UUID) err
 
 func (r *FriendsRepository) RejectFriendRequest(requestID, userID uuid.UUID) error {
 	return r.DB.Model(&model.FriendRequest{}).Where("id = ? AND to_user_id = ?", requestID, userID).Updates(map[string]interface{}{
-		"status":     model.FriendRequestStatusRejected,
-		"updated_at": time.Now(),
+		keyStatus:     model.FriendRequestStatusRejected,
+		keyUpdatedAt: time.Now(),
 	}).Error
 }
 
 func (r *FriendsRepository) CancelFriendRequest(requestID, userID uuid.UUID) error {
 	return r.DB.Model(&model.FriendRequest{}).Where("id = ? AND from_user_id = ?", requestID, userID).Updates(map[string]interface{}{
-		"status":     model.FriendRequestStatusCancelled,
-		"updated_at": time.Now(),
+		keyStatus:     model.FriendRequestStatusCancelled,
+		keyUpdatedAt: time.Now(),
 	}).Error
 }
 
 func (r *FriendsRepository) BlockFriendRequest(requestID, userID uuid.UUID) error {
 	return r.DB.Model(&model.FriendRequest{}).Where("id = ? AND (from_user_id = ? OR to_user_id = ?)", requestID, userID, userID).Updates(map[string]interface{}{
-		"status":     model.FriendRequestStatusBlocked,
-		"updated_at": time.Now(),
+		keyStatus:     model.FriendRequestStatusBlocked,
+		keyUpdatedAt: time.Now(),
 	}).Error
 }
 

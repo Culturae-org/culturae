@@ -151,7 +151,7 @@ func (r *AdminQuestionRepository) ImportQuestions(url string, jobID uuid.UUID, d
 				zap.Int("line", lineNum),
 				zap.Error(err),
 			)
-			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: "", Action: "error", Message: err.Error()})
+			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: "", Action: actionError, Message: err.Error()})
 			continue
 		}
 
@@ -167,7 +167,7 @@ func (r *AdminQuestionRepository) ImportQuestions(url string, jobID uuid.UUID, d
 				zap.String("slug", temp.Slug),
 				zap.Error(err),
 			)
-			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: temp.Slug, Action: "error", Message: err.Error()})
+			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: temp.Slug, Action: actionError, Message: err.Error()})
 			skipped++
 			continue
 		}
@@ -180,7 +180,7 @@ func (r *AdminQuestionRepository) ImportQuestions(url string, jobID uuid.UUID, d
 				zap.String("slug", temp.Slug),
 				zap.Error(err),
 			)
-			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: temp.Slug, Action: "error", Message: err.Error()})
+			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: temp.Slug, Action: actionError, Message: err.Error()})
 			skipped++
 			continue
 		}
@@ -193,7 +193,7 @@ func (r *AdminQuestionRepository) ImportQuestions(url string, jobID uuid.UUID, d
 				zap.String("slug", temp.Slug),
 				zap.Error(err),
 			)
-			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: temp.Slug, Action: "error", Message: err.Error()})
+			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: temp.Slug, Action: actionError, Message: err.Error()})
 			skipped++
 			continue
 		}
@@ -221,7 +221,7 @@ func (r *AdminQuestionRepository) ImportQuestions(url string, jobID uuid.UUID, d
 				zap.String("theme", temp.Theme.Slug),
 				zap.Error(err),
 			)
-			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: temp.Slug, Action: "error", Message: err.Error()})
+			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: temp.Slug, Action: actionError, Message: err.Error()})
 			skipped++
 			continue
 		}
@@ -278,7 +278,7 @@ func (r *AdminQuestionRepository) ImportQuestions(url string, jobID uuid.UUID, d
 					errMsg := fmt.Sprintf("%s: failed to update: %v", question.Slug, err)
 					errs = append(errs, errMsg)
 					logger.Error("Failed to update question", zap.String("slug", question.Slug), zap.Error(err))
-					_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: question.Slug, Action: "error", Message: err.Error()})
+					_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: question.Slug, Action: actionError, Message: err.Error()})
 					skipped++
 				} else {
 					if err := tx.Model(&existingQuestion).Association("Subthemes").Replace(question.Subthemes); err != nil {
@@ -301,18 +301,18 @@ func (r *AdminQuestionRepository) ImportQuestions(url string, jobID uuid.UUID, d
 				errMsg := fmt.Sprintf("%s: failed to create: %v", question.Slug, err)
 				errs = append(errs, errMsg)
 				logger.Error("Failed to create question", zap.String("slug", question.Slug), zap.Error(err))
-				_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: question.Slug, Action: "error", Message: err.Error()})
+				_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: question.Slug, Action: actionError, Message: err.Error()})
 				skipped++
 			} else {
 				logger.Debug("Question created", zap.String("slug", question.Slug), zap.String("theme", temp.Theme.Slug), zap.Int("subthemes", len(question.Subthemes)), zap.Int("tags", len(question.Tags)))
-				_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: question.Slug, Action: "created", Message: "new question"})
+				_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: question.Slug, Action: actionCreated, Message: "new question"})
 				added++
 			}
 		default:
 			errMsg := fmt.Sprintf("%s: database error: %v", question.Slug, err)
 			errs = append(errs, errMsg)
 			logger.Error("Database error", zap.String("slug", question.Slug), zap.Error(err))
-			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: question.Slug, Action: "error", Message: err.Error()})
+			_ = importsRepo.SaveImportLog(&model.ImportQuestionLog{JobID: jobID, Line: lineNum, Slug: question.Slug, Action: actionError, Message: err.Error()})
 			skipped++
 		}
 	}
