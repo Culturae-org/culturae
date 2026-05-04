@@ -319,6 +319,17 @@ func (g *BaseGame) RemovePlayer(userID uuid.UUID) error {
 	if g.status == model.GameStatusInProgress {
 		if activeCount < g.hooks.MinPlayersToStart() {
 			g.finalizeWithWinner()
+		} else if g.hooks.ShouldAdvanceQuestion(g) {
+			g.hooks.EvaluateQuestionResults(g, g.currentQ)
+			g.currentQ++
+			if g.currentQ >= len(g.questions) {
+				g.endLocked(g.determineWinnerLocked())
+			} else {
+				questionSentAt := time.Now()
+				for _, p := range g.players {
+					p.CurrentQuestionSentAt = questionSentAt
+				}
+			}
 		}
 	} else {
 		if activeCount < g.hooks.MinPlayersToStart() {
