@@ -143,7 +143,7 @@ func normalizeString(s string) string {
 	for _, r := range s {
 		if replacement, ok := accentMap[string(r)]; ok {
 			result = append(result, []rune(replacement)...)
-		} else if r == '-' || r == ' ' {
+		} else if r == '-' || r == ' ' || r == '\'' {
 			continue
 		} else {
 			result = append(result, r)
