@@ -673,7 +673,6 @@ func (g *BaseGame) SetSaveCallback(callback func() error) {
 func (g *BaseGame) run() {
 	g.mutex.RLock()
 	commandChan := g.commandChan
-	stopChan := g.stopChan
 	g.mutex.RUnlock()
 
 	defer func() {
@@ -691,19 +690,34 @@ func (g *BaseGame) run() {
 		if g.ticker != nil {
 			tickerC = g.ticker.C
 		}
-		saveCallback := g.saveCallback
+		stopChan := g.stopChan
 		g.mutex.RUnlock()
+
+		if stopChan == nil {
+			return
+		}
 
 		select {
 		case cmd := <-commandChan:
 			g.handleCommand(cmd)
-			if saveCallback != nil {
-				if err := saveCallback(); err != nil {
-					g.logger.Error("Failed to save game after command",
-						zap.String("command_type", cmd.Type),
-						zap.Error(err),
-					)
+			g.mutex.RLock()
+			saveCB := g.saveCallback
+			g.mutex.RUnlock()
+			if saveCB != nil {
+				if err := saveCB(); err != nil {
+					if g.logger != nil {
+						g.logger.Error("Failed to save game after command",
+							zap.String("command_type", cmd.Type),
+							zap.Error(err),
+						)
+					}
 				}
+			}
+			g.mutex.RLock()
+			status := g.status
+			g.mutex.RUnlock()
+			if status == model.GameStatusCancelled || status == model.GameStatusCompleted || status == model.GameStatusAbandoned {
+				return
 			}
 
 		case <-stopChan:
@@ -712,10 +726,21 @@ func (g *BaseGame) run() {
 		case <-tickerC:
 			if tickerC != nil {
 				g.handleTimer()
-				if saveCallback != nil {
-					if err := saveCallback(); err != nil {
-						g.logger.Error("Failed to save game after timer", zap.Error(err))
+				g.mutex.RLock()
+				saveCB := g.saveCallback
+				g.mutex.RUnlock()
+				if saveCB != nil {
+					if err := saveCB(); err != nil {
+						if g.logger != nil {
+							g.logger.Error("Failed to save game after timer", zap.Error(err))
+						}
 					}
+				}
+				g.mutex.RLock()
+				status := g.status
+				g.mutex.RUnlock()
+				if status == model.GameStatusCancelled || status == model.GameStatusCompleted || status == model.GameStatusAbandoned {
+					return
 				}
 			}
 		}
