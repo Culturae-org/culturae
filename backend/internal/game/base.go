@@ -242,7 +242,15 @@ func (g *BaseGame) determineWinnerLocked() *uuid.UUID {
 func (g *BaseGame) GetWinnerID() *uuid.UUID {
 	g.mutex.RLock()
 	defer g.mutex.RUnlock()
-	return g.winnerID
+	if g.winnerID != nil {
+		return g.winnerID
+	}
+	if g.currentQ >= len(g.questions) ||
+		g.status == model.GameStatusCompleted ||
+		g.status == model.GameStatusCancelled {
+		return g.determineWinnerLocked()
+	}
+	return nil
 }
 
 func (g *BaseGame) GetStartedAt() *time.Time {
