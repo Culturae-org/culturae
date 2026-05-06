@@ -943,7 +943,6 @@ func setupRepositoriesInComponents(
 		redisService,
 		components.Repositories.User,
 		components.Repositories.Game,
-		components.Repositories.Logs,
 		logger,
 	)
 
