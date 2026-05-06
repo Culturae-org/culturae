@@ -67,22 +67,6 @@ info:
     In solo mode the round evaluates immediately so `score_updated` follows
     `answer_received` with no delay.
 
-    ## Country-listing game lifecycle
-    ```
-    Client                          Server
-      |--- join_game ----------------->|
-      |<-- ack (join_game, ok) --------|
-      |<-- game_started  --------------|
-      |--- submit_answer (text) ------>|   (repeated, no time limit)
-      |<-- ack (submit_answer, ok) ----|
-      |<-- country_found  -------------|   (correct guess)
-      |<-- score_updated --------------|
-      |   — or —
-      |<-- country_not_found  ---------|   (wrong guess)
-      |<-- country_already_found  -----|   (already guessed)
-      |<-- game_completed  ------------|   (all countries found)
-    ```
-
     ## Pause / Reconnect lifecycle (1v1 / multi only)
     ```
     Client A (disconnects)          Server              Client B (stays)
@@ -425,13 +409,6 @@ channels:
         $ref: '#/components/messages/AnswerReceivedMessage'
       score_updated:
         $ref: '#/components/messages/ScoreUpdatedMessage'
-      # Country-listing mode — Server → Client
-      country_found:
-        $ref: '#/components/messages/CountryFoundMessage'
-      country_not_found:
-        $ref: '#/components/messages/CountryNotFoundMessage'
-      country_already_found:
-        $ref: '#/components/messages/CountryAlreadyFoundMessage'
       # Social — Server → Client
       pending_invites:
         $ref: '#/components/messages/PendingInvitesMessage'
@@ -530,10 +507,6 @@ operations:
       - $ref: '#/channels/realtime/messages/question_sent'
       - $ref: '#/channels/realtime/messages/answer_received'
       - $ref: '#/channels/realtime/messages/score_updated'
-      # Country-listing mode
-      - $ref: '#/channels/realtime/messages/country_found'
-      - $ref: '#/channels/realtime/messages/country_not_found'
-      - $ref: '#/channels/realtime/messages/country_already_found'
       # Social
       - $ref: '#/channels/realtime/messages/pending_invites'
       - $ref: '#/channels/realtime/messages/game_invite'
@@ -940,7 +913,7 @@ components:
                 properties:
                   mode:
                     type: string
-                    enum: [solo, 1v1, multi, country_listing]
+                    enum: [solo, 1v1, multi]
                     description: Game mode that was created.
 
     GameReadyMessage:
@@ -1418,94 +1391,6 @@ components:
                     type: integer
                     minimum: 0
                     description: Player's new total score.
-
-    # ==========================================================================
-    # Server → Client  (country-listing mode)
-    # ==========================================================================
-
-    CountryFoundMessage:
-      name: country_found
-      messageId: country_found
-      title: Country Found
-      summary: |
-        (Country-listing mode) The player's guess matched an unfound country.
-      description: |
-        Emitted when a player's text input matches a country that has not yet been
-        found in the current game.  Matching is fuzzy (Levenshtein ≤ 2) so minor
-        typos are accepted.
-      payload:
-        allOf:
-          - $ref: '#/components/schemas/GameEventEnvelope'
-          - type: object
-            properties:
-              data:
-                type: object
-                required: [user_public_id, iso, points, found_count, total]
-                properties:
-                  user_public_id:
-                    type: string
-                    description: Public identifier of the player who found the country.
-                  iso:
-                    type: string
-                    description: ISO 3166-1 alpha-2 code of the found country (e.g. `"FR"`).
-                    example: "FR"
-                  points:
-                    type: integer
-                    minimum: 0
-                    description: Points awarded for this find.
-                  found_count:
-                    type: integer
-                    minimum: 1
-                    description: Total number of countries found so far in this game.
-                  total:
-                    type: integer
-                    minimum: 1
-                    description: Total number of countries to find to complete the game.
-
-    CountryNotFoundMessage:
-      name: country_not_found
-      messageId: country_not_found
-      title: Country Not Found
-      summary: |
-        (Country-listing mode) The player's guess did not match any unfound country.
-      payload:
-        allOf:
-          - $ref: '#/components/schemas/GameEventEnvelope'
-          - type: object
-            properties:
-              data:
-                type: object
-                required: [user_public_id, user_input]
-                properties:
-                  user_public_id:
-                    type: string
-                    description: Public identifier of the player who submitted the guess.
-                  user_input:
-                    type: string
-                    description: The raw text the player submitted.
-
-    CountryAlreadyFoundMessage:
-      name: country_already_found
-      messageId: country_already_found
-      title: Country Already Found
-      summary: |
-        (Country-listing mode) The player's guess matched a country that was
-        already found earlier in the game.
-      payload:
-        allOf:
-          - $ref: '#/components/schemas/GameEventEnvelope'
-          - type: object
-            properties:
-              data:
-                type: object
-                required: [user_public_id, user_input]
-                properties:
-                  user_public_id:
-                    type: string
-                    description: Public identifier of the player who submitted the guess.
-                  user_input:
-                    type: string
-                    description: The raw text the player submitted.
 
     QuestionTimeoutMessage:
       name: question_timeout
