@@ -113,7 +113,7 @@ func (uc *UserUsecase) ChangePassword(userID, currentPassword, newPassword strin
 		return errors.New("failed to verify password")
 	}
 	if !ok {
-		return errors.New("current password is incorrect")
+		return model.ErrPasswordMismatch
 	}
 
 	if !crypto.IsValidPassword(newPassword) {
@@ -140,7 +140,7 @@ func (uc *UserUsecase) SoftDeleteAccount(userID, password string) error {
 		return errors.New("failed to verify password")
 	}
 	if !ok {
-		return errors.New("password is incorrect")
+		return model.ErrWrongPassword
 	}
 
 	shortID := user.ID.String()[:8]

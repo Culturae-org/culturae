@@ -2381,13 +2381,13 @@ func (u *GameUsecase) updateQuestionStats(gameID uuid.UUID) error {
 func (u *GameUsecase) CancelUserGameInvite(c *gin.Context, inviteID, userID uuid.UUID) error {
 	invite, err := u.gameRepo.GetGameInviteByID(inviteID)
 	if err != nil {
-		return errors.New("invite not found")
+		return model.ErrInviteNotFound
 	}
 	if invite.FromUserID != userID {
-		return errors.New("forbidden")
+		return model.ErrForbidden
 	}
 	if invite.Status != model.GameInviteStatusPending {
-		return errors.New("invite is not pending")
+		return model.ErrInviteNotPending
 	}
 	if err := u.gameRepo.UpdateGameInviteStatus(inviteID, model.GameInviteStatusCancelled); err != nil {
 		return err
@@ -2409,10 +2409,10 @@ func (u *GameUsecase) CancelUserGameInvite(c *gin.Context, inviteID, userID uuid
 func (u *GameUsecase) GetGameResults(publicID string, userID uuid.UUID) (*model.GameResultsResponse, error) {
 	g, err := u.gameRepo.GetGameByPublicID(publicID)
 	if err != nil {
-		return nil, errors.New("game not found")
+		return nil, model.ErrGameNotFound
 	}
 	if g.Status != model.GameStatusCompleted {
-		return nil, errors.New("game is not completed")
+		return nil, model.ErrGameNotCompleted
 	}
 
 	isPlayer := false
@@ -2423,7 +2423,7 @@ func (u *GameUsecase) GetGameResults(publicID string, userID uuid.UUID) (*model.
 		}
 	}
 	if !isPlayer {
-		return nil, errors.New("forbidden")
+		return nil, model.ErrForbidden
 	}
 
 	var winnerPublicID *string
@@ -2540,7 +2540,7 @@ func (u *GameUsecase) GetGameResults(publicID string, userID uuid.UUID) (*model.
 func (u *GameUsecase) JoinGameByCode(c *gin.Context, code string, userID uuid.UUID) error {
 	g, err := u.gameRepo.GetGameByPublicID(code)
 	if err != nil {
-		return errors.New("game not found")
+		return model.ErrGameNotFound
 	}
 
 	if g.Mode != model.GameMode1v1 && g.Mode != model.GameModeMulti {
@@ -2552,12 +2552,12 @@ func (u *GameUsecase) JoinGameByCode(c *gin.Context, code string, userID uuid.UU
 
 	for _, p := range g.Players {
 		if p.UserID == userID {
-			return errors.New("you are already in this game")
+			return model.ErrAlreadyInGame
 		}
 	}
 
 	if len(g.Players) >= g.MaxPlayers {
-		return errors.New("game is full")
+		return model.ErrGameFull
 	}
 
 	if isBlocked, err := u.friendsRepo.IsBlocked(userID, g.CreatorID); err == nil && isBlocked {

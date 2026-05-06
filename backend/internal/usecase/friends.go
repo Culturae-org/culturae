@@ -339,7 +339,7 @@ func (u *FriendsUsecase) BlockUser(c *gin.Context, blockerID uuid.UUID, blockedP
 	}
 
 	if blockerID == blockedID {
-		return errors.New("cannot block yourself")
+		return model.ErrSelfBlock
 	}
 
 	if err := u.friendsRepo.BlockUserDirect(blockerID, blockedID); err != nil {
