@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/Culturae-org/culturae/internal/model"
-	adminRepo "github.com/Culturae-org/culturae/internal/repository/admin"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -67,7 +66,7 @@ func (h *dynamicHooks) EvaluateQuestionResults(base *BaseGame, questionIndex int
 	switch scoreMode {
 	case ScoreModeFastestWins:
 		h.evaluateFastestWins(base, questionIndex)
-	case "classic":
+	case ScoreModeClassic:
 		h.evaluateClassic(base, questionIndex)
 	default:
 		h.evaluateTimeBonus(base, questionIndex)
@@ -187,7 +186,6 @@ func NewVersusGame(
 	settings GameSettings,
 	questions []*model.Question,
 	logger *zap.Logger,
-	repo adminRepo.AdminLogsRepositoryInterface,
 	countdownConfig *model.CountdownConfig,
 ) *VersusGame {
 	hooks := &dynamicHooks{settings: settings}
@@ -199,7 +197,6 @@ func NewVersusGame(
 		questions,
 		logger,
 		hooks,
-		repo,
 		countdownConfig,
 	)
 	return &VersusGame{BaseGame: base}

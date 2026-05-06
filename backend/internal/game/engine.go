@@ -141,12 +141,10 @@ func DefaultGameSettings() GameSettings {
 const (
 	ScoreModeTimeBonus   = "time_bonus"
 	ScoreModeFastestWins = "fastest_wins"
+	ScoreModeClassic     = "classic"
 )
 
 const (
-	EventCountryFound        = "country_found"
-	EventCountryNotFound     = "country_not_found"
-	EventCountryAlreadyFound = "country_already_found"
 	EventGameCreated        = "game_created"
 	EventGameReady          = "game_ready"
 	EventGameStarting       = "game_starting"

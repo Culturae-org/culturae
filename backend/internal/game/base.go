@@ -9,7 +9,6 @@ import (
 
 	"github.com/Culturae-org/culturae/internal/game/validator"
 	"github.com/Culturae-org/culturae/internal/model"
-	adminRepo "github.com/Culturae-org/culturae/internal/repository/admin"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -72,7 +71,6 @@ func NewBaseGame(
 	questions []*model.Question,
 	logger *zap.Logger,
 	hooks GameModeHooks,
-	repo adminRepo.AdminLogsRepositoryInterface,
 	countdownConfig *model.CountdownConfig,
 ) *BaseGame {
 	if countdownConfig == nil {

@@ -281,7 +281,6 @@ func (rgm *RedisGameManager) reconstructVersusGame(state GameStateData) *VersusG
 		settings,
 		state.Questions,
 		rgm.logger,
-		rgm.logsRepo,
 		&countdownCfg,
 	)
 
@@ -340,7 +339,6 @@ func (rgm *RedisGameManager) CreateGame(
 			settings,
 			questions,
 			rgm.logger,
-			rgm.logsRepo,
 			&countdownCfg,
 		)
 	default:
