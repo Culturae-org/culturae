@@ -460,7 +460,7 @@ func (ac *AuthHandler) Logout(c *gin.Context) {
 		}
 	}
 
-		httputil.ClearAuthCookie(c, ac.Config.CookieSecure)
+	httputil.ClearAuthCookie(c, ac.Config.CookieSecure)
 	httputil.ClearRefreshCookie(c, ac.Config.CookieSecure)
 
 	httputil.SuccessWithMessage(c, http.StatusOK, "Logged out successfully", nil)

@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/Culturae-org/culturae/internal/model"
@@ -179,20 +180,20 @@ func (gc *GamesHandler) JoinGameByCode(c *gin.Context) {
 	}
 
 	if err := gc.Usecase.JoinGameByCode(c, req.Code, userID); err != nil {
-		switch err.Error() {
-		case "game not found":
-			httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, err.Error())
-		case "game is full":
-			httputil.Error(c, http.StatusConflict, httputil.ErrCodeGameFull, err.Error())
-		case "you are already in this game":
-			httputil.Error(c, http.StatusConflict, httputil.ErrCodeConflict, err.Error())
+		switch {
+		case errors.Is(err, model.ErrGameNotFound):
+			httputil.Error(c, http.StatusNotFound, httputil.ErrCodeGameNotFound, "Game not found")
+		case errors.Is(err, model.ErrGameFull):
+			httputil.Error(c, http.StatusConflict, httputil.ErrCodeGameFull, "Game is full")
+		case errors.Is(err, model.ErrAlreadyInGame):
+			httputil.Error(c, http.StatusConflict, httputil.ErrCodeConflict, "You are already in this game")
 		default:
 			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
 		}
 		return
 	}
 
-	httputil.Success(c, http.StatusOK, gin.H{keyMessage: "joined game"})
+	httputil.SuccessWithMessage(c, http.StatusOK, "Joined game", nil)
 }
 
 func (gc *GamesHandler) LeaveGame(c *gin.Context) {
@@ -229,7 +230,7 @@ func (gc *GamesHandler) StartGame(c *gin.Context) {
 	}
 
 	gamePublicID := c.Param("gameID")
-	if len(gamePublicID) > 15 {
+	if len(gamePublicID) == 0 || len(gamePublicID) > 20 {
 		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid game ID format")
 		return
 	}
@@ -292,6 +293,12 @@ func (gc *GamesHandler) SubmitAnswer(c *gin.Context) {
 }
 
 func (gc *GamesHandler) GetGameStatus(c *gin.Context) {
+	userID := httputil.GetUserIDFromContext(c)
+	if userID == uuid.Nil {
+		httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeMissingToken, "Unauthorized")
+		return
+	}
+
 	gamePublicID := c.Param("gameID")
 	if len(gamePublicID) == 0 || len(gamePublicID) > 20 {
 		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid game ID format")
@@ -394,7 +401,7 @@ func (gc *GamesHandler) CancelGame(c *gin.Context) {
 	}
 
 	gamePublicID := c.Param("gameID")
-	if len(gamePublicID) > 15 {
+	if len(gamePublicID) == 0 || len(gamePublicID) > 20 {
 		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid game ID format")
 		return
 	}
@@ -432,12 +439,12 @@ func (gc *GamesHandler) GetGameResults(c *gin.Context) {
 	gameID := c.Param("gameID")
 	results, err := gc.Usecase.GetGameResults(gameID, userID)
 	if err != nil {
-		switch err.Error() {
-		case "game not found":
-			httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, err.Error())
-		case "game is not completed":
-			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
-		case "forbidden":
+		switch {
+		case errors.Is(err, model.ErrGameNotFound):
+			httputil.Error(c, http.StatusNotFound, httputil.ErrCodeGameNotFound, "Game not found")
+		case errors.Is(err, model.ErrGameNotCompleted):
+			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, "Game is not completed")
+		case errors.Is(err, model.ErrForbidden):
 			httputil.Error(c, http.StatusForbidden, httputil.ErrCodeForbidden, "You are not a player in this game")
 		default:
 			httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to fetch results")
@@ -462,18 +469,18 @@ func (gc *GamesHandler) CancelUserGameInvite(c *gin.Context) {
 	}
 
 	if err := gc.Usecase.CancelUserGameInvite(c, inviteID, userID); err != nil {
-		switch err.Error() {
-		case "invite not found":
-			httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, err.Error())
-		case "forbidden":
+		switch {
+		case errors.Is(err, model.ErrInviteNotFound):
+			httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, "Invite not found")
+		case errors.Is(err, model.ErrForbidden):
 			httputil.Error(c, http.StatusForbidden, httputil.ErrCodeForbidden, "You cannot cancel this invite")
-		case "invite is not pending":
-			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
+		case errors.Is(err, model.ErrInviteNotPending):
+			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, "Invite is not pending")
 		default:
 			httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to cancel invite")
 		}
 		return
 	}
 
-	httputil.Success(c, http.StatusOK, gin.H{keyMessage: "invite cancelled"})
+	httputil.SuccessWithMessage(c, http.StatusOK, "Invite cancelled", nil)
 }

@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -203,7 +204,7 @@ func (pc *ProfileHandler) UserProfile(c *gin.Context) {
 func (pc *ProfileHandler) RegeneratePublicID(c *gin.Context) {
 	userID := httputil.GetUserIDFromContext(c)
 	if userID == uuid.Nil {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, "Invalid user ID")
+		httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeMissingToken, "User not authenticated")
 		return
 	}
 
@@ -263,7 +264,7 @@ func (pc *ProfileHandler) ChangePassword(c *gin.Context) {
 	}
 
 	if err := pc.Usecase.ChangePassword(userID.String(), req.CurrentPassword, req.NewPassword); err != nil {
-		if err.Error() == "current password is incorrect" {
+		if errors.Is(err, model.ErrPasswordMismatch) {
 			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodePasswordMismatch, err.Error())
 			return
 		}
@@ -306,7 +307,7 @@ func (pc *ProfileHandler) DeleteAccount(c *gin.Context) {
 	}
 
 	if err := pc.Usecase.SoftDeleteAccount(userID.String(), req.Password); err != nil {
-		if err.Error() == "password is incorrect" {
+		if errors.Is(err, model.ErrWrongPassword) {
 			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodePasswordMismatch, err.Error())
 			return
 		}

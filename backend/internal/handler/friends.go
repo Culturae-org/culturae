@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/Culturae-org/culturae/internal/model"
@@ -42,15 +43,15 @@ func NewFriendsHandler(
 // -----------------------------------------------------
 
 func (ctrl *FriendsHandler) SendFriendRequest(c *gin.Context) {
-	toUserPublicID := c.Param("toUserPublicID")
-	if toUserPublicID == "" {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, "Invalid user public ID")
-		return
-	}
-
 	userID := httputil.GetUserIDFromContext(c)
 	if userID == uuid.Nil {
 		httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeMissingToken, "Unauthorized")
+		return
+	}
+
+	toUserPublicID := c.Param("toUserPublicID")
+	if toUserPublicID == "" {
+		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, "Invalid user public ID")
 		return
 	}
 
@@ -216,15 +217,15 @@ func (ctrl *FriendsHandler) ListFriends(c *gin.Context) {
 }
 
 func (ctrl *FriendsHandler) RemoveFriend(c *gin.Context) {
-	friendUserPublicID := c.Param("friendUserPublicID")
-	if friendUserPublicID == "" {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, "Invalid user public ID")
-		return
-	}
-
 	userID := httputil.GetUserIDFromContext(c)
 	if userID == uuid.Nil {
 		httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeMissingToken, "Unauthorized")
+		return
+	}
+
+	friendUserPublicID := c.Param("friendUserPublicID")
+	if friendUserPublicID == "" {
+		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, "Invalid user public ID")
 		return
 	}
 
@@ -267,7 +268,7 @@ func (ctrl *FriendsHandler) BlockUser(c *gin.Context) {
 	}
 
 	if err := ctrl.friendsUsecase.BlockUser(c, userID, userPublicID); err != nil {
-		if err.Error() == "cannot block yourself" {
+		if errors.Is(err, model.ErrSelfBlock) {
 			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeSelfAction, err.Error())
 			return
 		}
