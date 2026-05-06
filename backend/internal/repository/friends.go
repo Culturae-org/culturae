@@ -3,7 +3,6 @@
 package repository
 
 import (
-	"errors"
 	"time"
 
 	"github.com/Culturae-org/culturae/internal/model"
@@ -27,7 +26,7 @@ type FriendsRepositoryInterface interface {
 	RemoveFriend(userID1, userID2 uuid.UUID) error
 	IsFriend(userID1, userID2 uuid.UUID) (bool, error)
 	HasPendingRequest(fromUserID, toUserID uuid.UUID) (bool, error)
-	GetBlockedUsers(userID uuid.UUID) ([]model.FriendRequest, error)
+	GetBlockedUsers(userID uuid.UUID) ([]model.UserBasicInfo, error)
 	BlockUserDirect(blockerID, blockedID uuid.UUID) error
 	UnblockUser(blockerID, blockedID uuid.UUID) error
 	IsBlocked(userID1, userID2 uuid.UUID) (bool, error)
@@ -50,7 +49,7 @@ func NewFriendsRepository(
 
 func (r *FriendsRepository) SendFriendRequest(fromUserID, toUserID uuid.UUID) (*model.FriendRequest, error) {
 	if fromUserID == toUserID {
-		return nil, errors.New("cannot send friend request to yourself")
+		return nil, model.ErrSelfFriendRequest
 	}
 
 	isFriend, err := r.IsFriend(fromUserID, toUserID)
@@ -58,7 +57,7 @@ func (r *FriendsRepository) SendFriendRequest(fromUserID, toUserID uuid.UUID) (*
 		return nil, err
 	}
 	if isFriend {
-		return nil, errors.New("already friends")
+		return nil, model.ErrAlreadyFriends
 	}
 
 	hasPending, err := r.HasPendingRequest(fromUserID, toUserID)
@@ -66,7 +65,7 @@ func (r *FriendsRepository) SendFriendRequest(fromUserID, toUserID uuid.UUID) (*
 		return nil, err
 	}
 	if hasPending {
-		return nil, errors.New("friend request already pending")
+		return nil, model.ErrFriendRequestPending
 	}
 
 	hasPendingReverse, err := r.HasPendingRequest(toUserID, fromUserID)
@@ -74,7 +73,7 @@ func (r *FriendsRepository) SendFriendRequest(fromUserID, toUserID uuid.UUID) (*
 		return nil, err
 	}
 	if hasPendingReverse {
-		return nil, errors.New("friend request already pending from the other user")
+		return nil, model.ErrFriendRequestPending
 	}
 
 	request := &model.FriendRequest{
@@ -106,7 +105,7 @@ func (r *FriendsRepository) AcceptFriendRequest(requestID, userID uuid.UUID) err
 	}
 
 	if request.Status != model.FriendRequestStatusPending {
-		return errors.New("request is not pending")
+		return model.ErrFriendRequestNotPending
 	}
 
 	tx := r.DB.Begin()
@@ -299,15 +298,40 @@ func (r *FriendsRepository) HasPendingRequest(fromUserID, toUserID uuid.UUID) (b
 	return count > 0, err
 }
 
-func (r *FriendsRepository) GetBlockedUsers(userID uuid.UUID) ([]model.FriendRequest, error) {
+func (r *FriendsRepository) GetBlockedUsers(userID uuid.UUID) ([]model.UserBasicInfo, error) {
 	var requests []model.FriendRequest
-	err := r.DB.Where("from_user_id = ? AND status = ?", userID, model.FriendRequestStatusBlocked).Find(&requests).Error
-	return requests, err
+	if err := r.DB.Where("from_user_id = ? AND status = ?", userID, model.FriendRequestStatusBlocked).Find(&requests).Error; err != nil {
+		return nil, err
+	}
+	if len(requests) == 0 {
+		return []model.UserBasicInfo{}, nil
+	}
+
+	blockedIDs := make([]uuid.UUID, len(requests))
+	for i, req := range requests {
+		blockedIDs[i] = req.ToUserID
+	}
+
+	var users []model.User
+	if err := r.DB.Where("id IN ?", blockedIDs).Find(&users).Error; err != nil {
+		return nil, err
+	}
+
+	result := make([]model.UserBasicInfo, 0, len(users))
+	for _, u := range users {
+		result = append(result, model.UserBasicInfo{
+			PublicID:  u.PublicID,
+			Username:  u.Username,
+			HasAvatar: u.HasAvatar,
+			Role:      u.Role,
+		})
+	}
+	return result, nil
 }
 
 func (r *FriendsRepository) BlockUserDirect(blockerID, blockedID uuid.UUID) error {
 	if blockerID == blockedID {
-		return errors.New("cannot block yourself")
+		return model.ErrSelfBlock
 	}
 
 	blocked, err := r.IsBlocked(blockerID, blockedID)
@@ -315,7 +339,7 @@ func (r *FriendsRepository) BlockUserDirect(blockerID, blockedID uuid.UUID) erro
 		return err
 	}
 	if blocked {
-		return errors.New("user already blocked")
+		return model.ErrAlreadyBlocked
 	}
 
 	tx := r.DB.Begin()
@@ -368,7 +392,7 @@ func (r *FriendsRepository) UnblockUser(blockerID, blockedID uuid.UUID) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return errors.New("block not found")
+		return model.ErrBlockNotFound
 	}
 	return nil
 }

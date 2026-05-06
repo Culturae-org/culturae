@@ -75,7 +75,6 @@ func (pc *ProfileHandler) UpdateProfile(c *gin.Context) {
 		ShowOnlineStatus    *bool   `json:"show_online_status,omitempty"`
 		AllowFriendRequests *bool   `json:"allow_friend_requests,omitempty"`
 		AllowPartyInvites   *bool   `json:"allow_party_invites,omitempty"`
-		Country             *string `json:"country,omitempty"`
 		Language            string  `json:"language,omitempty"`
 		Bio                 *string `json:"bio,omitempty"`
 	}

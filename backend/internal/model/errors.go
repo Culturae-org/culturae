@@ -17,4 +17,11 @@ var (
 	ErrWrongPassword    = errors.New("password is incorrect")
 
 	ErrSelfBlock = errors.New("cannot block yourself")
+
+	ErrAlreadyFriends           = errors.New("already friends")
+	ErrFriendRequestPending     = errors.New("friend request already pending")
+	ErrFriendRequestNotPending  = errors.New("request is not pending")
+	ErrSelfFriendRequest        = errors.New("cannot send friend request to yourself")
+	ErrAlreadyBlocked           = errors.New("user already blocked")
+	ErrBlockNotFound            = errors.New("block not found")
 )

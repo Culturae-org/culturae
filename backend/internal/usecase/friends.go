@@ -321,25 +321,7 @@ func (u *FriendsUsecase) GetUserUUIDByPublicID(publicID string) (uuid.UUID, erro
 }
 
 func (u *FriendsUsecase) GetBlockedUsers(userID uuid.UUID) ([]model.UserBasicInfo, error) {
-	blocked, err := u.friendsRepo.GetBlockedUsers(userID)
-	if err != nil {
-		return nil, err
-	}
-
-	var users []model.UserBasicInfo
-	for _, b := range blocked {
-		user, err := u.userRepo.GetByID(b.ToUserID.String())
-		if err != nil {
-			continue
-		}
-		users = append(users, model.UserBasicInfo{
-			PublicID:  user.PublicID,
-			Username:  user.Username,
-			HasAvatar: user.HasAvatar,
-			Role:      user.Role,
-		})
-	}
-	return users, nil
+	return u.friendsRepo.GetBlockedUsers(userID)
 }
 
 func (u *FriendsUsecase) BlockUser(c *gin.Context, blockerID uuid.UUID, blockedPublicID string) error {
