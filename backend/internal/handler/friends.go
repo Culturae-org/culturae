@@ -167,24 +167,17 @@ func (ctrl *FriendsHandler) ListFriendRequests(c *gin.Context) {
 	requestType := c.DefaultQuery("type", "incoming")
 	limit, offset := httputil.ParsePagination(c, 20, 100)
 
-	requests, err := ctrl.friendsUsecase.ListFriendRequests(c, userID, status, requestType)
+	requests, total, err := ctrl.friendsUsecase.ListFriendRequests(c, userID, status, requestType, limit, offset)
 	if err != nil {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to list requests")
 		return
 	}
 
-	total := len(requests)
-	end := offset + limit
-	if offset >= total {
+	if requests == nil {
 		requests = []model.FriendRequestWithUser{}
-	} else {
-		if end > total {
-			end = total
-		}
-		requests = requests[offset:end]
 	}
 
-	httputil.SuccessList(c, requests, httputil.ParamsToPagination(int64(total), limit, offset))
+	httputil.SuccessList(c, requests, httputil.ParamsToPagination(total, limit, offset))
 }
 
 func (ctrl *FriendsHandler) ListFriends(c *gin.Context) {
@@ -194,26 +187,19 @@ func (ctrl *FriendsHandler) ListFriends(c *gin.Context) {
 		return
 	}
 
-	limit, offset := httputil.ParsePagination(c, 50, 200)
+	limit, offset := httputil.ParsePagination(c, 20, 100)
 
-	friends, err := ctrl.friendsUsecase.ListFriends(c, userID)
+	friends, total, err := ctrl.friendsUsecase.ListFriends(c, userID, limit, offset)
 	if err != nil {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to list friends")
 		return
 	}
 
-	total := len(friends)
-	end := offset + limit
-	if offset >= total {
+	if friends == nil {
 		friends = []model.FriendUserResponse{}
-	} else {
-		if end > total {
-			end = total
-		}
-		friends = friends[offset:end]
 	}
 
-	httputil.SuccessList(c, friends, httputil.ParamsToPagination(int64(total), limit, offset))
+	httputil.SuccessList(c, friends, httputil.ParamsToPagination(total, limit, offset))
 }
 
 func (ctrl *FriendsHandler) RemoveFriend(c *gin.Context) {

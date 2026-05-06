@@ -218,14 +218,24 @@ func (u *FriendsUsecase) BlockFriendRequest(c *gin.Context, requestID, userID uu
 	return nil
 }
 
-func (u *FriendsUsecase) ListFriendRequests(c *gin.Context, userID uuid.UUID, status string, requestType string) ([]model.FriendRequestWithUser, error) {
-	return u.friendsRepo.ListFriendRequests(userID, status, requestType)
+func (u *FriendsUsecase) ListFriendRequests(c *gin.Context, userID uuid.UUID, status string, requestType string, limit, offset int) ([]model.FriendRequestWithUser, int64, error) {
+	total, err := u.friendsRepo.CountFriendRequests(userID, status, requestType)
+	if err != nil {
+		return nil, 0, err
+	}
+	results, err := u.friendsRepo.ListFriendRequests(userID, status, requestType, limit, offset)
+	return results, total, err
 }
 
-func (u *FriendsUsecase) ListFriends(c *gin.Context, userID uuid.UUID) ([]model.FriendUserResponse, error) {
-	friends, err := u.friendsRepo.ListFriends(userID)
+func (u *FriendsUsecase) ListFriends(c *gin.Context, userID uuid.UUID, limit, offset int) ([]model.FriendUserResponse, int64, error) {
+	total, err := u.friendsRepo.CountFriends(userID)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+
+	friends, err := u.friendsRepo.ListFriends(userID, limit, offset)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	var result []model.FriendUserResponse
@@ -261,7 +271,7 @@ func (u *FriendsUsecase) ListFriends(c *gin.Context, userID uuid.UUID) ([]model.
 		})
 	}
 
-	return result, nil
+	return result, total, nil
 }
 
 func (u *FriendsUsecase) RemoveFriend(c *gin.Context, userID uuid.UUID, friendUserPublicID string) error {

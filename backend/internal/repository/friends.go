@@ -20,8 +20,10 @@ type FriendsRepositoryInterface interface {
 	RejectFriendRequest(requestID, userID uuid.UUID) error
 	CancelFriendRequest(requestID, userID uuid.UUID) error
 	BlockFriendRequest(requestID, userID uuid.UUID) error
-	ListFriendRequests(userID uuid.UUID, status string, requestType string) ([]model.FriendRequestWithUser, error)
-	ListFriends(userID uuid.UUID) ([]model.FriendWithUser, error)
+	ListFriendRequests(userID uuid.UUID, status string, requestType string, limit, offset int) ([]model.FriendRequestWithUser, error)
+	CountFriendRequests(userID uuid.UUID, status string, requestType string) (int64, error)
+	ListFriends(userID uuid.UUID, limit, offset int) ([]model.FriendWithUser, error)
+	CountFriends(userID uuid.UUID) (int64, error)
 	RemoveFriend(userID1, userID2 uuid.UUID) error
 	IsFriend(userID1, userID2 uuid.UUID) (bool, error)
 	HasPendingRequest(fromUserID, toUserID uuid.UUID) (bool, error)
@@ -162,10 +164,8 @@ func (r *FriendsRepository) BlockFriendRequest(requestID, userID uuid.UUID) erro
 	}).Error
 }
 
-func (r *FriendsRepository) ListFriendRequests(userID uuid.UUID, status string, requestType string) ([]model.FriendRequestWithUser, error) {
-	var requests []model.FriendRequest
+func (r *FriendsRepository) friendRequestsBaseQuery(userID uuid.UUID, status, requestType string) *gorm.DB {
 	query := r.DB.Model(&model.FriendRequest{})
-	
 	switch requestType {
 	case "incoming":
 		query = query.Where("to_user_id = ?", userID)
@@ -174,12 +174,25 @@ func (r *FriendsRepository) ListFriendRequests(userID uuid.UUID, status string, 
 	default:
 		query = query.Where("from_user_id = ? OR to_user_id = ?", userID, userID)
 	}
-	
 	if status != "" && status != "all" {
 		query = query.Where("status = ?", status)
 	}
-	
-	if err := query.Find(&requests).Error; err != nil {
+	return query
+}
+
+func (r *FriendsRepository) CountFriendRequests(userID uuid.UUID, status, requestType string) (int64, error) {
+	var count int64
+	err := r.friendRequestsBaseQuery(userID, status, requestType).Count(&count).Error
+	return count, err
+}
+
+func (r *FriendsRepository) ListFriendRequests(userID uuid.UUID, status string, requestType string, limit, offset int) ([]model.FriendRequestWithUser, error) {
+	var requests []model.FriendRequest
+
+	if err := r.friendRequestsBaseQuery(userID, status, requestType).
+		Order("created_at DESC").
+		Limit(limit).Offset(offset).
+		Find(&requests).Error; err != nil {
 		return nil, err
 	}
 	
@@ -216,9 +229,18 @@ func (r *FriendsRepository) ListFriendRequests(userID uuid.UUID, status string, 
 	return result, nil
 }
 
-func (r *FriendsRepository) ListFriends(userID uuid.UUID) ([]model.FriendWithUser, error) {
+func (r *FriendsRepository) CountFriends(userID uuid.UUID) (int64, error) {
+	var count int64
+	err := r.DB.Model(&model.Friend{}).Where("user_id1 = ? OR user_id2 = ?", userID, userID).Count(&count).Error
+	return count, err
+}
+
+func (r *FriendsRepository) ListFriends(userID uuid.UUID, limit, offset int) ([]model.FriendWithUser, error) {
 	var friends []model.Friend
-	if err := r.DB.Where("user_id1 = ? OR user_id2 = ?", userID, userID).Find(&friends).Error; err != nil {
+	if err := r.DB.Where("user_id1 = ? OR user_id2 = ?", userID, userID).
+		Order("created_at DESC").
+		Limit(limit).Offset(offset).
+		Find(&friends).Error; err != nil {
 		return nil, err
 	}
 	
