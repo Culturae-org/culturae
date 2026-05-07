@@ -15,7 +15,6 @@ import (
 	"github.com/Culturae-org/culturae/internal/infrastructure/cache"
 	"github.com/Culturae-org/culturae/internal/model"
 	"github.com/Culturae-org/culturae/internal/repository"
-	adminRepo "github.com/Culturae-org/culturae/internal/repository/admin"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -26,7 +25,6 @@ type RedisGameManager struct {
 	locker       *redislock.Client
 	userRepo     repository.UserRepositoryInterface
 	gameRepo     repository.GameRepositoryInterface
-	logsRepo     adminRepo.AdminLogsRepositoryInterface
 	xpCalculator *XPCalculator
 	eloCalc      *ELOCalculator
 	userNotifier UserNotifier
@@ -44,7 +42,6 @@ func NewRedisGameManager(
 	redisService cache.RedisClientInterface,
 	userRepo repository.UserRepositoryInterface,
 	gameRepo repository.GameRepositoryInterface,
-	logsRepo adminRepo.AdminLogsRepositoryInterface,
 	logger *zap.Logger,
 ) *RedisGameManager {
 	return &RedisGameManager{
@@ -52,7 +49,6 @@ func NewRedisGameManager(
 		locker:       redislock.New(redisService.NativeClient()),
 		userRepo:     userRepo,
 		gameRepo:     gameRepo,
-		logsRepo:     logsRepo,
 		xpCalculator: NewXPCalculator(redisService),
 		eloCalc:      NewELOCalculator(redisService),
 		logger:       logger,
