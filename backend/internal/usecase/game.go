@@ -285,7 +285,7 @@ func (u *GameUsecase) CreateMatchmakedGame(user1, user2 uuid.UUID, mode model.Ga
 
 func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.CreateGameRequest) (*model.Game, error) {
 	if req.Mode != model.GameModeSolo && req.Mode != model.GameMode1v1 && req.Mode != model.GameModeMulti {
-		return nil, errors.New("invalid game mode")
+		return nil, model.ErrInvalidGameMode
 	}
 
 	questionCount := 10
@@ -313,7 +313,7 @@ func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.
 			return nil, fmt.Errorf("game template not found: %w", tmplErr)
 		}
 		if !tmpl.IsActive {
-			return nil, errors.New("game template is not active")
+			return nil, model.ErrGameTemplateNotActive
 		}
 		questionCount = tmpl.QuestionCount
 		pointsPerCorrect = tmpl.PointsPerCorrect
@@ -642,7 +642,7 @@ func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.
 func (u *GameUsecase) InviteToGame(c *gin.Context, gameID, fromUserID uuid.UUID, toUserPublicID string) (*model.GameInvite, error) {
 	gameModel, err := u.gameRepo.GetGameByID(gameID)
 	if err != nil {
-		return nil, errors.New("game not found")
+		return nil, model.ErrGameNotFound
 	}
 
 	if err := u.validateGameCanBeModified(gameModel); err != nil {
@@ -662,22 +662,22 @@ func (u *GameUsecase) InviteToGame(c *gin.Context, gameID, fromUserID uuid.UUID,
 		}
 	}
 	if !isInGame {
-		return nil, errors.New("you must be in the game to invite others")
+		return nil, model.ErrNotInGame
 	}
 
 	toUser, err := u.userRepo.GetByPublicID(toUserPublicID)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, model.ErrUserNotFound
 	}
 
 	isFriend, _ := u.friendsRepo.IsFriend(fromUserID, toUser.ID)
 
 	if !toUser.IsProfilePublic && !isFriend {
-		return nil, errors.New("this user's profile is private")
+		return nil, model.ErrProfilePrivate
 	}
 
 	if !toUser.AllowPartyInvites {
-		return nil, errors.New("user does not accept game invites")
+		return nil, model.ErrGameInvitesDisabled
 	}
 
 	isBlocked, err := u.friendsRepo.IsBlocked(fromUserID, toUser.ID)
@@ -685,7 +685,7 @@ func (u *GameUsecase) InviteToGame(c *gin.Context, gameID, fromUserID uuid.UUID,
 		return nil, err
 	}
 	if isBlocked {
-		return nil, errors.New("you cannot invite this user")
+		return nil, model.ErrCannotInviteUser
 	}
 
 	invite := &model.GameInvite{
@@ -748,15 +748,15 @@ func (u *GameUsecase) InviteToGame(c *gin.Context, gameID, fromUserID uuid.UUID,
 func (u *GameUsecase) AcceptGameInvite(c *gin.Context, inviteID, userID uuid.UUID) (*model.GameInvite, error) {
 	invite, err := u.gameRepo.GetGameInviteByID(inviteID)
 	if err != nil {
-		return nil, errors.New("invite not found")
+		return nil, model.ErrInviteNotFound
 	}
 
 	if invite.ToUserID != userID {
-		return nil, errors.New("not authorized")
+		return nil, model.ErrForbidden
 	}
 
 	if invite.Status != model.GameInviteStatusPending {
-		return nil, errors.New("invite already processed")
+		return nil, model.ErrInviteNotPending
 	}
 
 	if err := u.gameRepo.UpdateGameInviteStatus(inviteID, model.GameInviteStatusAccepted); err != nil {
@@ -769,7 +769,7 @@ func (u *GameUsecase) AcceptGameInvite(c *gin.Context, inviteID, userID uuid.UUI
 
 	gameModel, err := u.gameRepo.GetGameByID(invite.GameID)
 	if err != nil {
-		return nil, errors.New("game not found")
+		return nil, model.ErrGameNotFound
 	}
 
 	if gameModel.Mode == model.GameModeMulti {
@@ -838,20 +838,20 @@ func (u *GameUsecase) AcceptGameInvite(c *gin.Context, inviteID, userID uuid.UUI
 func (u *GameUsecase) RejectGameInvite(c *gin.Context, inviteID, userID uuid.UUID) error {
 	invite, err := u.gameRepo.GetGameInviteByID(inviteID)
 	if err != nil {
-		return errors.New("invite not found")
+		return model.ErrInviteNotFound
 	}
 
 	if invite.ToUserID != userID {
-		return errors.New("not authorized")
+		return model.ErrForbidden
 	}
 
 	if invite.Status != model.GameInviteStatusPending {
-		return errors.New("invite already processed")
+		return model.ErrInviteNotPending
 	}
 
 	gameModel, err := u.gameRepo.GetGameByID(invite.GameID)
 	if err != nil {
-		return errors.New("game not found")
+		return model.ErrGameNotFound
 	}
 
 	if err := u.gameRepo.UpdateGameInviteStatus(inviteID, model.GameInviteStatusRejected); err != nil {
@@ -888,7 +888,7 @@ func (u *GameUsecase) RejectGameInvite(c *gin.Context, inviteID, userID uuid.UUI
 func (u *GameUsecase) JoinGame(c *gin.Context, gameID, userID uuid.UUID) error {
 	gameModel, err := u.gameRepo.GetGameByID(gameID)
 	if err != nil {
-		return errors.New("game not found")
+		return model.ErrGameNotFound
 	}
 
 	if err := u.validateGameCanBeModified(gameModel); err != nil {
@@ -897,10 +897,10 @@ func (u *GameUsecase) JoinGame(c *gin.Context, gameID, userID uuid.UUID) error {
 
 	if gameModel.CreatorID != userID {
 		if gameModel.Mode == model.GameModeSolo {
-			return errors.New("you are not authorized to join this game")
+			return model.ErrForbidden
 		}
 		if isBlocked, err := u.friendsRepo.IsBlocked(userID, gameModel.CreatorID); err == nil && isBlocked {
-			return errors.New("you cannot join this game")
+			return model.ErrCannotJoinGame
 		}
 	}
 
@@ -949,7 +949,7 @@ func (u *GameUsecase) JoinGame(c *gin.Context, gameID, userID uuid.UUID) error {
 func (u *GameUsecase) LeaveGame(c *gin.Context, gameID, userID uuid.UUID) error {
 	gameModel, err := u.gameRepo.GetGameByID(gameID)
 	if err != nil {
-		return errors.New("game not found")
+		return model.ErrGameNotFound
 	}
 
 	var player *model.GamePlayer
@@ -960,11 +960,11 @@ func (u *GameUsecase) LeaveGame(c *gin.Context, gameID, userID uuid.UUID) error 
 		}
 	}
 	if player == nil {
-		return errors.New("user not in game")
+		return model.ErrNotInGame
 	}
 
 	if gameModel.Status == model.GameStatusCompleted || gameModel.Status == model.GameStatusCancelled {
-		return errors.New("game is already finished")
+		return model.ErrGameAlreadyFinished
 	}
 
 	wasInProgress := gameModel.Status == model.GameStatusInProgress
@@ -1021,7 +1021,7 @@ func (u *GameUsecase) LeaveGame(c *gin.Context, gameID, userID uuid.UUID) error 
 				}
 			}
 		default:
-			return errors.New("game is already finished")
+			return model.ErrGameAlreadyFinished
 		}
 		return nil
 	})
@@ -1106,11 +1106,11 @@ func (u *GameUsecase) StartGame(c *gin.Context, gameID, userID uuid.UUID) error 
 		var err error
 		gameModel, err = txRepo.GetGameByIDSimple(gameID)
 		if err != nil {
-			return errors.New("game not found")
+			return model.ErrGameNotFound
 		}
 
 		if gameModel.Status != model.GameStatusWaiting && gameModel.Status != model.GameStatusReady {
-			return errors.New("game already started or finished")
+			return model.ErrGameAlreadyFinished
 		}
 
 		players, err = txRepo.FindPlayersByGame(gameID)
@@ -1126,12 +1126,12 @@ func (u *GameUsecase) StartGame(c *gin.Context, gameID, userID uuid.UUID) error 
 			}
 		}
 		if !isInGame {
-			return errors.New("you are not in this game")
+			return model.ErrNotInGame
 		}
 
 		if gameModel.Mode == model.GameModeMulti {
 			if gameModel.CreatorID != userID {
-				return errors.New("only the game creator can start a multi game")
+				return model.ErrForbidden
 			}
 			if len(players) < gameModel.MinPlayers {
 				return fmt.Errorf("not enough players (%d/%d)", len(players), gameModel.MinPlayers)
@@ -1222,7 +1222,7 @@ func (u *GameUsecase) StartGame(c *gin.Context, gameID, userID uuid.UUID) error 
 func (u *GameUsecase) SubmitAnswer(c *gin.Context, gameID, userID uuid.UUID, req model.SubmitAnswerRequest) error {
 	gameEngine, err := u.gameManager.GetGame(gameID)
 	if err != nil {
-		return errors.New("game not found or not active")
+		return model.ErrGameNotFound
 	}
 
 	if req.QuestionID == (uuid.UUID{}) {
@@ -1572,7 +1572,7 @@ func (u *GameUsecase) GetGameStatus(gameID uuid.UUID) (*model.GameStatusResponse
 	if err != nil {
 		gameModel, dbErr := u.gameRepo.GetGameByID(gameID)
 		if dbErr != nil {
-			return nil, errors.New("game not found")
+			return nil, model.ErrGameNotFound
 		}
 
 		players, playersErr := u.gameRepo.GetGamePlayers(gameID)
@@ -1774,11 +1774,11 @@ func (u *GameUsecase) CancelGame(c *gin.Context, gameID, userID uuid.UUID) error
 		var err error
 		gameModel, err = txRepo.GetGameByIDSimple(gameID)
 		if err != nil {
-			return errors.New("game not found")
+			return model.ErrGameNotFound
 		}
 
 		if gameModel.Status == model.GameStatusCompleted || gameModel.Status == model.GameStatusCancelled {
-			return errors.New("game is already finished")
+			return model.ErrGameAlreadyFinished
 		}
 
 		gameModel.Status = model.GameStatusCancelled
@@ -1949,7 +1949,7 @@ func (u *GameUsecase) GetGameByPublicID(publicID string) (*model.Game, error) {
 
 func (u *GameUsecase) validateGameCanBeModified(gameModel *model.Game) error {
 	if gameModel.Status != model.GameStatusWaiting && gameModel.Status != model.GameStatusReady {
-		return errors.New("game already started or finished")
+		return model.ErrGameAlreadyFinished
 	}
 	return nil
 }
@@ -1995,12 +1995,12 @@ func (u *GameUsecase) emitGameCompletedEvent(gameModel *model.Game, players []ga
 func (u *GameUsecase) HandleSubmitAnswer(userID uuid.UUID, gamePublicID string, answerData map[string]interface{}) error {
 	gameModel, err := u.gameRepo.GetGameByPublicID(gamePublicID)
 	if err != nil {
-		return errors.New("game not found")
+		return model.ErrGameNotFound
 	}
 
 	gameEngine, err := u.gameManager.GetGame(gameModel.ID)
 	if err != nil {
-		return errors.New("game not active")
+		return model.ErrGameNotActive
 	}
 
 	currentQuestion, err := gameEngine.GetCurrentQuestion()
@@ -2149,7 +2149,7 @@ func (u *GameUsecase) HandleSubmitAnswer(userID uuid.UUID, gamePublicID string, 
 func (u *GameUsecase) HandlePlayerReady(userID uuid.UUID, gamePublicID string, ready bool) error {
 	gameModel, err := u.gameRepo.GetGameByPublicID(gamePublicID)
 	if err != nil {
-		return errors.New("game not found")
+		return model.ErrGameNotFound
 	}
 
 	if err := u.gameManager.SetPlayerReady(gameModel.ID, userID, ready); err != nil {
@@ -2168,11 +2168,11 @@ func (u *GameUsecase) HandlePlayerReady(userID uuid.UUID, gamePublicID string, r
 func (u *GameUsecase) HandleStartGame(userID uuid.UUID, gamePublicID string) error {
 	gameModel, err := u.gameRepo.GetGameByPublicID(gamePublicID)
 	if err != nil {
-		return errors.New("game not found")
+		return model.ErrGameNotFound
 	}
 
 	if gameModel.CreatorID != userID {
-		return errors.New("only the game creator can start the game")
+		return model.ErrForbidden
 	}
 
 	if err := u.gameManager.StartGame(gameModel.ID); err != nil {
@@ -2197,7 +2197,7 @@ func (u *GameUsecase) HandleStartGame(userID uuid.UUID, gamePublicID string) err
 func (u *GameUsecase) HandleLeaveGame(userID uuid.UUID, gamePublicID string) error {
 	gameModel, err := u.gameRepo.GetGameByPublicID(gamePublicID)
 	if err != nil {
-		return errors.New("game not found")
+		return model.ErrGameNotFound
 	}
 
 	return u.LeaveGame(nil, gameModel.ID, userID)
@@ -2544,10 +2544,10 @@ func (u *GameUsecase) JoinGameByCode(c *gin.Context, code string, userID uuid.UU
 	}
 
 	if g.Mode != model.GameMode1v1 && g.Mode != model.GameModeMulti {
-		return errors.New("join by code is only available for 1v1 and multi games")
+		return model.ErrInvalidGameMode
 	}
 	if g.Status != model.GameStatusWaiting {
-		return errors.New("game is not accepting players")
+		return model.ErrGameFull
 	}
 
 	for _, p := range g.Players {
@@ -2561,7 +2561,7 @@ func (u *GameUsecase) JoinGameByCode(c *gin.Context, code string, userID uuid.UU
 	}
 
 	if isBlocked, err := u.friendsRepo.IsBlocked(userID, g.CreatorID); err == nil && isBlocked {
-		return errors.New("you cannot join this game")
+		return model.ErrCannotJoinGame
 	}
 
 	gamePlayer := &model.GamePlayer{

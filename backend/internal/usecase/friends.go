@@ -63,26 +63,24 @@ func (u *FriendsUsecase) SendFriendRequest(c *gin.Context, fromUserID uuid.UUID,
 	if err != nil {
 		errorMsg := err.Error()
 		_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyToUserPublicID: toUserPublicID}, false, &errorMsg)
-		return nil, errors.New("user not found")
+		return nil, model.ErrUserNotFound
 	}
 
 	toUser, err := u.userRepo.GetByID(toUserID.String())
 	if err != nil {
 		errorMsg := err.Error()
 		_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyToUserPublicID: toUserPublicID}, false, &errorMsg)
-		return nil, errors.New("user not found")
+		return nil, model.ErrUserNotFound
 	}
 	if !toUser.AllowFriendRequests {
-		errMsg := "user does not allow friend requests"
-		_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyToUserPublicID: toUserPublicID}, false, &errMsg)
-		return nil, errors.New(errMsg)
+		_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyToUserPublicID: toUserPublicID}, false, nil)
+		return nil, model.ErrFriendRequestsDisabled
 	}
 
 	blocked, err := u.friendsRepo.IsBlocked(fromUserID, toUserID)
 	if err == nil && blocked {
-		errMsg := "cannot send friend request to blocked user"
-		_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyToUserPublicID: toUserPublicID}, false, &errMsg)
-		return nil, errors.New(errMsg)
+		_ = u.loggingSvc.LogUserAction(fromUserID, "send_friend_request", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyToUserPublicID: toUserPublicID}, false, nil)
+		return nil, model.ErrCannotRequestBlockedUser
 	}
 
 	request, err := u.friendsRepo.SendFriendRequest(fromUserID, toUserID)
@@ -279,7 +277,7 @@ func (u *FriendsUsecase) RemoveFriend(c *gin.Context, userID uuid.UUID, friendUs
 	if err != nil {
 		errorMsg := err.Error()
 		_ = u.loggingSvc.LogUserAction(userID, "remove_friend", httputil.GetRealIP(c), c.Request.UserAgent(), map[string]interface{}{keyFriendUserPublicID: friendUserPublicID}, false, &errorMsg)
-		return errors.New("user not found")
+		return model.ErrUserNotFound
 	}
 
 	err = u.friendsRepo.RemoveFriend(userID, friendUserID)
@@ -327,7 +325,7 @@ func (u *FriendsUsecase) GetBlockedUsers(userID uuid.UUID) ([]model.UserBasicInf
 func (u *FriendsUsecase) BlockUser(c *gin.Context, blockerID uuid.UUID, blockedPublicID string) error {
 	blockedID, err := u.GetUserUUIDByPublicID(blockedPublicID)
 	if err != nil {
-		return errors.New("user not found")
+		return model.ErrUserNotFound
 	}
 
 	if blockerID == blockedID {
@@ -347,7 +345,7 @@ func (u *FriendsUsecase) BlockUser(c *gin.Context, blockerID uuid.UUID, blockedP
 func (u *FriendsUsecase) UnblockUser(c *gin.Context, blockerID uuid.UUID, blockedPublicID string) error {
 	blockedID, err := u.GetUserUUIDByPublicID(blockedPublicID)
 	if err != nil {
-		return errors.New("user not found")
+		return model.ErrUserNotFound
 	}
 
 	if err := u.friendsRepo.UnblockUser(blockerID, blockedID); err != nil {
@@ -363,7 +361,7 @@ func (u *FriendsUsecase) UnblockUser(c *gin.Context, blockerID uuid.UUID, blocke
 func (u *FriendsUsecase) GetUserProfileWithRelationship(viewerID uuid.UUID, targetPublicID string) (*model.UserProfileWithRelationship, error) {
 	targetUser, err := u.userRepo.GetByPublicID(targetPublicID)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, model.ErrUserNotFound
 	}
 
 	isOwnProfile := viewerID == targetUser.ID
@@ -386,12 +384,12 @@ func (u *FriendsUsecase) GetUserProfileWithRelationship(viewerID uuid.UUID, targ
 
 		isBlocked, _ = u.friendsRepo.IsBlocked(viewerID, targetUser.ID)
 		if isBlocked {
-			return nil, errors.New("user blocked")
+			return nil, model.ErrUserBlocked
 		}
 
 		blockedByTarget, _ := u.friendsRepo.IsBlocked(targetUser.ID, viewerID)
 		if blockedByTarget {
-			return nil, errors.New("user not found")
+			return nil, model.ErrUserNotFound
 		}
 	}
 
@@ -399,7 +397,7 @@ func (u *FriendsUsecase) GetUserProfileWithRelationship(viewerID uuid.UUID, targ
 
 	if !canSeeFullProfile {
 		if !targetUser.AllowFriendRequests {
-			return nil, errors.New("profile is private")
+			return nil, model.ErrProfilePrivate
 		}
 		return &model.UserProfileWithRelationship{
 			PublicProfile: &model.PublicProfile{

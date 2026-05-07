@@ -128,10 +128,10 @@ func (gc *GeographyHandler) GetCountries(c *gin.Context) {
 			httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to fetch countries")
 			return
 		}
-		httputil.Success(c, http.StatusOK, gin.H{
-			keyData:   countries,
+		httputil.SuccessRaw(c, http.StatusOK, gin.H{
+			keyData:    countries,
 			"total":    total,
-			keyLimit:    limit,
+			keyLimit:   limit,
 			"offset":   offset,
 			keyHasMore: offset+len(countries) < int(total),
 		})
@@ -143,10 +143,10 @@ func (gc *GeographyHandler) GetCountries(c *gin.Context) {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to fetch countries")
 		return
 	}
-	httputil.Success(c, http.StatusOK, gin.H{
-		keyData:   countries,
+	httputil.SuccessRaw(c, http.StatusOK, gin.H{
+		keyData:    countries,
 		"total":    total,
-		keyLimit:    limit,
+		keyLimit:   limit,
 		"offset":   offset,
 		keyHasMore: offset+len(countries) < int(total),
 	})
@@ -163,5 +163,5 @@ func (gc *GeographyHandler) GetContinents(c *gin.Context) {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to fetch continents")
 		return
 	}
-	httputil.Success(c, http.StatusOK, gin.H{keyData: continents})
+	httputil.SuccessRaw(c, http.StatusOK, gin.H{keyData: continents})
 }

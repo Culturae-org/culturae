@@ -3,6 +3,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -76,7 +77,7 @@ func (pc *UserHandler) SearchPublicProfiles(ctx *gin.Context) {
 		cards = []model.UserSearchCard{}
 	}
 
-	httputil.Success(ctx, http.StatusOK, gin.H{
+	httputil.SuccessRaw(ctx, http.StatusOK, gin.H{
 		"profiles": cards,
 		"page":     page,
 		keyLimit:    limit,
@@ -101,7 +102,7 @@ func (pc *UserHandler) GetUserProfileWithRelationship(ctx *gin.Context) {
 
 	profile, err := pc.FriendsUsecase.GetUserProfileWithRelationship(viewerID, publicID)
 	if err != nil {
-		if err.Error() == "user not found" || err.Error() == "profile is private" || err.Error() == "user blocked" {
+		if errors.Is(err, model.ErrUserNotFound) || errors.Is(err, model.ErrProfilePrivate) || errors.Is(err, model.ErrUserBlocked) {
 			httputil.Error(ctx, http.StatusNotFound, httputil.ErrCodeNotFound, "Profile not found")
 			return
 		}
