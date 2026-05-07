@@ -34,8 +34,6 @@ func NewAdminGameTemplatesHandler(
 	}
 }
 
-// TODO : need to change functions name
-
 // -----------------------------------------------------
 // Admin Game Templates Handlers
 //
@@ -47,7 +45,7 @@ func NewAdminGameTemplatesHandler(
 // - SeedDefaults
 // -----------------------------------------------------
 
-func (h *AdminGameTemplatesHandler) List(c *gin.Context) {
+func (h *AdminGameTemplatesHandler) ListGameTemplates(c *gin.Context) {
 	pag := pagination.Parse(c, pagination.AdminConfig())
 
 	params := model.GameTemplateListParams{
@@ -77,7 +75,7 @@ func (h *AdminGameTemplatesHandler) List(c *gin.Context) {
 	httputil.SuccessList(c, templates, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
 }
 
-func (h *AdminGameTemplatesHandler) Get(c *gin.Context) {
+func (h *AdminGameTemplatesHandler) GetGameTemplate(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid template ID")
@@ -93,7 +91,7 @@ func (h *AdminGameTemplatesHandler) Get(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, t)
 }
 
-func (h *AdminGameTemplatesHandler) Create(c *gin.Context) {
+func (h *AdminGameTemplatesHandler) CreateGameTemplate(c *gin.Context) {
 	var req model.CreateGameTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
@@ -115,7 +113,7 @@ func (h *AdminGameTemplatesHandler) Create(c *gin.Context) {
 	httputil.Success(c, http.StatusCreated, t)
 }
 
-func (h *AdminGameTemplatesHandler) Update(c *gin.Context) {
+func (h *AdminGameTemplatesHandler) UpdateGameTemplate(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid template ID")
@@ -143,7 +141,7 @@ func (h *AdminGameTemplatesHandler) Update(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, t)
 }
 
-func (h *AdminGameTemplatesHandler) Delete(c *gin.Context) {
+func (h *AdminGameTemplatesHandler) DeleteGameTemplate(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid template ID")
@@ -164,7 +162,7 @@ func (h *AdminGameTemplatesHandler) Delete(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, gin.H{"message": "Game template deleted"})
 }
 
-func (h *AdminGameTemplatesHandler) SeedDefaults(c *gin.Context) {
+func (h *AdminGameTemplatesHandler) SeedDefaultGameTemplates(c *gin.Context) {
 	adminUUID := httputil.GetUserIDFromContext(c)
 	count, err := h.usecase.SeedDefaultGameTemplates()
 	if err != nil {

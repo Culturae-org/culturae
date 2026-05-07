@@ -343,12 +343,12 @@ func registerAdminRoutes(r *gin.Engine, deps Dependencies) {
 
 		gameTemplates := adminGrp.Group("/game-templates")
 		{
-			gameTemplates.GET("", deps.GetAdminGameTemplatesHandler().List)
-			gameTemplates.GET("/:id", deps.GetAdminGameTemplatesHandler().Get)
-			gameTemplates.POST("", deps.GetAdminGameTemplatesHandler().Create)
-			gameTemplates.POST("/seed-defaults", deps.GetAdminGameTemplatesHandler().SeedDefaults)
-			gameTemplates.PATCH("/:id", deps.GetAdminGameTemplatesHandler().Update)
-			gameTemplates.DELETE("/:id", deps.GetAdminGameTemplatesHandler().Delete)
+			gameTemplates.GET("", deps.GetAdminGameTemplatesHandler().ListGameTemplates)
+			gameTemplates.GET("/:id", deps.GetAdminGameTemplatesHandler().GetGameTemplate)
+			gameTemplates.POST("", deps.GetAdminGameTemplatesHandler().CreateGameTemplate)
+			gameTemplates.POST("/seed-defaults", deps.GetAdminGameTemplatesHandler().SeedDefaultGameTemplates)
+			gameTemplates.PATCH("/:id", deps.GetAdminGameTemplatesHandler().UpdateGameTemplate)
+			gameTemplates.DELETE("/:id", deps.GetAdminGameTemplatesHandler().DeleteGameTemplate)
 		}
 
 		geography := adminGrp.Group("/geography")
