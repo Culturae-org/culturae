@@ -30,6 +30,8 @@ var (
 	ErrUserNotFound         = errors.New("user not found")
 	ErrUserBlocked          = errors.New("user blocked")
 	ErrProfilePrivate       = errors.New("profile is private")
+	ErrInvalidCredentials   = errors.New("invalid credentials")
+	ErrSessionNotFound      = errors.New("session not found")
 
 	ErrInvalidGameMode       = errors.New("invalid game mode")
 	ErrGameTemplateNotActive = errors.New("game template is not active")

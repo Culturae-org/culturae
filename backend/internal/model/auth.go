@@ -3,16 +3,8 @@
 package model
 
 import (
-	"errors"
-
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-)
-
-var (
-	ErrUserNotFound       = errors.New("user not found")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrSessionNotFound    = errors.New("session not found")
 )
 
 type UserAuth struct {
