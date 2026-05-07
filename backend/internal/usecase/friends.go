@@ -3,8 +3,6 @@
 package usecase
 
 import (
-	"errors"
-
 	"github.com/Culturae-org/culturae/internal/model"
 	"github.com/Culturae-org/culturae/internal/pkg/httputil"
 	"github.com/Culturae-org/culturae/internal/repository"
