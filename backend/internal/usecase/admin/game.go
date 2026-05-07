@@ -4,7 +4,6 @@ package admin
 
 import (
 	"encoding/json"
-	"errors"
 	"sort"
 	"time"
 
@@ -297,7 +296,7 @@ func (u *AdminGameUsecase) AdminCancelGame(c *gin.Context, gameID, adminID uuid.
 	}
 
 	if gameModel.Status == model.GameStatusCompleted || gameModel.Status == model.GameStatusCancelled {
-		return errors.New("game is already finished")
+		return model.ErrGameAlreadyFinished
 	}
 
 	if err := u.gameManager.CancelGame(gameID); err != nil {

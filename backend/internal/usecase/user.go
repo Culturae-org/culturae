@@ -105,7 +105,7 @@ func (uc *UserUsecase) GetUserCount() (int64, error) {
 func (uc *UserUsecase) ChangePassword(userID, currentPassword, newPassword string) error {
 	user, err := uc.Reader.GetByID(userID)
 	if err != nil {
-		return errors.New("user not found")
+		return model.ErrUserNotFound
 	}
 
 	ok, err := crypto.CheckPassword(currentPassword, user.Password)
@@ -132,7 +132,7 @@ func (uc *UserUsecase) ChangePassword(userID, currentPassword, newPassword strin
 func (uc *UserUsecase) SoftDeleteAccount(userID, password string) error {
 	user, err := uc.Reader.GetByID(userID)
 	if err != nil {
-		return errors.New("user not found")
+		return model.ErrUserNotFound
 	}
 
 	ok, err := crypto.CheckPassword(password, user.Password)
