@@ -159,7 +159,7 @@ func (h *AdminGameTemplatesHandler) DeleteGameTemplate(c *gin.Context) {
 	}
 
 	httputil.LogAdminAction(h.LoggingService, adminUUID, c.GetString("username"), "game_template_delete", "game_template", &id, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{keyTemplateID: id}, true, nil)
-	httputil.Success(c, http.StatusOK, gin.H{"message": "Game template deleted"})
+	httputil.SuccessWithMessage(c, http.StatusOK, "Game template deleted", nil)
 }
 
 func (h *AdminGameTemplatesHandler) SeedDefaultGameTemplates(c *gin.Context) {
@@ -173,5 +173,5 @@ func (h *AdminGameTemplatesHandler) SeedDefaultGameTemplates(c *gin.Context) {
 		return
 	}
 	httputil.LogAdminAction(h.LoggingService, adminUUID, c.GetString("username"), "game_template_seed_defaults", "game_template", nil, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{"created": count}, true, nil)
-	httputil.Success(c, http.StatusOK, gin.H{"created": count})
+	httputil.SuccessRaw(c, http.StatusOK, gin.H{"created": count})
 }

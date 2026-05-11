@@ -778,7 +778,7 @@ func (gc *AdminGeographyHandler) GetFlagURL(c *gin.Context) {
 		return
 	}
 
-	httputil.Success(c, http.StatusOK, gin.H{
+	httputil.SuccessRaw(c, http.StatusOK, gin.H{
 		"country_code": countryCode,
 		"url":          url,
 	})

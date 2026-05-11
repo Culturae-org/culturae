@@ -461,7 +461,7 @@ func healthCheck() gin.HandlerFunc {
 
 func platformInfo(env string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		httputil.Success(c, http.StatusOK, gin.H{
+		httputil.SuccessRaw(c, http.StatusOK, gin.H{
 			"service":     "culturae-server",
 			"version":     version.Version,
 			"build_time":  version.BuildTime,

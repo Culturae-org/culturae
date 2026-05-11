@@ -46,5 +46,5 @@ func (lc *AdminServicesHandler) GetServiceStatus(c *gin.Context) {
 		return
 	}
 
-	httputil.Success(c, http.StatusOK, gin.H{"services": statuses})
+	httputil.SuccessRaw(c, http.StatusOK, gin.H{"services": statuses})
 }

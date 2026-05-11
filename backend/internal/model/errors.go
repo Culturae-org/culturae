@@ -41,4 +41,6 @@ var (
 	ErrGameInvitesDisabled   = errors.New("user does not accept game invites")
 	ErrCannotInviteUser      = errors.New("cannot invite this user")
 	ErrCannotJoinGame        = errors.New("cannot join this game")
+
+	ErrAlreadyReported = errors.New("question already reported by this user")
 )

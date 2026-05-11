@@ -65,16 +65,15 @@ func (ctrl *FriendsHandler) SendFriendRequest(c *gin.Context) {
 }
 
 func (ctrl *FriendsHandler) AcceptFriendRequest(c *gin.Context) {
-	requestIDStr := c.Param("requestID")
-	requestID, err := uuid.Parse(requestIDStr)
-	if err != nil {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid request ID")
-		return
-	}
-
 	userID := httputil.GetUserIDFromContext(c)
 	if userID == uuid.Nil {
 		httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeMissingToken, "Unauthorized")
+		return
+	}
+
+	requestID, err := uuid.Parse(c.Param("requestID"))
+	if err != nil {
+		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid request ID")
 		return
 	}
 
@@ -88,16 +87,15 @@ func (ctrl *FriendsHandler) AcceptFriendRequest(c *gin.Context) {
 }
 
 func (ctrl *FriendsHandler) RejectFriendRequest(c *gin.Context) {
-	requestIDStr := c.Param("requestID")
-	requestID, err := uuid.Parse(requestIDStr)
-	if err != nil {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid request ID")
-		return
-	}
-
 	userID := httputil.GetUserIDFromContext(c)
 	if userID == uuid.Nil {
 		httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeMissingToken, "Unauthorized")
+		return
+	}
+
+	requestID, err := uuid.Parse(c.Param("requestID"))
+	if err != nil {
+		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid request ID")
 		return
 	}
 
@@ -111,16 +109,15 @@ func (ctrl *FriendsHandler) RejectFriendRequest(c *gin.Context) {
 }
 
 func (ctrl *FriendsHandler) CancelFriendRequest(c *gin.Context) {
-	requestIDStr := c.Param("requestID")
-	requestID, err := uuid.Parse(requestIDStr)
-	if err != nil {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid request ID")
-		return
-	}
-
 	userID := httputil.GetUserIDFromContext(c)
 	if userID == uuid.Nil {
 		httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeMissingToken, "Unauthorized")
+		return
+	}
+
+	requestID, err := uuid.Parse(c.Param("requestID"))
+	if err != nil {
+		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid request ID")
 		return
 	}
 
@@ -134,16 +131,15 @@ func (ctrl *FriendsHandler) CancelFriendRequest(c *gin.Context) {
 }
 
 func (ctrl *FriendsHandler) BlockFriendRequest(c *gin.Context) {
-	requestIDStr := c.Param("requestID")
-	requestID, err := uuid.Parse(requestIDStr)
-	if err != nil {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid request ID")
-		return
-	}
-
 	userID := httputil.GetUserIDFromContext(c)
 	if userID == uuid.Nil {
 		httputil.Error(c, http.StatusUnauthorized, httputil.ErrCodeMissingToken, "Unauthorized")
+		return
+	}
+
+	requestID, err := uuid.Parse(c.Param("requestID"))
+	if err != nil {
+		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid request ID")
 		return
 	}
 

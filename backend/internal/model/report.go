@@ -3,13 +3,10 @@
 package model
 
 import (
-	"errors"
 	"time"
 
 	"github.com/google/uuid"
 )
-
-var ErrAlreadyReported = errors.New("question already reported by this user")
 
 type ReportStatus string
 

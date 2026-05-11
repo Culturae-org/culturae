@@ -72,7 +72,12 @@ func (gc *GamesHandler) CreateGame(c *gin.Context) {
 
 	game, err := gc.Usecase.CreateGame(c, userID, req)
 	if err != nil {
-		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
+		switch {
+		case errors.Is(err, model.ErrInvalidGameMode), errors.Is(err, model.ErrGameTemplateNotActive):
+			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
+		default:
+			httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
+		}
 		return
 	}
 
@@ -110,7 +115,14 @@ func (gc *GamesHandler) InviteToGame(c *gin.Context) {
 
 	invite, err := gc.Usecase.InviteToGame(c, game.ID, userID, sanitizedToUserID)
 	if err != nil {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
+		switch {
+		case errors.Is(err, model.ErrNotInGame), errors.Is(err, model.ErrCannotInviteUser), errors.Is(err, model.ErrGameInvitesDisabled):
+			httputil.Error(c, http.StatusForbidden, httputil.ErrCodeForbidden, err.Error())
+		case errors.Is(err, model.ErrAlreadyInGame), errors.Is(err, model.ErrGameFull):
+			httputil.Error(c, http.StatusConflict, httputil.ErrCodeConflict, err.Error())
+		default:
+			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
+		}
 		return
 	}
 
@@ -133,7 +145,16 @@ func (gc *GamesHandler) AcceptGameInvite(c *gin.Context) {
 
 	invite, err := gc.Usecase.AcceptGameInvite(c, inviteID, userID)
 	if err != nil {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
+		switch {
+		case errors.Is(err, model.ErrInviteNotFound):
+			httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, "Invite not found")
+		case errors.Is(err, model.ErrGameFull):
+			httputil.Error(c, http.StatusConflict, httputil.ErrCodeGameFull, err.Error())
+		case errors.Is(err, model.ErrCannotJoinGame), errors.Is(err, model.ErrForbidden):
+			httputil.Error(c, http.StatusForbidden, httputil.ErrCodeForbidden, err.Error())
+		default:
+			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
+		}
 		return
 	}
 
@@ -159,7 +180,14 @@ func (gc *GamesHandler) RejectGameInvite(c *gin.Context) {
 	}
 
 	if err := gc.Usecase.RejectGameInvite(c, inviteID, userID); err != nil {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
+		switch {
+		case errors.Is(err, model.ErrInviteNotFound):
+			httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, "Invite not found")
+		case errors.Is(err, model.ErrInviteNotPending):
+			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
+		default:
+			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
+		}
 		return
 	}
 
@@ -241,7 +269,14 @@ func (gc *GamesHandler) StartGame(c *gin.Context) {
 	}
 
 	if err := gc.Usecase.StartGame(c, game.ID, userID); err != nil {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
+		switch {
+		case errors.Is(err, model.ErrForbidden), errors.Is(err, model.ErrNotInGame):
+			httputil.Error(c, http.StatusForbidden, httputil.ErrCodeForbidden, err.Error())
+		case errors.Is(err, model.ErrGameAlreadyFinished):
+			httputil.Error(c, http.StatusConflict, httputil.ErrCodeConflict, err.Error())
+		default:
+			httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeValidation, err.Error())
+		}
 		return
 	}
 
