@@ -247,6 +247,7 @@ func registerAdminRoutes(r *gin.Engine, deps Dependencies) {
 			users.GET("/count", deps.GetAdminUserHandler().GetUserCount)
 			users.GET("/count/online", deps.GetAdminUserHandler().GetUserOnlineCount)
 			users.GET("/count/active/weekly", deps.GetAdminUserHandler().GetWeeklyActiveUserCount)
+			users.GET("/stats/daily-active", deps.GetAdminUserHandler().GetDailyActiveUserStats)
 			users.GET("/search", deps.GetAdminUserHandler().SearchUsers)
 			users.GET("/:id", deps.GetAdminUserHandler().GetUserByID)
 

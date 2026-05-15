@@ -6789,6 +6789,73 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/users/stats/daily-active:
+    get:
+      operationId: adminGetDailyActiveUserStats
+      summary: Get daily active user statistics
+      description: Returns daily active user statistics for a date range. Each entry contains the date, active users count, and active sessions count.
+      tags:
+      - Admin Users
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: query
+        name: start_date
+        schema:
+          type: string
+          format: date
+          example: "2024-01-01"
+        description: Start date (YYYY-MM-DD). Defaults to 30 days ago.
+      - in: query
+        name: end_date
+        schema:
+          type: string
+          format: date
+          example: "2024-01-31"
+        description: End date (YYYY-MM-DD). Defaults to today.
+      responses:
+        '200':
+          description: Daily active user statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                          description: Date in YYYY-MM-DD format
+                          example: "2024-01-15"
+                        active_users:
+                          type: integer
+                          description: Number of unique active users on this date
+                          example: 850
+                        active_sessions:
+                          type: integer
+                          description: Total number of active sessions on this date
+                          example: 1200
+              example:
+                data:
+                - date: "2024-01-15"
+                  active_users: 850
+                  active_sessions: 1200
+                - date: "2024-01-16"
+                  active_users: 920
+                  active_sessions: 1350
+                - date: "2024-01-17"
+                  active_users: 880
+                  active_sessions: 1280
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/v1/admin/users/search:
     get:
       operationId: adminSearchUsers

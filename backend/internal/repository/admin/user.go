@@ -29,6 +29,7 @@ type AdminUserRepositoryInterface interface {
 	GetUserRoleStats() (map[string]int, error)
 	CreateUser(user model.User) (*model.User, error)
 	GetUserCreationDates(startDate *time.Time, endDate *time.Time) ([]string, error)
+	GetDailyActiveUserStats(startDate *time.Time, endDate *time.Time) ([]model.DailyActiveUserStat, error)
 	SearchUsers(query string, limit int, offset int) ([]model.UserAdminView, error)
 	SearchUserCount(query string) (int, error)
 	DeleteUserByID(id string) error
@@ -427,4 +428,54 @@ func (r *AdminUserRepository) UpdateBanFields(id string, bannedUntil *time.Time,
 	}
 
 	return nil
+}
+
+func (r *AdminUserRepository) GetDailyActiveUserStats(startDate *time.Time, endDate *time.Time) ([]model.DailyActiveUserStat, error) {
+	if startDate == nil {
+		defaultStart := time.Now().AddDate(0, 0, -30)
+		startDate = &defaultStart
+	}
+	if endDate == nil {
+		defaultEnd := time.Now()
+		endDate = &defaultEnd
+	}
+
+	days := int(endDate.Sub(*startDate).Hours() / 24)
+	if days < 1 {
+		days = 1
+	}
+
+	var stats []model.DailyActiveUserStat
+
+	for i := 0; i <= days; i++ {
+		currentDate := startDate.AddDate(0, 0, i)
+		dayStart := time.Date(currentDate.Year(), currentDate.Month(), currentDate.Day(), 0, 0, 0, 0, currentDate.Location())
+		dayEnd := dayStart.AddDate(0, 0, 1)
+
+		var activeUsers int64
+		err := r.DB.Model(&model.Session{}).
+			Select("COUNT(DISTINCT user_id)").
+			Where("is_active = ? AND last_used >= ? AND last_used < ?", true, dayStart, dayEnd).
+			Count(&activeUsers).Error
+		if err != nil {
+			return nil, err
+		}
+
+		var activeSessions int64
+		err = r.DB.Model(&model.Session{}).
+			Select("COUNT(*)").
+			Where("is_active = ? AND last_used >= ? AND last_used < ?", true, dayStart, dayEnd).
+			Count(&activeSessions).Error
+		if err != nil {
+			return nil, err
+		}
+
+		stats = append(stats, model.DailyActiveUserStat{
+			Date:           currentDate.Format("2006-01-02"),
+			ActiveUsers:    int(activeUsers),
+			ActiveSessions: int(activeSessions),
+		})
+	}
+
+	return stats, nil
 }

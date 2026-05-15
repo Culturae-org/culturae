@@ -4,6 +4,7 @@ package admin
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/Culturae-org/culturae/internal/model"
 	"github.com/Culturae-org/culturae/internal/pkg/httputil"
@@ -47,6 +48,7 @@ func NewAdminUserHandler(
 // - GetUserCount
 // - GetUserOnlineCount
 // - GetWeeklyActiveUserCount
+// - GetDailyActiveUserStats
 // - SearchUsers
 // - GetCurrentUser
 // - GetUserByID
@@ -118,6 +120,29 @@ func (ac *AdminUserHandler) GetWeeklyActiveUserCount(c *gin.Context) {
 		return
 	}
 	httputil.Success(c, http.StatusOK, count)
+}
+
+func (ac *AdminUserHandler) GetDailyActiveUserStats(c *gin.Context) {
+	var startDate, endDate *time.Time
+
+	if start := c.Query("start_date"); start != "" {
+		if t, err := time.Parse("2006-01-02", start); err == nil {
+			startDate = &t
+		}
+	}
+	if end := c.Query("end_date"); end != "" {
+		if t, err := time.Parse("2006-01-02", end); err == nil {
+			endDate = &t
+		}
+	}
+
+	stats, err := ac.Usecase.GetDailyActiveUserStats(startDate, endDate)
+	if err != nil {
+		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to fetch daily active user stats")
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, stats)
 }
 
 func (ac *AdminUserHandler) SearchUsers(c *gin.Context) {

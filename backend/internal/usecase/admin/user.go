@@ -259,6 +259,10 @@ func (uc *AdminUserUsecase) GetUserCreationDates(startDate *time.Time, endDate *
 	return uc.Repo.GetUserCreationDates(startDate, endDate)
 }
 
+func (uc *AdminUserUsecase) GetDailyActiveUserStats(startDate *time.Time, endDate *time.Time) ([]model.DailyActiveUserStat, error) {
+	return uc.Repo.GetDailyActiveUserStats(startDate, endDate)
+}
+
 func (uc *AdminUserUsecase) SearchUserCount(query string) (int, error) {
 	return uc.Repo.SearchUserCount(query)
 }
