@@ -2782,11 +2782,23 @@ components:
         daily_average:
           type: number
           format: float
+    TopUser:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        action_count:
+          type: integer
+          format: int64
     UserActionStats:
       type: object
       properties:
         total_actions:
           type: integer
+          format: int64
         success_rate:
           type: number
           format: float
@@ -2794,10 +2806,16 @@ components:
           type: object
           additionalProperties:
             type: integer
+            format: int64
         actions_by_user:
           type: object
           additionalProperties:
             type: integer
+            format: int64
+        top_users:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopUser'
         daily_average:
           type: number
           format: float
@@ -8052,22 +8070,40 @@ paths:
       - Admin Logs
       security:
       - BearerAuth: []
+      parameters:
+      - name: start_date
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: end_date
+        in: query
+        schema:
+          type: string
+          format: date-time
       responses:
         200:
           description: User action statistics
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/UserActionStats'
               example:
-                stats:
-                  total_actions: 45678
-                  game_joins: 12340
-                  game_creates: 5678
-                  friend_requests_sent: 8901
-                  friend_requests_accepted: 7654
-                  questions_answered: 34567
-                  reports_submitted: 234
+                total_actions: 45678
+                success_rate: 97.4
+                actions_by_type:
+                  game_join: 12340
+                  game_create: 5678
+                  friend_request_sent: 8901
+                  question_answered: 34567
+                top_users:
+                  - user_id: "550e8400-e29b-41d4-a716-446655440000"
+                    username: "alice"
+                    action_count: 1234
+                  - user_id: "550e8400-e29b-41d4-a716-446655440001"
+                    username: "bob"
+                    action_count: 987
+                daily_average: 1522.6
   /api/v1/admin/questions:
     get:
       operationId: adminListQuestions

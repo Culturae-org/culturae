@@ -198,24 +198,79 @@ func (r *MetricsRepository) GetAdminActionStats(startDate, endDate *time.Time) (
 }
 
 func (r *MetricsRepository) GetUserActionStats(startDate, endDate *time.Time) (*model.UserActionStats, error) {
-	var stats model.UserActionStats
-	query := r.DB.Model(&model.UserActionLog{})
-
-	if startDate != nil {
-		query = query.Where("created_at >= ?", *startDate)
-	}
-	if endDate != nil {
-		query = query.Where("created_at <= ?", *endDate)
+	stats := &model.UserActionStats{
+		ActionsByType: make(map[string]int64),
+		TopUsers:      []model.TopUser{},
 	}
 
-	var totalActions int64
-	if err := query.Count(&totalActions).Error; err != nil {
+	newQuery := func() *gorm.DB {
+		q := r.DB.Model(&model.UserActionLog{})
+		if startDate != nil {
+			q = q.Where("created_at >= ?", *startDate)
+		}
+		if endDate != nil {
+			q = q.Where("created_at <= ?", *endDate)
+		}
+		return q
+	}
+
+	type summary struct {
+		Total   int64
+		Success int64
+	}
+	var s summary
+	if err := newQuery().Select("COUNT(*) as total, SUM(CASE WHEN is_success THEN 1 ELSE 0 END) as success").Scan(&s).Error; err != nil {
 		return nil, err
 	}
+	stats.TotalActions = s.Total
+	if s.Total > 0 {
+		stats.SuccessRate = float64(s.Success) / float64(s.Total) * 100
+	}
 
-	stats.TotalActions = totalActions
+	type kv struct {
+		Key   string
+		Count int64
+	}
+	var byType []kv
+	if err := newQuery().Select("action as key, COUNT(*) as count").Group("action").Scan(&byType).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range byType {
+		stats.ActionsByType[row.Key] = row.Count
+	}
 
-	return &stats, nil
+	type topUserRow struct {
+		UserID      string
+		Username    string
+		ActionCount int64
+	}
+	var topUsers []topUserRow
+	if err := newQuery().Select("COALESCE(user_id::text, '') as user_id, username, COUNT(*) as action_count").
+		Group("user_id, username").
+		Order("action_count DESC").
+		Limit(10).
+		Scan(&topUsers).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range topUsers {
+		stats.TopUsers = append(stats.TopUsers, model.TopUser{
+			UserID:      row.UserID,
+			Username:    row.Username,
+			ActionCount: row.ActionCount,
+		})
+	}
+
+	var days int
+	if startDate != nil && endDate != nil {
+		days = int(endDate.Sub(*startDate).Hours()/24) + 1
+	} else {
+		days = 30
+	}
+	if days > 0 {
+		stats.DailyAverage = float64(s.Total) / float64(days)
+	}
+
+	return stats, nil
 }
 
 func (r *MetricsRepository) GetAPIRequestTimestamps(method *string, statusCode *int, startDate, endDate *time.Time) ([]time.Time, error) {

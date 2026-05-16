@@ -9,11 +9,18 @@ import (
 	"gorm.io/datatypes"
 )
 
+type TopUser struct {
+	UserID      string `json:"user_id"`
+	Username    string `json:"username"`
+	ActionCount int64  `json:"action_count"`
+}
+
 type UserActionStats struct {
 	TotalActions  int64            `json:"total_actions"`
 	SuccessRate   float64          `json:"success_rate"`
 	ActionsByType map[string]int64 `json:"actions_by_type"`
 	ActionsByUser map[string]int64 `json:"actions_by_user"`
+	TopUsers      []TopUser        `json:"top_users"`
 	DailyAverage  float64          `json:"daily_average"`
 }
 
