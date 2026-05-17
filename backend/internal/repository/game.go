@@ -166,11 +166,11 @@ func (r *GameRepository) DeleteGame(gameID uuid.UUID) error {
 
 func (r *GameRepository) ArchiveGame(gameID uuid.UUID) error {
 	now := time.Now()
-	return r.DB.Model(&model.Game{}).Where("id = ?", gameID).Update("deleted_at", now).Error
+	return r.DB.Model(&model.Game{}).Where("id = ?", gameID).Update("archived_at", now).Error
 }
 
 func (r *GameRepository) UnarchiveGame(gameID uuid.UUID) error {
-	return r.DB.Model(&model.Game{}).Where("id = ?", gameID).Update("deleted_at", nil).Error
+	return r.DB.Model(&model.Game{}).Where("id = ?", gameID).Update("archived_at", nil).Error
 }
 
 func (r *GameRepository) GetUserActiveGames(userID uuid.UUID) ([]model.Game, error) {
@@ -683,9 +683,10 @@ func (r *GameRepository) ListGamesWithFilters(status, mode, search, archived str
 
 	switch archived {
 	case "true":
-		query = query.Where("deleted_at IS NOT NULL")
-	case "false", "":
-		query = query.Where("deleted_at IS NULL")
+		query = query.Where("archived_at IS NOT NULL")
+	case "all":
+	default:
+		query = query.Where("archived_at IS NULL")
 	}
 
 	if status == "active" {

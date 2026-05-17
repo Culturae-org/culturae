@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type GameMode string
@@ -75,12 +76,18 @@ type Game struct {
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
-	DeletedAt   *time.Time `gorm:"index" json:"-"`
+	ArchivedAt *time.Time `gorm:"index" json:"archived_at,omitempty"`
+	IsArchived bool       `gorm:"-" json:"is_archived"`
 
 	Players   []GamePlayer   `gorm:"foreignKey:GameID;constraint:OnDelete:CASCADE" json:"players,omitempty"`
 	Invites   []GameInvite   `gorm:"foreignKey:GameID;constraint:OnDelete:CASCADE" json:"invites,omitempty"`
 	Questions []GameQuestion `gorm:"foreignKey:GameID;constraint:OnDelete:CASCADE" json:"questions,omitempty"`
 	Answers   []GameAnswer   `gorm:"foreignKey:GameID;constraint:OnDelete:CASCADE" json:"answers,omitempty"`
+}
+
+func (g *Game) AfterFind(tx *gorm.DB) error {
+	g.IsArchived = g.ArchivedAt != nil
+	return nil
 }
 
 type GamePlayer struct {
