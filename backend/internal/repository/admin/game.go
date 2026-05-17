@@ -19,6 +19,7 @@ type AdminGameRepositoryInterface interface {
 	UpdateGame(game *model.Game) error
 	UpdateGameInviteStatus(inviteID uuid.UUID, status model.GameInviteStatus) error
 	GetUserGameHistory(userID uuid.UUID, limit, offset int, status, mode string) ([]model.Game, error)
+	CountUserGameHistory(userID uuid.UUID, status, mode string) (int64, error)
 	GetGamePlayers(gameID uuid.UUID) ([]model.GamePlayer, error)
 
 	// Admin-only methods
