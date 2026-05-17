@@ -80,13 +80,16 @@ func (r *MetricsRepository) GetSystemMetrics() (*model.SystemMetrics, error) {
 
 func (r *MetricsRepository) GetAPIRequestStats(startDate, endDate *time.Time) (*model.APIRequestStats, error) {
 	var stats model.APIRequestStats
-	query := r.DB.Model(&model.APIRequestLog{})
 
-	if startDate != nil {
-		query = query.Where("created_at >= ?", *startDate)
-	}
-	if endDate != nil {
-		query = query.Where("created_at <= ?", *endDate)
+	newQuery := func() *gorm.DB {
+		q := r.DB.Model(&model.APIRequestLog{})
+		if startDate != nil {
+			q = q.Where("created_at >= ?", *startDate)
+		}
+		if endDate != nil {
+			q = q.Where("created_at <= ?", *endDate)
+		}
+		return q
 	}
 
 	type summary struct {
@@ -95,7 +98,7 @@ func (r *MetricsRepository) GetAPIRequestStats(startDate, endDate *time.Time) (*
 		AvgDuration float64
 	}
 	var s summary
-	if err := query.Select("COUNT(*) as total, SUM(CASE WHEN is_error THEN 1 ELSE 0 END) as error_count, AVG(duration) as avg_duration").Scan(&s).Error; err != nil {
+	if err := newQuery().Select("COUNT(*) as total, SUM(CASE WHEN is_error THEN 1 ELSE 0 END) as error_count, AVG(duration) as avg_duration").Scan(&s).Error; err != nil {
 		return nil, err
 	}
 
@@ -110,7 +113,7 @@ func (r *MetricsRepository) GetAPIRequestStats(startDate, endDate *time.Time) (*
 		Count int64
 	}
 	var byStatus []kv
-	if err := query.Select("status_code::text as key, COUNT(*) as count").Group("status_code").Scan(&byStatus).Error; err != nil {
+	if err := newQuery().Select("status_code::text as key, COUNT(*) as count").Group("status_code").Scan(&byStatus).Error; err != nil {
 		return nil, err
 	}
 	stats.RequestsByStatus = make(map[string]int64, len(byStatus))
@@ -119,7 +122,7 @@ func (r *MetricsRepository) GetAPIRequestStats(startDate, endDate *time.Time) (*
 	}
 
 	var byMethod []kv
-	if err := query.Select("method as key, COUNT(*) as count").Group("method").Scan(&byMethod).Error; err != nil {
+	if err := newQuery().Select("method as key, COUNT(*) as count").Group("method").Scan(&byMethod).Error; err != nil {
 		return nil, err
 	}
 	stats.RequestsByMethod = make(map[string]int64, len(byMethod))
@@ -128,7 +131,7 @@ func (r *MetricsRepository) GetAPIRequestStats(startDate, endDate *time.Time) (*
 	}
 
 	var byPath []kv
-	if err := query.Select("path as key, COUNT(*) as count").Group("path").Order("count DESC").Limit(20).Scan(&byPath).Error; err != nil {
+	if err := newQuery().Select("path as key, COUNT(*) as count").Group("path").Order("count DESC").Limit(20).Scan(&byPath).Error; err != nil {
 		return nil, err
 	}
 	stats.RequestsByPath = make(map[string]int64, len(byPath))
@@ -142,12 +145,15 @@ func (r *MetricsRepository) GetAPIRequestStats(startDate, endDate *time.Time) (*
 func (r *MetricsRepository) GetAdminActionStats(startDate, endDate *time.Time) (*model.AdminActionStats, error) {
 	var stats model.AdminActionStats
 
-	base := r.DB.Model(&model.AdminActionLog{})
-	if startDate != nil {
-		base = base.Where("created_at >= ?", *startDate)
-	}
-	if endDate != nil {
-		base = base.Where("created_at <= ?", *endDate)
+	newQuery := func() *gorm.DB {
+		q := r.DB.Model(&model.AdminActionLog{})
+		if startDate != nil {
+			q = q.Where("created_at >= ?", *startDate)
+		}
+		if endDate != nil {
+			q = q.Where("created_at <= ?", *endDate)
+		}
+		return q
 	}
 
 	type summary struct {
@@ -155,7 +161,7 @@ func (r *MetricsRepository) GetAdminActionStats(startDate, endDate *time.Time) (
 		Success int64
 	}
 	var s summary
-	if err := base.Select("COUNT(*) as total, SUM(CASE WHEN is_success THEN 1 ELSE 0 END) as success").Scan(&s).Error; err != nil {
+	if err := newQuery().Select("COUNT(*) as total, SUM(CASE WHEN is_success THEN 1 ELSE 0 END) as success").Scan(&s).Error; err != nil {
 		return nil, err
 	}
 	stats.TotalActions = s.Total
@@ -168,7 +174,7 @@ func (r *MetricsRepository) GetAdminActionStats(startDate, endDate *time.Time) (
 		Count int64
 	}
 	var byType []kv
-	if err := base.Select("action as key, COUNT(*) as count").Group("action").Scan(&byType).Error; err != nil {
+	if err := newQuery().Select("action as key, COUNT(*) as count").Group("action").Scan(&byType).Error; err != nil {
 		return nil, err
 	}
 	stats.ActionsByType = make(map[string]int64, len(byType))
@@ -177,7 +183,7 @@ func (r *MetricsRepository) GetAdminActionStats(startDate, endDate *time.Time) (
 	}
 
 	var byResource []kv
-	if err := base.Select("resource as key, COUNT(*) as count").Group("resource").Scan(&byResource).Error; err != nil {
+	if err := newQuery().Select("resource as key, COUNT(*) as count").Group("resource").Scan(&byResource).Error; err != nil {
 		return nil, err
 	}
 	stats.ActionsByResource = make(map[string]int64, len(byResource))
@@ -186,7 +192,7 @@ func (r *MetricsRepository) GetAdminActionStats(startDate, endDate *time.Time) (
 	}
 
 	var byAdmin []kv
-	if err := base.Select("admin_name as key, COUNT(*) as count").Group("admin_name").Scan(&byAdmin).Error; err != nil {
+	if err := newQuery().Select("admin_name as key, COUNT(*) as count").Group("admin_name").Scan(&byAdmin).Error; err != nil {
 		return nil, err
 	}
 	stats.ActionsByAdmin = make(map[string]int64, len(byAdmin))

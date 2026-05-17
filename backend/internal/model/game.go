@@ -86,7 +86,7 @@ type Game struct {
 type GamePlayer struct {
 	ID           uuid.UUID    `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
 	GameID       uuid.UUID    `gorm:"type:uuid;not null;index" json:"game_id"`
-	UserID       uuid.UUID    `gorm:"type:uuid;not null;index" json:"-"`
+	UserID       uuid.UUID    `gorm:"type:uuid;not null;index" json:"user_id"`
 	UserPublicID string       `json:"user_public_id"`
 	Score        int          `gorm:"default:0" json:"score"`
 	IsReady      bool         `gorm:"default:false" json:"is_ready"`
