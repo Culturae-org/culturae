@@ -50,7 +50,16 @@ func (ic *AdminImportsHandler) ListImportJobs(c *gin.Context) {
 		datasetTypePtr = &datasetType
 	}
 
-	jobs, total, err := ic.AdminImportsUsecase.ListImportJobs(pagination.Limit, pagination.Offset, datasetTypePtr)
+	var successPtr *bool
+	if s := c.Query("success"); s == "true" {
+		v := true
+		successPtr = &v
+	} else if s == "false" {
+		v := false
+		successPtr = &v
+	}
+
+	jobs, total, err := ic.AdminImportsUsecase.ListImportJobs(pagination.Limit, pagination.Offset, datasetTypePtr, successPtr)
 	if err != nil {
 		ic.logger.Error("Failed to list import jobs", zap.Error(err))
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to list import jobs")

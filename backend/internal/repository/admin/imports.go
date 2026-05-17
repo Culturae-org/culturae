@@ -13,7 +13,7 @@ import (
 )
 
 type ImportJobRepositoryInterface interface {
-	ListImportJobs(limit int, offset int, datasetType *string) ([]model.ImportJob, int64, error)
+	ListImportJobs(limit int, offset int, datasetType *string, success *bool) ([]model.ImportJob, int64, error)
 	GetImportStats() (map[string]interface{}, error)
 	GetImportJob(jobID uuid.UUID) (*model.ImportJob, error)
 	GetImportJobLogs(jobID uuid.UUID, limit, offset int) ([]model.ImportQuestionLog, int64, error)
@@ -35,12 +35,15 @@ func NewImportJobRepository(
 	}
 }
 
-func (r *ImportJobRepository) ListImportJobs(limit int, offset int, datasetType *string) ([]model.ImportJob, int64, error) {
+func (r *ImportJobRepository) ListImportJobs(limit int, offset int, datasetType *string, success *bool) ([]model.ImportJob, int64, error) {
 	var jobs []model.ImportJob
 	query := r.DB.Model(&model.ImportJob{})
 
 	if datasetType != nil && *datasetType != "" {
 		query = query.Where("dataset LIKE ?", fmt.Sprintf("%%%s%%", *datasetType))
+	}
+	if success != nil {
+		query = query.Where("success = ?", *success)
 	}
 
 	var total int64

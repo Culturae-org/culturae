@@ -183,8 +183,8 @@ func (uc *AdminImportsUsecase) validateSchemaVersion(schemaVersion string, datas
 	return nil
 }
 
-func (uc *AdminImportsUsecase) ListImportJobs(limit, offset int, datasetType *string) ([]model.ImportJob, int64, error) {
-	return uc.importsRepo.ListImportJobs(limit, offset, datasetType)
+func (uc *AdminImportsUsecase) ListImportJobs(limit, offset int, datasetType *string, success *bool) ([]model.ImportJob, int64, error) {
+	return uc.importsRepo.ListImportJobs(limit, offset, datasetType, success)
 }
 
 func (uc *AdminImportsUsecase) GetImportJob(jobID uuid.UUID) (*model.ImportJob, error) {
