@@ -528,6 +528,10 @@ func (u *AdminGameUsecase) RunGameMaintenance(adminID uuid.UUID) (map[string]int
 	return result, nil
 }
 
+func (u *AdminGameUsecase) CountGameHistory(userID uuid.UUID, status, mode string) (int64, error) {
+	return u.gameRepo.CountUserGameHistory(userID, status, mode)
+}
+
 func (u *AdminGameUsecase) GetGameHistory(userID uuid.UUID, limit, offset int, status, mode string) ([]model.GameHistoryResponse, error) {
 	games, err := u.gameRepo.GetUserGameHistory(userID, limit, offset, status, mode)
 	if err != nil {

@@ -467,17 +467,24 @@ func (gc *AdminGamesHandler) GetUserGameHistory(c *gin.Context) {
 		return
 	}
 
-	pagination := pagination.Parse(c, pagination.AdminConfig())
+	pag := pagination.Parse(c, pagination.AdminConfig())
 	status := c.Query("status")
 	mode := c.Query("mode")
 
-	history, err := gc.Usecase.GetGameHistory(userID, pagination.Limit, pagination.Offset, status, mode)
+	total, err := gc.Usecase.CountGameHistory(userID, status, mode)
 	if err != nil {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
 		return
 	}
 
-	httputil.Success(c, http.StatusOK, history)
+	history, err := gc.Usecase.GetGameHistory(userID, pag.Limit, pag.Offset, status, mode)
+	if err != nil {
+		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
+		return
+	}
+
+	pag.WithTotal(total)
+	httputil.SuccessList(c, history, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
 }
 
 func (h *AdminGamesHandler) GetGameEventLogs(c *gin.Context) {
