@@ -1128,7 +1128,6 @@ func setupUseCasesInComponents(
 
 	components.UseCases.AdminGameTemplates = adminUsecase.NewAdminGameTemplatesUsecase(
 		components.Repositories.GameTemplate,
-		components.LoggingService,
 		logger,
 	)
 	components.MatchmakingService.SetMatchFoundCallback(components.UseCases.Game.CreateMatchmakedGame)

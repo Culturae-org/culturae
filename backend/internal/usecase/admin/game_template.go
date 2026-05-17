@@ -8,27 +8,23 @@ import (
 
 	"github.com/Culturae-org/culturae/internal/model"
 	"github.com/Culturae-org/culturae/internal/repository"
-	"github.com/Culturae-org/culturae/internal/service"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
 type AdminGameTemplatesUsecase struct {
-	templateRepo   repository.GameTemplateRepositoryInterface
-	loggingService service.LoggingServiceInterface
-	logger         *zap.Logger
+	templateRepo repository.GameTemplateRepositoryInterface
+	logger       *zap.Logger
 }
 
 func NewAdminGameTemplatesUsecase(
 	templateRepo repository.GameTemplateRepositoryInterface,
-	loggingService service.LoggingServiceInterface,
 	logger *zap.Logger,
 ) *AdminGameTemplatesUsecase {
 	return &AdminGameTemplatesUsecase{
-		templateRepo:   templateRepo,
-		loggingService: loggingService,
-		logger:         logger,
+		templateRepo: templateRepo,
+		logger:       logger,
 	}
 }
 
@@ -105,10 +101,6 @@ func (u *AdminGameTemplatesUsecase) CreateGameTemplate(req *model.CreateGameTemp
 		return nil, fmt.Errorf("failed to create game template: %w", err)
 	}
 
-	_ = u.loggingService.LogAdminAction(adminID, "", "create", "game_template", &t.ID, "", "", map[string]interface{}{
-		"template_name": t.Name,
-	}, true, nil)
-
 	return t, nil
 }
 
@@ -180,8 +172,6 @@ func (u *AdminGameTemplatesUsecase) UpdateGameTemplate(id uuid.UUID, req *model.
 		u.logger.Error("Failed to update game template", zap.String("id", id.String()), zap.Error(err))
 		return nil, fmt.Errorf("failed to update game template: %w", err)
 	}
-
-	_ = u.loggingService.LogAdminAction(adminID, "", "update", "game_template", &t.ID, "", "", nil, true, nil)
 
 	return t, nil
 }
@@ -400,8 +390,6 @@ func (u *AdminGameTemplatesUsecase) DeleteGameTemplate(id uuid.UUID, adminID uui
 		u.logger.Error("Failed to delete game template", zap.String("id", id.String()), zap.Error(err))
 		return fmt.Errorf("failed to delete game template: %w", err)
 	}
-
-	_ = u.loggingService.LogAdminAction(adminID, "", "delete", "game_template", &id, "", "", nil, true, nil)
 
 	return nil
 }
