@@ -1425,6 +1425,20 @@ func (u *GameUsecase) finalizeGame(c *gin.Context, gameID uuid.UUID) error {
 		return err
 	}
 
+	if dbPlayers, err := u.gameRepo.GetGamePlayers(gameID); err == nil {
+		dbPlayerMap := make(map[uuid.UUID]uuid.UUID)
+		for _, p := range dbPlayers {
+			dbPlayerMap[p.UserID] = p.ID
+		}
+		for _, player := range players {
+			if gpID, ok := dbPlayerMap[player.UserID]; ok {
+				if err := u.gameRepo.UpdatePlayerScore(gpID, player.Score); err != nil {
+					u.logger.Warn("Failed to persist final player score", zap.String(keyUserID, player.UserID.String()), zap.Error(err))
+				}
+			}
+		}
+	}
+
 	var durationSec int64
 	if gameModel.StartedAt != nil {
 		durationSec = int64(now.Sub(*gameModel.StartedAt).Seconds())
