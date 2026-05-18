@@ -409,10 +409,16 @@ func (r *UserRepository) UpdateUserOnlineStatus(userID uuid.UUID, isOnline bool)
 		status = "online"
 	}
 
-	if err := r.DB.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
+	updates := map[string]interface{}{
 		keyStatus:    status,
 		"is_online": isOnline,
-	}).Error; err != nil {
+	}
+	if !isOnline {
+		now := time.Now()
+		updates["last_seen_at"] = now
+	}
+
+	if err := r.DB.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
 		r.logger.Error("Failed to update user online status in database", zap.String("userID", userID.String()), zap.Error(err))
 		return err
 	}
