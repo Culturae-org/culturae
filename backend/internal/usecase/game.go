@@ -39,7 +39,12 @@ type GameUsecase struct {
 	xpCalc            *game.XPCalculator
 	eloCalc           *game.ELOCalculator
 	notifRepo         repository.NotificationRepositoryInterface
+	progressionRepo   adminRepo.ProgressionRepositoryInterface
 	logger            *zap.Logger
+}
+
+func (u *GameUsecase) SetProgressionRepo(repo adminRepo.ProgressionRepositoryInterface) {
+	u.progressionRepo = repo
 }
 
 func NewGameUsecase(
@@ -1471,6 +1476,30 @@ func (u *GameUsecase) finalizeGame(c *gin.Context, gameID uuid.UUID) error {
 			}
 		}
 
+		if u.progressionRepo != nil {
+			if updatedUser, uErr := u.userRepo.GetByID(player.UserID.String()); uErr == nil {
+				gameIDPtr := &gameModel.ID
+				snap := &model.UserProgressionSnapshot{
+					UserID:          player.UserID,
+					GameID:          gameIDPtr,
+					GameMode:        string(gameModel.Mode),
+					Elo:             updatedUser.EloRating,
+					Experience:      updatedUser.Experience,
+					Level:           updatedUser.Level,
+					Rank:            updatedUser.Rank,
+					EloDelta:        0,
+					ExperienceDelta: xp,
+					LevelDelta:      0,
+					Score:           player.Score,
+					IsWinner:        isWinner,
+					IsDrawn:         isDrawn,
+				}
+				if sErr := u.progressionRepo.SaveSnapshot(snap); sErr != nil {
+					u.logger.Warn("Failed to save progression snapshot", zap.String(keyUserID, player.UserID.String()), zap.Error(sErr))
+				}
+			}
+		}
+
 		if err := u.userRepo.UpdateUserGameStatus(player.UserID, nil); err != nil {
 			u.logger.Warn("Failed to clear user game status", zap.Error(err))
 		}
@@ -1540,10 +1569,26 @@ func (u *GameUsecase) finalizeGame(c *gin.Context, gameID uuid.UUID) error {
 			if err := u.userRepo.UpdateEloRating(losePlayer.UserID, newLoseRating); err != nil {
 				u.logger.Warn("Failed to update loser ELO", zap.String(keyUserID, losePlayer.UserID.String()), zap.Error(err))
 			}
+
+			if u.progressionRepo != nil {
+				winDelta := newWinRating - winUser.EloRating
+				loseDelta := newLoseRating - loseUser.EloRating
+				u.updateSnapshotElo(winPlayer.UserID, gameModel.ID, newWinRating, winDelta)
+				u.updateSnapshotElo(losePlayer.UserID, gameModel.ID, newLoseRating, loseDelta)
+			}
 		}
 	}
 
 	return nil
+}
+
+func (u *GameUsecase) updateSnapshotElo(userID uuid.UUID, gameID uuid.UUID, newElo, delta int) {
+	if u.progressionRepo == nil {
+		return
+	}
+	if err := u.progressionRepo.UpdateSnapshotElo(userID, gameID, newElo, delta); err != nil {
+		u.logger.Warn("Failed to update snapshot ELO", zap.String(keyUserID, userID.String()), zap.Error(err))
+	}
 }
 
 func (u *GameUsecase) finalizeGameWithWinnerTx(txRepo repository.GameRepositoryInterface, gameID uuid.UUID, winnerID *uuid.UUID) error {

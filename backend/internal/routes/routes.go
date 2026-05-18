@@ -50,6 +50,7 @@ type Dependencies interface {
 	GetAdminSettingsHandler() *admin.AdminSettingsHandler
 	GetMaintenanceMiddleware() *middleware.MaintenanceMiddleware
 	GetAdminGameTemplatesHandler() *admin.AdminGameTemplatesHandler
+	GetAdminProgressionHandler() *admin.AdminProgressionHandler
 	GetLobbyHandler() *handler.LobbyHandler
 	GetHealthHandler() *handler.HealthHandler
 	GetNotificationHandler() *handler.NotificationHandler
@@ -265,6 +266,7 @@ func registerAdminRoutes(r *gin.Engine, deps Dependencies) {
 			users.GET("/level-stats", deps.GetAdminUserHandler().GetUserLevelStats)
 			users.GET("/role-stats", deps.GetAdminUserHandler().GetUserRoleStats)
 			users.GET("/creation-dates", deps.GetAdminUserHandler().GetUserCreationDates)
+			users.GET("/:id/progression", deps.GetAdminProgressionHandler().GetUserProgression)
 		}
 
 		avatar := adminGrp.Group("/avatar")

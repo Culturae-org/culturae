@@ -108,6 +108,7 @@ type App struct {
 	AdminImportsHandler       *admin.AdminImportsHandler
 	AdminDatasetsHandler      *admin.AdminDatasetsHandler
 	AdminGameTemplatesHandler *admin.AdminGameTemplatesHandler
+	AdminProgressionHandler   *admin.AdminProgressionHandler
 	AdminFriendsHandler       *admin.AdminFriendsHandler
 	AdminReportsHandler       *admin.AdminReportsHandler
 	AdminMatchmakingHandler   *admin.AdminMatchmakingHandler
@@ -305,6 +306,10 @@ func (a *App) GetMaintenanceMiddleware() *middleware.MaintenanceMiddleware {
 
 func (a *App) GetAdminGameTemplatesHandler() *admin.AdminGameTemplatesHandler {
 	return a.AdminGameTemplatesHandler
+}
+
+func (a *App) GetAdminProgressionHandler() *admin.AdminProgressionHandler {
+	return a.AdminProgressionHandler
 }
 
 func (a *App) GetLobbyHandler() *handler.LobbyHandler {
@@ -738,6 +743,7 @@ type AppComponents struct {
 		Report          repository.ReportRepositoryInterface
 		AdminReport     adminRepo.AdminReportRepositoryInterface
 		GameEventLog    adminRepo.GameEventLogRepositoryInterface
+		Progression     adminRepo.ProgressionRepositoryInterface
 		AdminUser       adminRepo.AdminUserRepositoryInterface
 		AdminFriends    adminRepo.AdminFriendsRepositoryInterface
 		GameTemplate    repository.GameTemplateRepositoryInterface
@@ -791,6 +797,7 @@ type AppComponents struct {
 		AdminImports       *admin.AdminImportsHandler
 		AdminDatasets      *admin.AdminDatasetsHandler
 		AdminGameTemplates *admin.AdminGameTemplatesHandler
+		AdminProgression   *admin.AdminProgressionHandler
 		AdminLogs          *admin.AdminLogsHandler
 		AdminReports       *admin.AdminReportsHandler
 		AdminMatchmaking   *admin.AdminMatchmakingHandler
@@ -871,6 +878,7 @@ func buildApp(appCtx context.Context, cfg *config.Config, db *gorm.DB, deps *Dep
 		AdminLogsHandler:          components.Handlers.AdminLogs,
 		AdminDatasetsHandler:      components.Handlers.AdminDatasets,
 		AdminGameTemplatesHandler: components.Handlers.AdminGameTemplates,
+		AdminProgressionHandler:   components.Handlers.AdminProgression,
 		GeographyHandler:          components.Handlers.Geography,
 		WebSocketHandler:          components.Handlers.WebSocket,
 		ReportsHandler:            components.Handlers.Reports,
@@ -935,6 +943,7 @@ func setupRepositoriesInComponents(
 	components.Repositories.Report = reportRepo
 	components.Repositories.AdminReport = reportRepo
 	components.Repositories.GameEventLog = adminRepo.NewGameEventLogRepository(db)
+	components.Repositories.Progression = adminRepo.NewProgressionRepository(db)
 	components.Repositories.GameTemplate = repository.NewGameTemplateRepository(db)
 	components.Repositories.Notification = repository.NewNotificationRepository(db)
 
@@ -1116,6 +1125,8 @@ func setupUseCasesInComponents(
 		components.Repositories.Notification,
 		logger,
 	)
+	components.UseCases.Game.SetProgressionRepo(components.Repositories.Progression)
+
 	components.UseCases.AdminGame = adminUsecase.NewAdminGameUsecase(
 		components.Repositories.AdminGame,
 		components.Repositories.User,
@@ -1261,6 +1272,10 @@ func setupHandlersAndMiddlewares(
 		components.UseCases.AdminGameTemplates,
 		components.LoggingService,
 		logger,
+	)
+
+	components.Handlers.AdminProgression = admin.NewAdminProgressionHandler(
+		components.Repositories.Progression,
 	)
 
 	components.Handlers.AdminImports = admin.NewAdminImportsHandler(
