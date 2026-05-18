@@ -1118,8 +1118,7 @@ components:
         The server restarts the question timer from the exact point it was paused.
         All player timestamps are adjusted server-side so that anti-cheat timing
         validation remains correct after the pause.
-        Clients should hide the pause screen, re-enable the answer UI, and reset
-        the question countdown to `data.question_remaining_ms` milliseconds.
+        Clients should hide the pause screen and re-enable the answer UI.
         A `player_reconnected` (or `player_left`) event is emitted just before this one.
       payload:
         allOf:
@@ -1128,16 +1127,7 @@ components:
             properties:
               data:
                 type: object
-                required: [question_remaining_ms]
-                properties:
-                  question_remaining_ms:
-                    type: integer
-                    minimum: 0
-                    description: |
-                      Milliseconds remaining on the current question timer.
-                      Use this to reset the client-side countdown — do not rely on
-                      the original `time_limit` from `question_sent` as some time
-                      elapsed before the pause.
+                description: Empty payload — the game simply resumes from where it was paused.
 
     # ==========================================================================
     # Server → Client  (players)
@@ -1487,14 +1477,20 @@ components:
             enum: [game_invite]
           data:
             type: object
-            required: [invite_id, game_id, from_username, game_mode]
+            required: [invite_id, game_id, game_public_id, from_username, from_public_id, game_mode]
             properties:
               invite_id:
                 $ref: '#/components/schemas/UUID'
               game_id:
                 $ref: '#/components/schemas/UUID'
+              game_public_id:
+                type: string
+                description: Public ID of the invited game.
               from_username:
                 type: string
+              from_public_id:
+                type: string
+                description: Public ID of the player who sent the invite.
               game_mode:
                 type: string
                 enum: [solo, 1v1, multi]
@@ -1545,6 +1541,9 @@ components:
             properties:
               invite_id:
                 $ref: '#/components/schemas/UUID'
+              game_public_id:
+                type: string
+                description: Public ID of the rejected game.
 
     GameInviteUpdatedMessage:
       name: game_invite_updated
@@ -1822,17 +1821,33 @@ components:
         Emitted before the game is fully started.  After receiving this event,
         clients should call `POST /api/v1/games/:id/start` or send `start_game`
         once they have received `game_created` via the REST response.
-        The `game_public_id` will arrive shortly after via `game_started`.
+
+        Two variants are sent to each player:
+        1. A flat message with `game_public_id` and `mode` at the top level (from
+           `CreateMatchmakedGame` — sent directly to each player via `SendToUser`).
+        2. A data-wrapped message with only `mode` in `data` (from the matchmaking
+           pod's `createMatchWithParams` — also sent per-player).
+        Clients should handle both forms; `game_public_id` is only guaranteed in
+        the first variant.
       payload:
         type: object
-        required: [type, data]
+        required: [type]
         properties:
           type:
             type: string
             enum: [match_found]
+          game_public_id:
+            type: string
+            description: |
+              Public ID of the matched game. Present in the primary notification
+              sent by `CreateMatchmakedGame`. May be absent in the secondary
+              notification from the matchmaking pod.
+          mode:
+            type: string
+            description: The game mode that was matched (top-level, primary notification).
           data:
             type: object
-            required: [mode]
+            description: Present in the secondary notification from the matchmaking pod.
             properties:
               mode:
                 type: string
@@ -1918,7 +1933,7 @@ components:
                 description: The player's new ELO rating after the update.
               result:
                 type: string
-                enum: [win, loss]
+                enum: [win, loss, draw]
                 description: Outcome of the game from this player's perspective.
 
     # ==========================================================================
@@ -2120,14 +2135,14 @@ components:
             enum: [game_invite_cancelled]
           data:
             type: object
-            required: [invite_id, game_id]
+            required: [invite_id]
             properties:
               invite_id:
                 $ref: '#/components/schemas/UUID'
                 description: ID of the cancelled invite.
-              game_id:
-                $ref: '#/components/schemas/UUID'
-                description: ID of the game that was cancelled.
+              game_public_id:
+                type: string
+                description: Public ID of the game that was cancelled (present when cancelled via CancelGame).
 
     # ==========================================================================
     # Client → Server
