@@ -7343,6 +7343,65 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/admin/users/{id}/progression:
+    get:
+      operationId: adminGetUserProgression
+      summary: Get user progression history
+      description: Returns the full progression history (ELO, XP, level snapshots) for a user.
+      tags:
+      - Admin Users
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: User UUID
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/offset'
+      - $ref: '#/components/parameters/start_date'
+      - $ref: '#/components/parameters/end_date'
+      responses:
+        '200':
+          description: User progression snapshots
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        user_id:
+                          type: string
+                          format: uuid
+                        experience:
+                          type: integer
+                        level:
+                          type: integer
+                        elo_rating:
+                          type: number
+                        elo_games_played:
+                          type: integer
+                        created_at:
+                          type: string
+                          format: date-time
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/admin/users/level-stats:
     get:
       operationId: adminGetLevelStats
@@ -8554,6 +8613,11 @@ avg_time_ms: 0
           - questions
           - geography
         description: Filter by import type
+      - in: query
+        name: success
+        schema:
+          type: boolean
+        description: Filter by success status (true = successful only, false = failed only)
       responses:
         '200':
           description: Import jobs list
@@ -9133,298 +9197,24 @@ has_more: false
                 type: object
                 properties:
                   data:
-                    $ref: '#/components/schemas/GlobalAnalytics'
-              example:
-                data:
-                  total_answers: 0
-                  avg_success_rate: 0
-                  avg_time_ms: 0
-                  answers_per_day: null
-        401:
-          $ref: '#/components/responses/Unauthorized'
-        403:
-          $ref: '#/components/responses/Forbidden'
-  /api/v1/admin/analytics/entity:
-    get:
-      operationId: adminGetEntityKeyAnalytics
-      summary: Get entity key analytics
-      description: Returns analytics aggregated by entity key (e.g., country, theme, etc.).
-      tags:
-      - Admin Analytics
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: entity_type
-        in: query
-        schema:
-          type: string
-        description: Entity type to aggregate by
-      - name: limit
-        in: query
-        schema:
-          type: integer
-          default: 20
-        description: Number of results
-      responses:
-        200:
-          description: Entity analytics data
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
                     type: array
                     items:
                       type: object
-                      additionalProperties: true
-              example:
-                data: []
-        401:
-          $ref: '#/components/responses/Unauthorized'
-        403:
-          $ref: '#/components/responses/Forbidden'
-  /api/v1/admin/analytics/geography/countries:
-    get:
-      operationId: adminGetGeoCountryStats
-      summary: Get geography country stats
-      description: Returns analytics grouped by country for geography mode games.
-      tags:
-      - Admin Analytics
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: limit
-        in: query
-        schema:
-          type: integer
-          default: 20
-      responses:
-        200:
-          description: Analytics data
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      additionalProperties: true
-              example:
-                data: []
-        401:
-          $ref: '#/components/responses/Unauthorized'
-        403:
-          $ref: '#/components/responses/Forbidden'
-  /api/v1/admin/analytics/geography/countries-summary:
-    get:
-      operationId: adminGetCountriesSummary
-      summary: Get countries summary analytics
-      description: Returns a summary of performance stats across all countries.
-      tags:
-      - Admin Analytics
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: limit
-        in: query
-        schema:
-          type: integer
-          default: 20
-      responses:
-        200:
-          description: Analytics data
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      additionalProperties: true
-              example:
-                data: []
-        401:
-          $ref: '#/components/responses/Unauthorized'
-        403:
-          $ref: '#/components/responses/Forbidden'
-  /api/v1/admin/analytics/geography/questions:
-    get:
-      operationId: adminGetGeographyQuestionStats
-      summary: Get geography question stats
-      description: Returns analytics for geography-type questions.
-      tags:
-      - Admin Analytics
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: limit
-        in: query
-        schema:
-          type: integer
-          default: 20
-      responses:
-        200:
-          description: Analytics data
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      additionalProperties: true
-              example:
-                data: []
-        401:
-          $ref: '#/components/responses/Unauthorized'
-        403:
-          $ref: '#/components/responses/Forbidden'
-  /api/v1/admin/analytics/geography/variants:
-    get:
-      operationId: adminGetGeographyVariantStats
-      summary: Get geography variant stats
-      description: Returns stats grouped by geography game variant (flag variants, etc.).
-      tags:
-      - Admin Analytics
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: limit
-        in: query
-        schema:
-          type: integer
-          default: 20
-      responses:
-        200:
-          description: Analytics data
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      additionalProperties: true
-              example:
-                data: []
-        401:
-          $ref: '#/components/responses/Unauthorized'
-        403:
-          $ref: '#/components/responses/Forbidden'
-  /api/v1/admin/analytics/geography/country/{slug}:
-    get:
-      operationId: adminGetCountryAnalytics
-      summary: Get country analytics
-      description: Returns detailed analytics for a specific country (success rates, avg time, play count).
-      tags:
-      - Admin Analytics
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: slug
-        in: path
-        required: true
-        schema:
-          type: string
-        description: Country slug (e.g. france)
-        example: france
-      responses:
-        200:
-          description: Country analytics
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    additionalProperties: true
-              example:
-                data:
-                  slug: france
-                  total_answers: 0
-                  success_rate: 0
-                  avg_time_ms: 0
-        401:
-          $ref: '#/components/responses/Unauthorized'
-        403:
-          $ref: '#/components/responses/Forbidden'
-        404:
-          $ref: '#/components/responses/NotFound'
-  /api/v1/admin/analytics/geography/country/{slug}/games:
-    get:
-      operationId: adminGetCountryGames
-      summary: Get games for a country
-      description: Returns game statistics for questions involving a specific country.
-      tags:
-      - Admin Analytics
-      security:
-      - BearerAuth: []
-      parameters:
-      - name: slug
-        in: path
-        required: true
-        schema:
-          type: string
-        description: Country slug
-      - name: limit
-        in: query
-        schema:
-          type: integer
-          default: 20
-      responses:
-        '200':
-          description: Game stats for country
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      additionalProperties: true
-              example:
-                data: []
-        401:
-          $ref: '#/components/responses/Unauthorized'
-403:
-          $ref: '#/components/responses/Forbidden'
-  /api/v1/admin/games/stats/performance:
-    get:
-      operationId: adminGetGamePerformanceStats
-      summary: Get game performance stats
-      description: Returns performance statistics for games (avg duration, completion rate, score distributions).
-      tags:
-      - Admin Games
-      security:
-      - BearerAuth: []
-      responses:
-        200:
-          description: Game performance stats
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    additionalProperties: true
-              example:
-                data:
-                  avg_duration_seconds: 0
-                  completion_rate: 0
-                  abandonment_rate: 0
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        game_id:
+                          type: string
+                          format: uuid
+                        event_type:
+                          type: string
+                        payload:
+                          type: object
+                          additionalProperties: true
+                        created_at:
+                          type: string
+                          format: date-time
         401:
           $ref: '#/components/responses/Unauthorized'
         403:
@@ -9599,6 +9389,19 @@ has_more: false
           - solo
           - 1v1
           - multi
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Free-text search (game ID, creator username)
+      - in: query
+        name: archived
+        schema:
+          type: string
+          enum:
+          - 'true'
+          - 'false'
+        description: Filter by archived status (true = archived only, false = active only, omit for all)
       responses:
         '200':
           description: Games list
@@ -10110,6 +9913,8 @@ has_more: false
           format: uuid
       - $ref: '#/components/parameters/limit'
       - $ref: '#/components/parameters/offset'
+      - $ref: '#/components/parameters/game_status'
+      - $ref: '#/components/parameters/mode'
       responses:
         '200':
           description: User game history
