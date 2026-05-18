@@ -146,8 +146,13 @@ func (uc *AdminUserUsecase) DeactivateUserByID(id string) error {
 	return nil
 }
 
-func (uc *AdminUserUsecase) GetUserConnectionLogs(id string, successFilter *bool) ([]model.UserConnectionLog, error) {
-	return uc.Repo.GetUserConnectionLogs(id, successFilter)
+func (uc *AdminUserUsecase) GetUserConnectionLogs(id string, successFilter *bool, limit, offset int) ([]model.UserConnectionLog, int64, error) {
+	total, err := uc.Repo.CountUserConnectionLogs(id, successFilter)
+	if err != nil {
+		return nil, 0, err
+	}
+	logs, _, err := uc.Repo.GetUserConnectionLogs(id, successFilter, limit, offset)
+	return logs, total, err
 }
 
 func (uc *AdminUserUsecase) GetUserActiveSessions(id string) ([]model.Session, error) {

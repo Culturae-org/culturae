@@ -22,7 +22,8 @@ type AdminUserRepositoryInterface interface {
 	GetUserByID(id string) (*model.User, error)
 	UpdateUserByID(id string, userUpdate model.UserUpdate) (*model.User, error)
 	DeactivateUserByID(id string) error
-	GetUserConnectionLogs(id string, successFilter *bool) ([]model.UserConnectionLog, error)
+	GetUserConnectionLogs(id string, successFilter *bool, limit, offset int) ([]model.UserConnectionLog, int64, error)
+	CountUserConnectionLogs(id string, successFilter *bool) (int64, error)
 	GetUserActiveSessions(id string) ([]model.Session, error)
 	UpdateUserPassword(id string, hashedPassword string) error
 	GetUserLevelStats() (map[string]int, error)
@@ -165,14 +166,24 @@ func (r *AdminUserRepository) DeactivateUserByID(id string) error {
 	return nil
 }
 
-func (r *AdminUserRepository) GetUserConnectionLogs(id string, successFilter *bool) ([]model.UserConnectionLog, error) {
+func (r *AdminUserRepository) GetUserConnectionLogs(id string, successFilter *bool, limit, offset int) ([]model.UserConnectionLog, int64, error) {
 	var logs []model.UserConnectionLog
 	query := r.DB.Where("user_id = ?", id)
 	if successFilter != nil {
 		query = query.Where("is_success = ?", *successFilter)
 	}
-	err := query.Find(&logs).Error
-	return logs, err
+	err := query.Order("created_at DESC").Limit(limit).Offset(offset).Find(&logs).Error
+	return logs, 0, err
+}
+
+func (r *AdminUserRepository) CountUserConnectionLogs(id string, successFilter *bool) (int64, error) {
+	var count int64
+	query := r.DB.Model(&model.UserConnectionLog{}).Where("user_id = ?", id)
+	if successFilter != nil {
+		query = query.Where("is_success = ?", *successFilter)
+	}
+	err := query.Count(&count).Error
+	return count, err
 }
 
 func (r *AdminUserRepository) GetUserActiveSessions(id string) ([]model.Session, error) {
