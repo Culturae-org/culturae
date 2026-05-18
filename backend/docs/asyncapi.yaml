@@ -2,7 +2,7 @@ asyncapi: 3.0.0
 info:
   title: Culturae Platform — Real-time WebSocket API
   version: 1.0.0
-  x-last-updated: "2026-05-06"
+  x-last-updated: "2026-05-18"
   description: |
     AsyncAPI specification for Culturae's WebSocket-based real-time game protocol.
 
