@@ -7343,6 +7343,112 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/admin/users/{id}/ban:
+    post:
+      operationId: adminBanUser
+      summary: Ban user
+      description: Bans a user for a specified duration with a reason. Use duration "permanent" for indefinite bans.
+      tags:
+      - Admin Users
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: User UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - duration
+              - reason
+              properties:
+                duration:
+                  type: string
+                  description: Ban duration (e.g. "24h", "7d", "permanent")
+                  example: 7d
+                reason:
+                  type: string
+                  description: Reason for the ban
+                  example: Repeated cheating violations
+            example:
+              duration: 7d
+              reason: Repeated cheating violations
+      responses:
+        '200':
+          description: User banned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/AdminUser'
+              example:
+                message: User banned successfully
+                data:
+                  id: 1d65428d-29be-4ae2-947d-ce9cf7f94db2
+                  username: cheater123
+                  account_status: banned
+                  ban_reason: Repeated cheating violations
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/admin/users/{id}/unban:
+    post:
+      operationId: adminUnbanUser
+      summary: Unban user
+      description: Removes an active ban from a user, restoring their account to active status.
+      tags:
+      - Admin Users
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: User UUID
+      responses:
+        '200':
+          description: User unbanned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/AdminUser'
+              example:
+                message: User unbanned successfully
+                data:
+                  id: 1d65428d-29be-4ae2-947d-ce9cf7f94db2
+                  username: cheater123
+                  account_status: active
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/admin/users/{id}/progression:
     get:
       operationId: adminGetUserProgression
@@ -7396,6 +7502,20 @@ paths:
                           format: date-time
                   pagination:
                     $ref: '#/components/schemas/Pagination'
+              example:
+                data:
+                - id: d4e5f6a7-0000-0000-0000-000000000001
+                  user_id: dfaf026c-524f-4194-b661-a401637d1f7a
+                  experience: 1200
+                  level: 5
+                  elo_rating: 1080.5
+                  elo_games_played: 12
+                  created_at: '2026-05-17T00:44:04Z'
+                pagination:
+                  total: 12
+                  limit: 50
+                  offset: 0
+                  has_more: false
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -8305,7 +8425,7 @@ paths:
   /api/v1/admin/questions/{id}:
     get:
       operationId: adminGetQuestion
-      summary: Get question
+      summary: Get question by ID
       tags:
       - Admin Questions
       security:
@@ -8318,7 +8438,7 @@ paths:
           type: string
           format: uuid
       responses:
-        200:
+        '200':
           description: Question details
           content:
             application/json:
@@ -8329,41 +8449,94 @@ paths:
                     $ref: '#/components/schemas/Question'
               example:
                 data:
-                  id: d311236a-441a-4379-b3ce-54cdc5364195
-                  kind: question
-                  version: '1.0'
-                  slug: science-physics-light-speed-vacuum
-                  qtype: single_choice
-                  difficulty: intermediate
-                  estimated_seconds: 20
-                  shuffle_answers: true
-                  dataset_id: 5d6143df-5a63-4c83-b206-a6369fbcf49d
-                  theme:
-                    id: 004194cc-74f5-434d-843f-a341fac6efdd
-                    slug: science
-                  i18n:
-                    en:
-                      stem: What is the speed of light in a vacuum?
-                      title: Speed of Light
-                      explanation: The speed of light in a vacuum is approximately 299,792 km/s.
+                  id: 550e8400-e29b-41d4-a716-446655440000
+                  slug: science-physics-speed-of-light
+                  question: What is the speed of light?
                   answers:
-                  - slug: 300000-km-s
+                  - text: 299 792 km/s
                     is_correct: true
-                    i18n:
-                      en:
-                        label: 300,000 km/s
-                  - slug: 150000-km-s
+                  - text: 150 000 km/s
                     is_correct: false
-                    i18n:
-                      en:
-                        label: 150,000 km/s
-                  sources:
-                  - https://en.wikipedia.org/wiki/Speed_of_light
-                  times_played: 0
-                  times_correct: 0
-                  success_rate: 0
-avg_time_ms: 0
-                  answers_per_day: null
+                  dataset_id: 30d7e316-3e4c-41f3-906b-42329a891ac6
+                  created_at: '2026-01-01T00:00:00Z'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: adminUpdateQuestion
+      summary: Update question
+      tags:
+      - Admin Questions
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionCreateRequest'
+            example:
+              question: What is the speed of light in vacuum?
+              answers:
+              - text: 299 792 km/s
+                is_correct: true
+              - text: 150 000 km/s
+                is_correct: false
+              dataset_id: 30d7e316-3e4c-41f3-906b-42329a891ac6
+      responses:
+        '200':
+          description: Question updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Question'
+              example:
+                data:
+                  id: 550e8400-e29b-41d4-a716-446655440000
+                  slug: science-physics-speed-of-light-in-vacuum
+                  question: What is the speed of light in vacuum?
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      operationId: adminDeleteQuestion
+      summary: Delete question
+      tags:
+      - Admin Questions
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Question deleted
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                message: Question deleted successfully
         401:
           $ref: '#/components/responses/Unauthorized'
         403:
@@ -8393,70 +8566,23 @@ avg_time_ms: 0
                 properties:
                   data:
                     $ref: '#/components/schemas/Question'
+              example:
+                data:
+                  id: 550e8400-e29b-41d4-a716-446655440000
+                  slug: science-physics-speed-of-light
+                  question: What is the speed of light?
+                  answers:
+                  - text: 299 792 km/s
+                    is_correct: true
+                  - text: 150 000 km/s
+                    is_correct: false
+                  dataset_id: 30d7e316-3e4c-41f3-906b-42329a891ac6
         401:
           $ref: '#/components/responses/Unauthorized'
         403:
           $ref: '#/components/responses/Forbidden'
         404:
           $ref: '#/components/responses/NotFound'
-  /api/v1/admin/questions/{id}:
-    put:
-      operationId: adminUpdateQuestion
-      summary: Update question
-      tags:
-      - Admin Questions
-      security:
-      - BearerAuth: []
-      parameters:
-      - in: path
-        name: id
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/QuestionCreateRequest'
-      responses:
-        '200':
-          description: Question updated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    $ref: '#/components/schemas/Question'
-        400:
-          $ref: '#/components/responses/BadRequest'
-        401:
-          $ref: '#/components/responses/Unauthorized'
-        403:
-          $ref: '#/components/responses/Forbidden'
-    delete:
-      operationId: adminDeleteQuestion
-      summary: Delete question
-      tags:
-      - Admin Questions
-      security:
-      - BearerAuth: []
-      parameters:
-      - in: path
-        name: id
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '204':
-          description: Question deleted
-        401:
-          $ref: '#/components/responses/Unauthorized'
-        403:
-          $ref: '#/components/responses/Forbidden'
   /api/v1/admin/questions/export:
     get:
       operationId: adminExportQuestions
@@ -8775,6 +8901,1637 @@ avg_time_ms: 0
           $ref: '#/components/responses/Unauthorized'
         403:
           $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/geography/slug/{slug}:
+    get:
+      operationId: adminGetGeographyDatasetBySlug
+      summary: Get geography dataset by slug
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+        description: Dataset slug (e.g. world-countries)
+      responses:
+        '200':
+          description: Geography dataset
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  id: a1b2c3d4-0000-0000-0000-000000000001
+                  slug: world-countries
+                  name: World Countries
+                  is_default: true
+                  country_count: 195
+                  created_at: '2026-01-01T00:00:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/admin/geography/flags/{country_code}:
+    get:
+      operationId: adminGetGeographyFlag
+      summary: Get flag (no dataset ID)
+      description: Returns the SVG flag for a country using the default geography dataset.
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: country_code
+        required: true
+        schema:
+          type: string
+        description: ISO 3166-1 alpha-2 country code (e.g. FR)
+      responses:
+        '200':
+          description: SVG flag image
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/admin/geography/{id}:
+    get:
+      operationId: adminGetGeographyDataset
+      summary: Get geography dataset by ID
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Geography dataset UUID
+      responses:
+        '200':
+          description: Geography dataset details
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  id: a1b2c3d4-0000-0000-0000-000000000001
+                  slug: world-countries
+                  name: World Countries
+                  is_default: true
+                  country_count: 195
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: adminDeleteGeographyDataset
+      summary: Delete geography dataset
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Dataset deleted
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                message: Geography dataset deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/admin/geography/{id}/stats:
+    get:
+      operationId: adminGetGeographyDatasetStatistics
+      summary: Get geography dataset statistics
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Geography dataset statistics
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  total_countries: 195
+                  total_continents: 6
+                  total_regions: 22
+                  countries_with_flags: 195
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/admin/geography/{id}/set-default:
+    post:
+      operationId: adminSetDefaultGeographyDataset
+      summary: Set geography dataset as default
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Default geography dataset updated
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                message: Default geography dataset updated
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/admin/geography/{id}/countries:
+    get:
+      operationId: adminListCountries
+      summary: List countries in dataset
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Geography dataset UUID
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/offset'
+      - $ref: '#/components/parameters/continent'
+      - $ref: '#/components/parameters/region'
+      responses:
+        '200':
+          description: List of countries
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                - slug: france
+                  name: France
+                  official_name: French Republic
+                  code: FR
+                  continent: Europe
+                  region: Western Europe
+                  population: 68042591
+                  area: 551695
+                pagination:
+                  total: 195
+                  limit: 50
+                  offset: 0
+                  has_more: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/geography/{id}/countries/search:
+    get:
+      operationId: adminSearchCountries
+      summary: Search countries
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/q'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                - slug: france
+                  name: France
+                  code: FR
+                  continent: Europe
+                pagination:
+                  total: 1
+                  limit: 20
+                  offset: 0
+                  has_more: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/geography/{id}/countries/{slug}:
+    get:
+      operationId: adminGetCountry
+      summary: Get country by slug
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+        description: Country slug (e.g. france)
+      responses:
+        '200':
+          description: Country details
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  slug: france
+                  name: France
+                  official_name: French Republic
+                  code: FR
+                  continent: Europe
+                  region: Western Europe
+                  capital: Paris
+                  population: 68042591
+                  area: 551695
+                  driving_side: right
+                  un_member: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: adminUpdateCountry
+      summary: Update country
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                capital:
+                  type: string
+                population:
+                  type: integer
+                  format: int64
+                area:
+                  type: number
+                  format: double
+            example:
+              capital: Paris
+              population: 68500000
+      responses:
+        '200':
+          description: Country updated
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  slug: france
+                  name: France
+                  capital: Paris
+                  population: 68500000
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/admin/geography/{id}/countries/continent/{continent}:
+    get:
+      operationId: adminListCountriesByContinent
+      summary: List countries by continent
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: continent
+        required: true
+        schema:
+          type: string
+        description: Continent slug (e.g. europe)
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: Countries in continent
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                - slug: france
+                  name: France
+                  code: FR
+                  continent: Europe
+                pagination:
+                  total: 44
+                  limit: 50
+                  offset: 0
+                  has_more: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/geography/{id}/countries/region/{region}:
+    get:
+      operationId: adminListCountriesByRegion
+      summary: List countries by region
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: region
+        required: true
+        schema:
+          type: string
+        description: Region slug (e.g. western-europe)
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: Countries in region
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                - slug: france
+                  name: France
+                  code: FR
+                  region: Western Europe
+                pagination:
+                  total: 8
+                  limit: 50
+                  offset: 0
+                  has_more: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/geography/{id}/continents:
+    get:
+      operationId: adminListContinents
+      summary: List continents in dataset
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: List of continents
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                - slug: europe
+                  name: Europe
+                  country_count: 44
+                - slug: asia
+                  name: Asia
+                  country_count: 48
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/geography/{id}/continents/{slug}:
+    get:
+      operationId: adminGetContinent
+      summary: Get continent by slug
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Continent details
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  slug: europe
+                  name: Europe
+                  country_count: 44
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: adminUpdateContinent
+      summary: Update continent
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+            example:
+              name: Europe
+      responses:
+        '200':
+          description: Continent updated
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  slug: europe
+                  name: Europe
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/admin/geography/{id}/regions:
+    get:
+      operationId: adminListRegions
+      summary: List regions in dataset
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/continent'
+      responses:
+        '200':
+          description: List of regions
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                - slug: western-europe
+                  name: Western Europe
+                  continent: Europe
+                  country_count: 8
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/geography/{id}/regions/{slug}:
+    get:
+      operationId: adminGetRegion
+      summary: Get region by slug
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Region details
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  slug: western-europe
+                  name: Western Europe
+                  continent: Europe
+                  country_count: 8
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: adminUpdateRegion
+      summary: Update region
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+            example:
+              name: Western Europe
+      responses:
+        '200':
+          description: Region updated
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  slug: western-europe
+                  name: Western Europe
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/admin/geography/{id}/regions/continent/{continent}:
+    get:
+      operationId: adminListRegionsByContinent
+      summary: List regions by continent
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: continent
+        required: true
+        schema:
+          type: string
+        description: Continent slug
+      responses:
+        '200':
+          description: Regions in continent
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                - slug: western-europe
+                  name: Western Europe
+                  country_count: 8
+                - slug: eastern-europe
+                  name: Eastern Europe
+                  country_count: 10
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/geography/{id}/flags/{country_code}:
+    get:
+      operationId: adminGetGeographyDatasetFlag
+      summary: Get flag from specific dataset
+      description: Returns the SVG flag for a country from a specific geography dataset.
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: country_code
+        required: true
+        schema:
+          type: string
+        description: ISO 3166-1 alpha-2 country code (e.g. FR)
+      responses:
+        '200':
+          description: SVG flag
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/admin/geography/{id}/flags/{country_code}/url:
+    get:
+      operationId: adminGetGeographyDatasetFlagURL
+      summary: Get flag URL from specific dataset
+      tags:
+      - Admin Geography
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: country_code
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Flag URL
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  url: https://demo.culturae.me/api/v1/geography/flags/FR
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/admin/matchmaking/stats:
+    get:
+      operationId: adminGetMatchmakingStats
+      summary: Get matchmaking queue stats
+      description: Returns current queue sizes and wait times for each game mode.
+      tags:
+      - Admin Matchmaking
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Matchmaking queue statistics
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  queues:
+                    solo:
+                      size: 3
+                      avg_wait_seconds: 12
+                    1v1:
+                      size: 8
+                      avg_wait_seconds: 25
+                  total_queued: 11
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/matchmaking/queue/{mode}:
+    delete:
+      operationId: adminClearMatchmakingQueue
+      summary: Clear matchmaking queue
+      description: Removes all players from the matchmaking queue for a specific game mode.
+      tags:
+      - Admin Matchmaking
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: mode
+        required: true
+        schema:
+          type: string
+          enum:
+          - solo
+          - 1v1
+        description: Game mode queue to clear
+      responses:
+        '200':
+          description: Queue cleared
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                message: Queue cleared for mode 1v1
+                data:
+                  mode: 1v1
+                  removed: 8
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/settings/maintenance:
+    get:
+      operationId: adminGetMaintenanceStatus
+      summary: Get maintenance mode status
+      description: Returns whether maintenance mode is currently enabled.
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Maintenance status
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: adminSetMaintenanceMode
+      summary: Set maintenance mode
+      description: Enables or disables maintenance mode. When enabled, all non-admin API requests return 503.
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - enabled
+              properties:
+                enabled:
+                  type: boolean
+            example:
+              enabled: true
+      responses:
+        '200':
+          description: Maintenance mode updated
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/settings/rate-limit:
+    get:
+      operationId: adminGetRateLimitConfig
+      summary: Get rate limit configuration
+      description: Returns the current runtime rate limit settings.
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Rate limit configuration
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  enabled: true
+                  apply_to_admin: false
+                  max_requests: 100
+                  window_seconds: 60
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      operationId: adminUpdateRateLimitConfig
+      summary: Update rate limit configuration
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - enabled
+              - max_requests
+              - window_seconds
+              properties:
+                enabled:
+                  type: boolean
+                apply_to_admin:
+                  type: boolean
+                max_requests:
+                  type: integer
+                  minimum: 1
+                window_seconds:
+                  type: integer
+                  minimum: 1
+            example:
+              enabled: true
+              apply_to_admin: false
+              max_requests: 100
+              window_seconds: 60
+      responses:
+        '200':
+          description: Rate limit config updated
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  enabled: true
+                  apply_to_admin: false
+                  max_requests: 100
+                  window_seconds: 60
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/settings/cache/clear:
+    post:
+      operationId: adminClearCache
+      summary: Clear application cache
+      description: Flushes Redis cache keys (preserving system, session, and rate_limit keys).
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Cache cleared
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                message: Cache cleared successfully
+                data:
+                  deleted_keys: 47
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/settings/websocket:
+    get:
+      operationId: adminGetWebSocketConfig
+      summary: Get WebSocket configuration
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: WebSocket configuration
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  write_wait_seconds: 10
+                  pong_wait_seconds: 60
+                  max_message_size_kb: 512
+                  allowed_origins:
+                  - https://demo.culturae.me
+                  reconnect_grace_period_seconds: 180
+                  message_rate_limit: 30
+                  message_rate_window_seconds: 60
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      operationId: adminUpdateWebSocketConfig
+      summary: Update WebSocket configuration
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - write_wait_seconds
+              - pong_wait_seconds
+              - max_message_size_kb
+              properties:
+                write_wait_seconds:
+                  type: integer
+                  minimum: 1
+                pong_wait_seconds:
+                  type: integer
+                  minimum: 1
+                max_message_size_kb:
+                  type: integer
+                  minimum: 1
+                allowed_origins:
+                  type: array
+                  items:
+                    type: string
+                reconnect_grace_period_seconds:
+                  type: integer
+                message_rate_limit:
+                  type: integer
+                message_rate_window_seconds:
+                  type: integer
+            example:
+              write_wait_seconds: 10
+              pong_wait_seconds: 60
+              max_message_size_kb: 512
+              allowed_origins:
+              - https://demo.culturae.me
+              reconnect_grace_period_seconds: 180
+              message_rate_limit: 30
+              message_rate_window_seconds: 60
+      responses:
+        '200':
+          description: WebSocket config updated
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  write_wait_seconds: 10
+                  pong_wait_seconds: 60
+                  max_message_size_kb: 512
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/settings/avatar:
+    get:
+      operationId: adminGetAvatarConfig
+      summary: Get avatar configuration
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Avatar configuration
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  max_file_size_mb: 5
+                  allowed_mime_types:
+                  - image/jpeg
+                  - image/png
+                  - image/webp
+                  allowed_extensions:
+                  - .jpg
+                  - .jpeg
+                  - .png
+                  - .webp
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      operationId: adminUpdateAvatarConfig
+      summary: Update avatar configuration
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - max_file_size_mb
+              - allowed_mime_types
+              - allowed_extensions
+              properties:
+                max_file_size_mb:
+                  type: integer
+                  minimum: 1
+                allowed_mime_types:
+                  type: array
+                  items:
+                    type: string
+                allowed_extensions:
+                  type: array
+                  items:
+                    type: string
+            example:
+              max_file_size_mb: 5
+              allowed_mime_types:
+              - image/jpeg
+              - image/png
+              allowed_extensions:
+              - .jpg
+              - .png
+      responses:
+        '200':
+          description: Avatar config updated
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  max_file_size_mb: 5
+                  allowed_mime_types:
+                  - image/jpeg
+                  - image/png
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/settings/xp:
+    get:
+      operationId: adminGetXPConfig
+      summary: Get XP configuration
+      description: Returns the experience point system configuration (base XP, growth rate, rank thresholds).
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: XP configuration
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  base_xp: 100
+                  growth_rate: 1.5
+                  ranks:
+                  - name: Beginner
+                    min_level: 0
+                    max_level: 9
+                  - name: Intermediate
+                    min_level: 10
+                    max_level: 24
+                  - name: Expert
+                    min_level: 25
+                    max_level: 49
+                  - name: Master
+                    min_level: 50
+                    max_level: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      operationId: adminUpdateXPConfig
+      summary: Update XP configuration
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - base_xp
+              - growth_rate
+              - ranks
+              properties:
+                base_xp:
+                  type: integer
+                  minimum: 1
+                growth_rate:
+                  type: number
+                  minimum: 0
+                ranks:
+                  type: array
+                  items:
+                    type: object
+            example:
+              base_xp: 100
+              growth_rate: 1.5
+              ranks:
+              - name: Beginner
+                min_level: 0
+                max_level: 9
+      responses:
+        '200':
+          description: XP config updated
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  base_xp: 100
+                  growth_rate: 1.5
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/settings/elo:
+    get:
+      operationId: adminGetELOConfig
+      summary: Get ELO rating configuration
+      description: Returns ELO K-factor settings and rating bounds.
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: ELO configuration
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  k_factor_low_games: 32
+                  k_factor_high_games: 16
+                  k_factor_threshold: 30
+                  min_rating: 100
+                  max_rating: 3000
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      operationId: adminUpdateELOConfig
+      summary: Update ELO rating configuration
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - k_factor_low_games
+              - k_factor_high_games
+              - k_factor_threshold
+              properties:
+                k_factor_low_games:
+                  type: number
+                  minimum: 1
+                k_factor_high_games:
+                  type: number
+                  minimum: 1
+                k_factor_threshold:
+                  type: integer
+                  minimum: 1
+                min_rating:
+                  type: number
+                max_rating:
+                  type: number
+            example:
+              k_factor_low_games: 32
+              k_factor_high_games: 16
+              k_factor_threshold: 30
+              min_rating: 100
+              max_rating: 3000
+      responses:
+        '200':
+          description: ELO config updated
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  k_factor_low_games: 32
+                  k_factor_high_games: 16
+                  k_factor_threshold: 30
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/settings/games:
+    get:
+      operationId: adminGetGamesConfig
+      summary: Get games configuration
+      description: Returns game lifecycle settings (TTL for active/finished games, etc.).
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Games configuration
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  active_ttl_minutes: 60
+                  finished_ttl_minutes: 1440
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      operationId: adminUpdateGamesConfig
+      summary: Update games configuration
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - active_ttl_minutes
+              - finished_ttl_minutes
+              properties:
+                active_ttl_minutes:
+                  type: integer
+                  minimum: 1
+                finished_ttl_minutes:
+                  type: integer
+                  minimum: 1
+            example:
+              active_ttl_minutes: 60
+              finished_ttl_minutes: 1440
+      responses:
+        '200':
+          description: Games config updated
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  active_ttl_minutes: 60
+                  finished_ttl_minutes: 1440
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/settings/games-countdown:
+    get:
+      operationId: adminGetGameCountdownConfig
+      summary: Get game countdown configuration
+      description: Returns pre-game countdown and reconnect grace period settings.
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Game countdown configuration
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  pre_game_countdown_seconds: 5
+                  reconnect_grace_period_seconds: 30
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      operationId: adminUpdateGameCountdownConfig
+      summary: Update game countdown configuration
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - pre_game_countdown_seconds
+              - reconnect_grace_period_seconds
+              properties:
+                pre_game_countdown_seconds:
+                  type: integer
+                  minimum: 1
+                reconnect_grace_period_seconds:
+                  type: integer
+                  minimum: 1
+            example:
+              pre_game_countdown_seconds: 5
+              reconnect_grace_period_seconds: 30
+      responses:
+        '200':
+          description: Game countdown config updated
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  pre_game_countdown_seconds: 5
+                  reconnect_grace_period_seconds: 30
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/settings/system:
+    get:
+      operationId: adminGetSystemConfig
+      summary: Get system configuration
+      description: Returns runtime system settings including cache TTLs, cleanup intervals, and cron job schedules.
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: System configuration
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  user_cache_ttl_minutes: 10
+                  cleanup_interval_minutes: 60
+                  offline_delay_seconds: 30
+                  game_leave_delay_seconds: 10
+                  analytics_active_days: 1
+                  analytics_archive_days: 30
+                  dataset_check_enabled: true
+                  dataset_check_cron: 0 * * * *
+                  session_cleanup_enabled: true
+                  session_cleanup_cron: 0 * * * *
+                  game_cleanup_enabled: true
+                  game_cleanup_cron: '*/5 * * * *'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      operationId: adminUpdateSystemConfig
+      summary: Update system configuration
+      description: Updates runtime system settings. Cron fields must use valid cron expressions. Triggers scheduler restart.
+      tags:
+      - Admin Settings
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - user_cache_ttl_minutes
+              - cleanup_interval_minutes
+              properties:
+                user_cache_ttl_minutes:
+                  type: integer
+                  minimum: 1
+                cleanup_interval_minutes:
+                  type: integer
+                  minimum: 1
+                offline_delay_seconds:
+                  type: integer
+                game_leave_delay_seconds:
+                  type: integer
+                analytics_active_days:
+                  type: integer
+                analytics_archive_days:
+                  type: integer
+                dataset_check_enabled:
+                  type: boolean
+                dataset_check_cron:
+                  type: string
+                  description: Valid cron expression
+                session_cleanup_enabled:
+                  type: boolean
+                session_cleanup_cron:
+                  type: string
+                game_cleanup_enabled:
+                  type: boolean
+                game_cleanup_cron:
+                  type: string
+            example:
+              user_cache_ttl_minutes: 10
+              cleanup_interval_minutes: 60
+              offline_delay_seconds: 30
+              game_leave_delay_seconds: 10
+              dataset_check_enabled: true
+              dataset_check_cron: 0 * * * *
+              game_cleanup_enabled: true
+              game_cleanup_cron: '*/5 * * * *'
+      responses:
+        '200':
+          description: System config updated
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  user_cache_ttl_minutes: 10
+                  cleanup_interval_minutes: 60
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/admin/settings/auth:
     get:
       operationId: adminGetAuthConfig
@@ -8957,6 +10714,223 @@ avg_time_ms: 0
                   latest_version: 1.0.1
                   update_available: true
                   check_performed_at: '2026-04-19T10:00:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/datasets:
+    get:
+      operationId: adminListDatasets
+      summary: List all datasets
+      description: Returns a paginated list of all datasets (questions and geography).
+      tags:
+      - Admin Datasets
+      security:
+      - BearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/offset'
+      - in: query
+        name: type
+        schema:
+          type: string
+          enum:
+          - questions
+          - geography
+        description: Filter by dataset type
+      - $ref: '#/components/parameters/active_only'
+      responses:
+        '200':
+          description: List of datasets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UnifiedDataset'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+              example:
+                data:
+                - id: 30d7e316-3e4c-41f3-906b-42329a891ac6
+                  slug: general-knowledge
+                  name: General Knowledge
+                  type: questions
+                  version: 1.0.11
+                  is_default: true
+                  question_count: 150
+                  created_at: '2026-01-01T00:00:00Z'
+                pagination:
+                  total: 3
+                  limit: 50
+                  offset: 0
+                  has_more: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: adminCreateDataset
+      summary: Create dataset
+      description: Creates a new empty dataset.
+      tags:
+      - Admin Datasets
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - slug
+              - name
+              - type
+              properties:
+                slug:
+                  type: string
+                  example: my-custom-dataset
+                name:
+                  type: string
+                  example: My Custom Dataset
+                type:
+                  type: string
+                  enum:
+                  - questions
+                  - geography
+                description:
+                  type: string
+                  example: A custom question dataset
+            example:
+              slug: my-custom-dataset
+              name: My Custom Dataset
+              type: questions
+              description: A custom question dataset
+      responses:
+        '201':
+          description: Dataset created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UnifiedDataset'
+              example:
+                data:
+                  id: 550e8400-e29b-41d4-a716-446655440099
+                  slug: my-custom-dataset
+                  name: My Custom Dataset
+                  type: questions
+                  is_default: false
+                  question_count: 0
+                  created_at: '2026-05-19T00:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/datasets/default:
+    get:
+      operationId: adminGetDefaultDataset
+      summary: Get default dataset
+      description: Returns the currently active default dataset.
+      tags:
+      - Admin Datasets
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Default dataset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UnifiedDataset'
+              example:
+                data:
+                  id: 30d7e316-3e4c-41f3-906b-42329a891ac6
+                  slug: general-knowledge
+                  name: General Knowledge
+                  type: questions
+                  is_default: true
+                  version: 1.0.11
+                  question_count: 150
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/admin/datasets/check-updates:
+    post:
+      operationId: adminCheckDatasetUpdates
+      summary: Check for dataset updates
+      description: Checks the remote manifest for available dataset updates.
+      tags:
+      - Admin Datasets
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Update check result
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  has_updates: true
+                  current_version: 1.0.10
+                  latest_version: 1.0.11
+                  dataset: general-knowledge
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/datasets/import:
+    post:
+      operationId: adminImportDataset
+      summary: Import dataset
+      description: Triggers an import job from a remote manifest URL.
+      tags:
+      - Admin Datasets
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  description: Manifest URL to import from
+                  example: https://raw.githubusercontent.com/Culturae-org/cultpedia/main/datasets/general-knowledge/manifest.json
+            example:
+              url: https://raw.githubusercontent.com/Culturae-org/cultpedia/main/datasets/general-knowledge/manifest.json
+      responses:
+        '200':
+          description: Import job started
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  job_id: 550e8400-e29b-41d4-a716-446655440001
+                  status: started
+                  message: Import job queued successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -9171,6 +11145,166 @@ has_more: false
           $ref: '#/components/responses/Unauthorized'
         403:
           $ref: '#/components/responses/Forbidden'
+  /api/v1/admin/datasets/{id}/questions:
+    get:
+      operationId: adminGetDatasetQuestions
+      summary: Get dataset questions
+      description: Returns paginated questions belonging to a specific dataset.
+      tags:
+      - Admin Datasets
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Dataset UUID
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/offset'
+      - $ref: '#/components/parameters/search'
+      responses:
+        '200':
+          description: Dataset questions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Question'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+              example:
+                data:
+                - id: 550e8400-e29b-41d4-a716-446655440000
+                  slug: science-physics-speed-of-light
+                  question: What is the speed of light?
+                  dataset_id: 30d7e316-3e4c-41f3-906b-42329a891ac6
+                pagination:
+                  total: 150
+                  limit: 50
+                  offset: 0
+                  has_more: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/admin/datasets/{id}/stats:
+    get:
+      operationId: adminGetDatasetStatistics
+      summary: Get dataset statistics
+      description: Returns aggregated statistics for a dataset (question count, category breakdown, etc.).
+      tags:
+      - Admin Datasets
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Dataset UUID
+      responses:
+        '200':
+          description: Dataset statistics
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                data:
+                  total_questions: 150
+                  categories:
+                    flags: 50
+                    capital: 40
+                    population: 30
+                    general: 30
+                  last_updated: '2026-05-17T00:44:04Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/admin/datasets/{id}/set-default:
+    post:
+      operationId: adminSetDefaultDataset
+      summary: Set dataset as default
+      description: Sets the specified dataset as the active default used for new games.
+      tags:
+      - Admin Datasets
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Dataset UUID
+      responses:
+        '200':
+          description: Dataset set as default
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                message: Dataset set as default successfully
+                data:
+                  id: 30d7e316-3e4c-41f3-906b-42329a891ac6
+                  slug: general-knowledge
+                  is_default: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/admin/datasets/{id}/update-stats:
+    post:
+      operationId: adminUpdateDatasetStatistics
+      summary: Refresh dataset statistics
+      description: Triggers a recount of statistics for the specified dataset.
+      tags:
+      - Admin Datasets
+      security:
+      - BearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Dataset UUID
+      responses:
+        '200':
+          description: Statistics updated
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                message: Dataset statistics updated successfully
+                data:
+                  total_questions: 152
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/admin/games/{id}/events:
     get:
       operationId: adminGetGameEventLogs
@@ -9597,6 +11731,16 @@ has_more: false
             application/json:
               schema:
                 type: object
+              example:
+                data:
+                - id: a1b2c3d4-0000-0000-0000-000000000001
+                  game_id: 10cda196-29b2-4f65-8535-497e2cab484e
+                  question_number: 1
+                  slug: geography-flags-france
+                  question: Which country does this flag belong to?
+                  category: flags
+                  answered_count: 1
+                  correct_count: 1
         401:
           $ref: '#/components/responses/Unauthorized'
         403:
@@ -9623,6 +11767,17 @@ has_more: false
             application/json:
               schema:
                 type: object
+              example:
+                data:
+                - id: b2c3d4e5-0000-0000-0000-000000000001
+                  game_id: 10cda196-29b2-4f65-8535-497e2cab484e
+                  user_id: dfaf026c-524f-4194-b661-a401637d1f7a
+                  question_number: 1
+                  answer: France
+                  is_correct: true
+                  time_ms: 2340
+                  points_earned: 120
+                  answered_at: '2026-05-17T00:43:35.000Z'
         401:
           $ref: '#/components/responses/Unauthorized'
         403:
@@ -9754,6 +11909,19 @@ has_more: false
             application/json:
               schema:
                 type: object
+              example:
+                data:
+                - id: c3d4e5f6-0000-0000-0000-000000000001
+                  game_id: 10cda196-29b2-4f65-8535-497e2cab484e
+                  from_user_public_id: 31685-6694
+                  to_user_public_id: 22483-11234
+                  status: pending
+                  created_at: '2026-05-17T00:43:00Z'
+                pagination:
+                  total: 1
+                  limit: 50
+                  offset: 0
+                  has_more: false
         401:
           $ref: '#/components/responses/Unauthorized'
         403:
@@ -9922,6 +12090,20 @@ has_more: false
             application/json:
               schema:
                 type: object
+              example:
+                data:
+                - id: 10cda196-29b2-4f65-8535-497e2cab484e
+                  public_id: 2986-47537
+                  mode: solo
+                  status: completed
+                  score: 900
+                  created_at: '2026-05-17T00:43:24Z'
+                  completed_at: '2026-05-17T00:44:04Z'
+                pagination:
+                  total: 15
+                  limit: 50
+                  offset: 0
+                  has_more: false
         401:
           $ref: '#/components/responses/Unauthorized'
         403:
