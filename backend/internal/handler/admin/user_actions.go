@@ -8,6 +8,7 @@ import (
 
 	"github.com/Culturae-org/culturae/internal/model"
 	"github.com/Culturae-org/culturae/internal/pkg/httputil"
+	"github.com/Culturae-org/culturae/internal/pkg/pagination"
 	"github.com/Culturae-org/culturae/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -363,12 +364,14 @@ func (ac *AdminUserHandler) GetUserCreationDates(c *gin.Context) {
 
 func (ac *AdminUserHandler) GetUserConnectionLogs(c *gin.Context) {
 	id := c.Param("id")
-	logs, err := ac.Usecase.GetUserConnectionLogs(id, httputil.QueryBool(c, "success"))
+	pag := pagination.Parse(c, pagination.AdminConfig())
+	logs, total, err := ac.Usecase.GetUserConnectionLogs(id, httputil.QueryBool(c, "success"), pag.Limit, pag.Offset)
 	if err != nil {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to fetch user connection logs")
 		return
 	}
-	httputil.Success(c, http.StatusOK, logs)
+	pag.WithTotal(total)
+	httputil.SuccessList(c, logs, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
 }
 
 func (ac *AdminUserHandler) GetUserActiveSessions(c *gin.Context) {
