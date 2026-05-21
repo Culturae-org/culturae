@@ -79,6 +79,9 @@ func determineMultiplayerWinner(players []Player) *uuid.UUID {
 	bestScore := -1
 	var winnerID *uuid.UUID
 	for _, p := range players {
+		if p.Status == model.PlayerStatusLeft {
+			continue
+		}
 		if p.Score > bestScore {
 			bestScore = p.Score
 			id := p.UserID
