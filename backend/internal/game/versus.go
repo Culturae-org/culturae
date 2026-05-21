@@ -163,9 +163,15 @@ func (h *dynamicHooks) evaluateFastestWins(base *BaseGame, questionIndex int) {
 				fastest = c
 			}
 		}
+		tieCount := 0
+		for _, c := range correct {
+			if c.timeSpent == fastest.timeSpent {
+				tieCount++
+			}
+		}
 		for _, c := range correct {
 			p := players[c.playerID]
-			if c.playerID == fastest.playerID {
+			if tieCount == 1 && c.playerID == fastest.playerID {
 				p.Score += questionPoints
 				p.Answers[questionIndex].Points = questionPoints
 			} else {
