@@ -75,6 +75,8 @@ type GameEngine interface {
 	SetPausedState(paused bool, pausedAt time.Time)
 	AdjustQuestionTimeForPause(pauseDuration time.Duration)
 
+	GetTickerRemainingMs() int64
+
 	GetReconnectDeadline() *time.Time
 	SetReconnectDeadline(deadline *time.Time)
 

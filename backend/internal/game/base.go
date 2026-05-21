@@ -648,8 +648,16 @@ func (g *BaseGame) SendCommand(cmd GameCommand) {
 	}
 	select {
 	case commandChan <- cmd:
+		return
 	default:
-		g.logger.Warn("Command channel full, dropping command",
+	}
+
+	timer := time.NewTimer(50 * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case commandChan <- cmd:
+	case <-timer.C:
+		g.logger.Error("Command channel full, dropping command after retry",
 			zap.String("command_type", cmd.Type),
 			zap.String(keyGameID, g.id.String()),
 		)
@@ -1404,9 +1412,17 @@ func (g *BaseGame) emitEvent(event GameEvent) {
 
 	select {
 	case g.eventChan <- event:
+		return
 	default:
+	}
+
+	timer := time.NewTimer(50 * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case g.eventChan <- event:
+	case <-timer.C:
 		if g.logger != nil {
-			g.logger.Warn("Game event channel full, dropping event",
+			g.logger.Error("Game event channel full, dropping event after retry",
 				zap.String("event_type", event.Type),
 				zap.String(keyGameID, g.id.String()),
 			)
@@ -1489,6 +1505,12 @@ func (g *BaseGame) CheckAndAdvanceTimeout(now time.Time) bool {
 	}
 
 	return true
+}
+
+func (g *BaseGame) GetTickerRemainingMs() int64 {
+	g.mutex.RLock()
+	defer g.mutex.RUnlock()
+	return g.tickerRemainingMs
 }
 
 func (g *BaseGame) GetPaused() bool {

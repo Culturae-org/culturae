@@ -186,9 +186,10 @@ type GameStateData struct {
 	Category    string            `json:"category,omitempty"`
 	FlagVariant string            `json:"flag_variant,omitempty"`
 	FoundISOs   []string          `json:"found_isos,omitempty"`
-	Paused            bool       `json:"paused,omitempty"`
-	PausedAt          *time.Time `json:"paused_at,omitempty"`
-	ReconnectDeadline *time.Time `json:"reconnect_deadline,omitempty"`
+	Paused             bool       `json:"paused,omitempty"`
+	PausedAt           *time.Time `json:"paused_at,omitempty"`
+	ReconnectDeadline  *time.Time `json:"reconnect_deadline,omitempty"`
+	TickerRemainingMs  int64      `json:"ticker_remaining_ms,omitempty"`
 }
 
 func (rgm *RedisGameManager) SaveGame(game GameEngine) error {
@@ -211,6 +212,7 @@ func (rgm *RedisGameManager) SaveGame(game GameEngine) error {
 		Paused:            game.GetPaused(),
 		PausedAt:          pausedAtPtr,
 		ReconnectDeadline: game.GetReconnectDeadline(),
+		TickerRemainingMs: game.GetTickerRemainingMs(),
 	}
 
 	switch g := game.(type) {
@@ -297,6 +299,7 @@ func (rgm *RedisGameManager) reconstructVersusGame(state GameStateData) *VersusG
 			pausedAt = *state.PausedAt
 		}
 		game.SetPausedState(true, pausedAt)
+		game.tickerRemainingMs = state.TickerRemainingMs
 	}
 	game.SetReconnectDeadline(state.ReconnectDeadline)
 
@@ -1214,10 +1217,19 @@ func (rgm *RedisGameManager) EmitEvent(event GameEvent) {
 	event.Timestamp = time.Now()
 	select {
 	case rgm.eventChan <- event:
+		return
 	default:
-		rgm.logger.Warn("Event channel full, dropping event",
+	}
+
+	timer := time.NewTimer(50 * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case rgm.eventChan <- event:
+	case <-timer.C:
+		rgm.logger.Error("Event channel full, dropping event after retry",
 			zap.String("event_type", event.Type),
 			zap.String(keyGameID, event.GameID.String()),
+			zap.String("public_id", event.PublicID),
 		)
 	}
 }
