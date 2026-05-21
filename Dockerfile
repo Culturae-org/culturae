@@ -19,7 +19,7 @@ RUN go mod download
 
 COPY backend/ .
 
-COPY --from=dashboard-builder /app/ui/dist ./internal/handler/admin/ui/dist
+COPY --from=dashboard-builder /app/dist ./internal/handler/admin/ui/dist
 
 ENV CGO_ENABLED=0
 

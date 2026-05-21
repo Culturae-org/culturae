@@ -30,7 +30,7 @@ tasks:
     cmds:
       - mkdir -p backend/internal/handler/admin/ui
       - rm -rf backend/internal/handler/admin/ui/dist
-      - cp -r dashboard/ui/dist backend/internal/handler/admin/ui/dist
+      - cp -r dashboard/dist backend/internal/handler/admin/ui/dist
 
   build:backend:
     desc: "Compile the Go binary"
