@@ -1565,6 +1565,20 @@ func (rgm *RedisGameManager) ArchiveGame(game GameEngine) error {
 	return nil
 }
 
+func retryWithBackoff(attempts int, initialDelay time.Duration, fn func() error) error {
+	var err error
+	for i := range attempts {
+		err = fn()
+		if err == nil {
+			return nil
+		}
+		if i < attempts-1 {
+			time.Sleep(initialDelay * (1 << i))
+		}
+	}
+	return err
+}
+
 func (rgm *RedisGameManager) applyPostGameRewards(
 	game GameEngine,
 	players []Player,
@@ -1603,12 +1617,17 @@ func (rgm *RedisGameManager) applyPostGameRewards(
 
 		xp := rgm.xpCalculator.CalculateXPWithConfig(mode, p.Score, isWinner, cfg)
 		if xp > 0 {
-			xpResult, err := rgm.userRepo.AddExperience(p.UserID, xp, cfg)
-			if err != nil {
+			var xpResult repository.AddExperienceResult
+			xpErr := retryWithBackoff(3, 100*time.Millisecond, func() error {
+				var err error
+				xpResult, err = rgm.userRepo.AddExperience(p.UserID, xp, cfg)
+				return err
+			})
+			if xpErr != nil {
 				rgm.logger.Warn("Failed to add experience after game",
 					zap.String(keyUserID, p.UserID.String()),
 					zap.Int64("xp", xp),
-					zap.Error(err),
+					zap.Error(xpErr),
 				)
 			} else if rgm.userNotifier != nil {
 				notifData := map[string]interface{}{
@@ -1632,7 +1651,9 @@ func (rgm *RedisGameManager) applyPostGameRewards(
 			}
 		}
 
-		if err := rgm.userRepo.UpdateGameStats(p.UserID, isWinner, isDrawn, p.Score, durationSecs, string(mode)); err != nil {
+		if err := retryWithBackoff(3, 100*time.Millisecond, func() error {
+			return rgm.userRepo.UpdateGameStats(p.UserID, isWinner, isDrawn, p.Score, durationSecs, string(mode))
+		}); err != nil {
 			rgm.logger.Warn("Failed to update game stats after game",
 				zap.String(keyUserID, p.UserID.String()),
 				zap.Error(err),
@@ -1704,7 +1725,9 @@ func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID
 		)
 		runningWinnerElo = newWinnerElo
 
-		if err := rgm.userRepo.UpdateEloRating(loserPlayer.UserID, newLoserElo); err != nil {
+		if err := retryWithBackoff(3, 100*time.Millisecond, func() error {
+			return rgm.userRepo.UpdateEloRating(loserPlayer.UserID, newLoserElo)
+		}); err != nil {
 			rgm.logger.Warn("Failed to update loser ELO",
 				zap.String(keyUserID, loserPlayer.UserID.String()),
 				zap.Int("new_elo", newLoserElo),
@@ -1734,7 +1757,9 @@ func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID
 		}
 	}
 
-	if err := rgm.userRepo.UpdateEloRating(winnerPlayer.UserID, runningWinnerElo); err != nil {
+	if err := retryWithBackoff(3, 100*time.Millisecond, func() error {
+		return rgm.userRepo.UpdateEloRating(winnerPlayer.UserID, runningWinnerElo)
+	}); err != nil {
 		rgm.logger.Warn("Failed to update winner ELO",
 			zap.String(keyUserID, winnerPlayer.UserID.String()),
 			zap.Int("new_elo", runningWinnerElo),
@@ -1798,7 +1823,9 @@ func (rgm *RedisGameManager) applyEloUpdateDraw(players []Player, usersMap map[u
 		{players[0], userA.EloRating, newA},
 		{players[1], userB.EloRating, newB},
 	} {
-		if err := rgm.userRepo.UpdateEloRating(pair.player.UserID, pair.newElo); err != nil {
+		if err := retryWithBackoff(3, 100*time.Millisecond, func() error {
+			return rgm.userRepo.UpdateEloRating(pair.player.UserID, pair.newElo)
+		}); err != nil {
 			rgm.logger.Warn("Failed to update ELO on draw",
 				zap.String(keyUserID, pair.player.UserID.String()),
 				zap.Error(err),
