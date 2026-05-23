@@ -89,6 +89,8 @@ type WebSocketService struct {
 	gameDisconnectTimers map[uuid.UUID]*time.Timer
 	relay                *PubSubRelay
 	multiPod             bool
+	ctx                  context.Context
+	ctxCancel            context.CancelFunc
 }
 
 func NewWebSocketService(
@@ -109,6 +111,7 @@ func NewWebSocketServiceWithMode(
 	if multiPod && redisService != nil {
 		relay = NewPubSubRelay(uuid.New().String(), redisService, logger)
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	return &WebSocketService{
 		clients:              make(map[uuid.UUID]*WSClient),
 		userClients:          make(map[uuid.UUID][]*WSClient),
@@ -120,6 +123,8 @@ func NewWebSocketServiceWithMode(
 		logger:               logger,
 		relay:                relay,
 		multiPod:             multiPod,
+		ctx:                  ctx,
+		ctxCancel:            cancel,
 	}
 }
 
@@ -138,6 +143,7 @@ func (ws *WebSocketService) StartRelay(ctx context.Context) {
 }
 
 func (ws *WebSocketService) StopRelay() {
+	ws.ctxCancel()
 	if ws.relay == nil {
 		return
 	}
@@ -671,11 +677,23 @@ func (ws *WebSocketService) disconnectClient(client *WSClient) {
 		userID := client.UserID
 		if ws.gameActionHandler != nil {
 			go func() {
-				if err := ws.gameActionHandler.MarkPlayerDisconnected(userID, gamePublicID); err != nil {
-					ws.logger.Warn("Failed to mark player disconnected",
+				ctx, cancel := context.WithTimeout(ws.ctx, 10*time.Second)
+				defer cancel()
+				done := make(chan error, 1)
+				go func() { done <- ws.gameActionHandler.MarkPlayerDisconnected(userID, gamePublicID) }()
+				select {
+				case err := <-done:
+					if err != nil {
+						ws.logger.Warn("Failed to mark player disconnected",
+							zap.String(keyUserID, userID.String()),
+							zap.String(keyGamePublicID, gamePublicID),
+							zap.Error(err),
+						)
+					}
+				case <-ctx.Done():
+					ws.logger.Error("MarkPlayerDisconnected timed out",
 						zap.String(keyUserID, userID.String()),
 						zap.String(keyGamePublicID, gamePublicID),
-						zap.Error(err),
 					)
 				}
 			}()
@@ -962,7 +980,25 @@ func (ws *WebSocketService) addClientToGame(client *WSClient, gamePublicID strin
 		userIDCopy := client.UserID
 		if ws.gameActionHandler != nil {
 			go func() {
-				_ = ws.gameActionHandler.MarkPlayerReconnected(userIDCopy, gamePublicIDCopy)
+				ctx, cancel := context.WithTimeout(ws.ctx, 10*time.Second)
+				defer cancel()
+				done := make(chan error, 1)
+				go func() { done <- ws.gameActionHandler.MarkPlayerReconnected(userIDCopy, gamePublicIDCopy) }()
+				select {
+				case err := <-done:
+					if err != nil {
+						ws.logger.Warn("Failed to mark player reconnected",
+							zap.String(keyUserID, userIDCopy.String()),
+							zap.String(keyGamePublicID, gamePublicIDCopy),
+							zap.Error(err),
+						)
+					}
+				case <-ctx.Done():
+					ws.logger.Error("MarkPlayerReconnected timed out",
+						zap.String(keyUserID, userIDCopy.String()),
+						zap.String(keyGamePublicID, gamePublicIDCopy),
+					)
+				}
 			}()
 		}
 	}
