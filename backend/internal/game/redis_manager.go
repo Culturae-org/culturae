@@ -1575,29 +1575,37 @@ func (rgm *RedisGameManager) applyPostGameRewards(
 
 	isDrawn := winnerID == nil && mode != model.GameModeSolo
 
+	playerIDs := make([]uuid.UUID, len(players))
+	for i, p := range players {
+		playerIDs[i] = p.UserID
+	}
+	usersMap, usersErr := rgm.userRepo.GetByIDs(playerIDs)
+	if usersErr != nil {
+		rgm.logger.Warn("Failed to batch-load users for post-game rewards", zap.Error(usersErr))
+		usersMap = map[uuid.UUID]*model.User{}
+	}
+
 	for _, p := range players {
 		isWinner := winnerID != nil && p.UserID == *winnerID
 
 		xp := rgm.xpCalculator.CalculateXPWithConfig(mode, p.Score, isWinner, cfg)
 		if xp > 0 {
-			if err := rgm.userRepo.AddExperience(p.UserID, xp, cfg); err != nil {
+			xpResult, err := rgm.userRepo.AddExperience(p.UserID, xp, cfg)
+			if err != nil {
 				rgm.logger.Warn("Failed to add experience after game",
 					zap.String(keyUserID, p.UserID.String()),
 					zap.Int64("xp", xp),
 					zap.Error(err),
 				)
 			} else if rgm.userNotifier != nil {
-				newUser, userErr := rgm.userRepo.GetByID(p.UserID.String())
 				notifData := map[string]interface{}{
 					"xp_gained": xp,
 					"is_winner": isWinner,
 					"game_mode": string(mode),
 					keyPublicID: game.GetPublicID(),
-				}
-				if userErr == nil {
-					notifData["new_level"] = newUser.Level
-					notifData["new_rank"] = newUser.Rank
-					notifData["total_xp"] = newUser.Experience
+					"new_level": xpResult.NewLevel,
+					"new_rank":  xpResult.NewRank,
+					"total_xp":  xpResult.NewXP,
 				}
 				if err := rgm.userNotifier.SendToUser(p.UserID, map[string]interface{}{
 					keyType: "xp_updated",
@@ -1633,14 +1641,14 @@ func (rgm *RedisGameManager) applyPostGameRewards(
 
 	if mode == model.GameMode1v1 {
 		if winnerID != nil && len(players) >= 2 {
-			rgm.applyEloUpdate(players, *winnerID)
+			rgm.applyEloUpdate(players, *winnerID, usersMap)
 		} else if isDrawn && len(players) == 2 {
-			rgm.applyEloUpdateDraw(players)
+			rgm.applyEloUpdateDraw(players, usersMap)
 		}
 	}
 }
 
-func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID) {
+func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID, usersMap map[uuid.UUID]*model.User) {
 	var winnerPlayer Player
 	var loserPlayers []Player
 	for _, p := range players {
@@ -1654,11 +1662,10 @@ func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID
 		return
 	}
 
-	winnerUser, err := rgm.userRepo.GetByID(winnerPlayer.UserID.String())
-	if err != nil {
+	winnerUser, ok := usersMap[winnerPlayer.UserID]
+	if !ok {
 		rgm.logger.Warn("Failed to load winner for ELO update",
 			zap.String(keyUserID, winnerPlayer.UserID.String()),
-			zap.Error(err),
 		)
 		return
 	}
@@ -1669,11 +1676,10 @@ func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID
 	runningWinnerElo := winnerUser.EloRating
 
 	for _, loserPlayer := range loserPlayers {
-		loserUser, err := rgm.userRepo.GetByID(loserPlayer.UserID.String())
-		if err != nil {
+		loserUser, ok := usersMap[loserPlayer.UserID]
+		if !ok {
 			rgm.logger.Warn("Failed to load loser for ELO update",
 				zap.String(keyUserID, loserPlayer.UserID.String()),
-				zap.Error(err),
 			)
 			continue
 		}
@@ -1745,19 +1751,19 @@ func (rgm *RedisGameManager) applyEloUpdate(players []Player, winnerID uuid.UUID
 	}
 }
 
-func (rgm *RedisGameManager) applyEloUpdateDraw(players []Player) {
+func (rgm *RedisGameManager) applyEloUpdateDraw(players []Player, usersMap map[uuid.UUID]*model.User) {
 	if len(players) != 2 {
 		return
 	}
 
-	userA, err := rgm.userRepo.GetByID(players[0].UserID.String())
-	if err != nil {
-		rgm.logger.Warn("Failed to load player A for draw ELO", zap.String(keyUserID, players[0].UserID.String()), zap.Error(err))
+	userA, ok := usersMap[players[0].UserID]
+	if !ok {
+		rgm.logger.Warn("Failed to load player A for draw ELO", zap.String(keyUserID, players[0].UserID.String()))
 		return
 	}
-	userB, err := rgm.userRepo.GetByID(players[1].UserID.String())
-	if err != nil {
-		rgm.logger.Warn("Failed to load player B for draw ELO", zap.String(keyUserID, players[1].UserID.String()), zap.Error(err))
+	userB, ok := usersMap[players[1].UserID]
+	if !ok {
+		rgm.logger.Warn("Failed to load player B for draw ELO", zap.String(keyUserID, players[1].UserID.String()))
 		return
 	}
 

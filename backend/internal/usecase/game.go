@@ -1470,33 +1470,34 @@ func (u *GameUsecase) finalizeGame(c *gin.Context, gameID uuid.UUID) error {
 		}
 
 		xp := u.xpCalc.CalculateXPWithTemplateMultiplier(gameModel.Mode, player.Score, isWinner, xpCfg, templateXPMultiplier)
+		var xpResult repository.AddExperienceResult
 		if xp > 0 {
-			if err := u.userRepo.AddExperience(player.UserID, xp, xpCfg); err != nil {
-				u.logger.Warn("Failed to add user experience", zap.String(keyUserID, player.UserID.String()), zap.Error(err))
+			var xpErr error
+			xpResult, xpErr = u.userRepo.AddExperience(player.UserID, xp, xpCfg)
+			if xpErr != nil {
+				u.logger.Warn("Failed to add user experience", zap.String(keyUserID, player.UserID.String()), zap.Error(xpErr))
 			}
 		}
 
 		if u.progressionRepo != nil {
-			if updatedUser, uErr := u.userRepo.GetByID(player.UserID.String()); uErr == nil {
-				gameIDPtr := &gameModel.ID
-				snap := &model.UserProgressionSnapshot{
-					UserID:          player.UserID,
-					GameID:          gameIDPtr,
-					GameMode:        string(gameModel.Mode),
-					Elo:             updatedUser.EloRating,
-					Experience:      updatedUser.Experience,
-					Level:           updatedUser.Level,
-					Rank:            updatedUser.Rank,
-					EloDelta:        0,
-					ExperienceDelta: xp,
-					LevelDelta:      0,
-					Score:           player.Score,
-					IsWinner:        isWinner,
-					IsDrawn:         isDrawn,
-				}
-				if sErr := u.progressionRepo.SaveSnapshot(snap); sErr != nil {
-					u.logger.Warn("Failed to save progression snapshot", zap.String(keyUserID, player.UserID.String()), zap.Error(sErr))
-				}
+			gameIDPtr := &gameModel.ID
+			snap := &model.UserProgressionSnapshot{
+				UserID:          player.UserID,
+				GameID:          gameIDPtr,
+				GameMode:        string(gameModel.Mode),
+				Elo:             0,
+				Experience:      xpResult.NewXP,
+				Level:           xpResult.NewLevel,
+				Rank:            xpResult.NewRank,
+				EloDelta:        0,
+				ExperienceDelta: xp,
+				LevelDelta:      0,
+				Score:           player.Score,
+				IsWinner:        isWinner,
+				IsDrawn:         isDrawn,
+			}
+			if sErr := u.progressionRepo.SaveSnapshot(snap); sErr != nil {
+				u.logger.Warn("Failed to save progression snapshot", zap.String(keyUserID, player.UserID.String()), zap.Error(sErr))
 			}
 		}
 

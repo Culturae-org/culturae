@@ -16,12 +16,19 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+type AddExperienceResult struct {
+	NewXP    int64
+	NewLevel int
+	NewRank  string
+}
+
 type UserRepositoryInterface interface {
 	Exists(email, username string) bool
 	Create(user *model.User) error
 	GetByIdentifier(identifier string) (*model.User, error)
 	GetByUsername(username string) (*model.User, error)
 	GetByID(id string) (*model.User, error)
+	GetByIDs(ids []uuid.UUID) (map[uuid.UUID]*model.User, error)
 	GetByPublicID(publicID string) (*model.User, error)
 	GetByEmail(email string) (*model.User, error)
 	Update(user *model.User) error
@@ -42,7 +49,7 @@ type UserRepositoryInterface interface {
 	UpdateUserGameStatus(userID uuid.UUID, gameID *uuid.UUID) error
 	CreateWithoutHash(user *model.User) error
 	UpdateDates(userID uuid.UUID, createdAt, updatedAt time.Time) error
-	AddExperience(userID uuid.UUID, xp int64, cfg model.XPConfig) error
+	AddExperience(userID uuid.UUID, xp int64, cfg model.XPConfig) (AddExperienceResult, error)
 	UpdateGameStats(userID uuid.UUID, isWinner bool, isDrawn bool, score int, duration int64, mode string) error
 	UpdateEloRating(userID uuid.UUID, newRating int) error
 	GetUserGameStats(userID uuid.UUID) (*model.UserGameStats, error)
@@ -81,7 +88,7 @@ type UserWriter interface {
 	UpdateUserGameStatus(userID uuid.UUID, gameID *uuid.UUID) error
 	UpdateAvatar(userID string, hasAvatar bool) error
 	UpdateDates(userID uuid.UUID, createdAt, updatedAt time.Time) error
-	AddExperience(userID uuid.UUID, xp int64, cfg model.XPConfig) error
+	AddExperience(userID uuid.UUID, xp int64, cfg model.XPConfig) (AddExperienceResult, error)
 	UpdateGameStats(userID uuid.UUID, isWinner bool, isDrawn bool, score int, duration int64, mode string) error
 }
 
@@ -482,8 +489,9 @@ func (r *UserRepository) UpdateDates(userID uuid.UUID, createdAt, updatedAt time
 	}).Error
 }
 
-func (r *UserRepository) AddExperience(userID uuid.UUID, xp int64, cfg model.XPConfig) error {
-	return r.DB.Transaction(func(tx *gorm.DB) error {
+func (r *UserRepository) AddExperience(userID uuid.UUID, xp int64, cfg model.XPConfig) (AddExperienceResult, error) {
+	var result AddExperienceResult
+	err := r.DB.Transaction(func(tx *gorm.DB) error {
 		var user model.User
 		if err := tx.Clauses(clause.Locking{Strength: lockStrengthUpdate}).First(&user, "id = ?", userID).Error; err != nil {
 			return err
@@ -496,6 +504,7 @@ func (r *UserRepository) AddExperience(userID uuid.UUID, xp int64, cfg model.XPC
 
 		level := cfg.CalculateLevel(newXP)
 		rank := cfg.RankFromLevel(level)
+		result = AddExperienceResult{NewXP: newXP, NewLevel: level, NewRank: rank}
 
 		return tx.Model(&user).Updates(map[string]interface{}{
 			"experience": newXP,
@@ -503,6 +512,22 @@ func (r *UserRepository) AddExperience(userID uuid.UUID, xp int64, cfg model.XPC
 			"rank":       rank,
 		}).Error
 	})
+	return result, err
+}
+
+func (r *UserRepository) GetByIDs(ids []uuid.UUID) (map[uuid.UUID]*model.User, error) {
+	if len(ids) == 0 {
+		return map[uuid.UUID]*model.User{}, nil
+	}
+	var users []model.User
+	if err := r.DB.Where("id IN ?", ids).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[uuid.UUID]*model.User, len(users))
+	for i := range users {
+		result[users[i].ID] = &users[i]
+	}
+	return result, nil
 }
 
 func (r *UserRepository) UpdateGameStats(userID uuid.UUID, isWinner bool, isDrawn bool, score int, duration int64, mode string) error {
