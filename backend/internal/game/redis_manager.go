@@ -4,9 +4,10 @@ package game
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/bsm/redislock"
@@ -73,6 +74,22 @@ func (rgm *RedisGameManager) SetUserNotifier(n UserNotifier) {
 
 func (rgm *RedisGameManager) gameKey(gameID uuid.UUID) string {
 	return fmt.Sprintf("game:active:%s", gameID.String())
+}
+
+const gameStatsKey = "game:stats"
+
+func (rgm *RedisGameManager) incrementGameStats(mode model.GameMode) {
+	ctx, cancel := rgm.opCtx()
+	defer cancel()
+	_, _ = rgm.redisService.HIncrBy(ctx, gameStatsKey, "count", 1)
+	_, _ = rgm.redisService.HIncrBy(ctx, gameStatsKey, "mode:"+string(mode), 1)
+}
+
+func (rgm *RedisGameManager) decrementGameStats(mode model.GameMode) {
+	ctx, cancel := rgm.opCtx()
+	defer cancel()
+	_, _ = rgm.redisService.HIncrBy(ctx, gameStatsKey, "count", -1)
+	_, _ = rgm.redisService.HIncrBy(ctx, gameStatsKey, "mode:"+string(mode), -1)
 }
 
 func determineMultiplayerWinner(players []Player) *uuid.UUID {
@@ -351,6 +368,8 @@ func (rgm *RedisGameManager) CreateGame(
 		return nil, err
 	}
 
+	rgm.incrementGameStats(mode)
+
 	rgm.logger.Info("Game created in Redis",
 		zap.String(keyGameID, gameID.String()),
 		zap.String(keyPublicID, publicID),
@@ -396,9 +415,11 @@ func (rgm *RedisGameManager) GetGame(gameID uuid.UUID) (GameEngine, error) {
 }
 
 func (rgm *RedisGameManager) RemoveGame(gameID uuid.UUID) error {
+	var mode model.GameMode
 	game, err := rgm.GetGame(gameID)
 	if err == nil {
 		game.StopGoroutine()
+		mode = game.GetMode()
 	}
 
 	key := rgm.gameKey(gameID)
@@ -409,6 +430,10 @@ func (rgm *RedisGameManager) RemoveGame(gameID uuid.UUID) error {
 	}
 
 	_ = rgm.RemoveQuestionTimeout(gameID)
+
+	if mode != "" {
+		rgm.decrementGameStats(mode)
+	}
 
 	rgm.logger.Info("Game removed from Redis",
 		zap.String(keyGameID, gameID.String()),
@@ -1142,15 +1167,17 @@ func (rgm *RedisGameManager) CancelGame(gameID uuid.UUID) error {
 }
 
 func (rgm *RedisGameManager) GetActiveGamesCount() int {
-	pattern := "game:active:*"
-
-	keys, err := rgm.scanKeys(pattern)
+	ctx, cancel := rgm.opCtx()
+	defer cancel()
+	val, err := rgm.redisService.HGet(ctx, gameStatsKey, "count")
 	if err != nil {
-		rgm.logger.Error("Failed to scan active game keys", zap.Error(err))
 		return 0
 	}
-
-	return len(keys)
+	n, err := strconv.ParseInt(val, 10, 64)
+	if err != nil || n < 0 {
+		return 0
+	}
+	return int(n)
 }
 
 func (rgm *RedisGameManager) GetActiveGameIDs() []uuid.UUID {
@@ -1173,36 +1200,22 @@ func (rgm *RedisGameManager) GetActiveGameIDs() []uuid.UUID {
 }
 
 func (rgm *RedisGameManager) GetActiveGamesByMode() map[string]int {
-	keys, err := rgm.scanKeys("game:active:*")
-	if err != nil {
-		rgm.logger.Error("Failed to scan active game keys for mode stats", zap.Error(err))
-		return map[string]int{}
-	}
-
-	if len(keys) == 0 {
-		return map[string]int{}
-	}
-
-	ctx, cancel := rgm.scanCtx()
+	ctx, cancel := rgm.opCtx()
 	defer cancel()
-	values, err := rgm.redisService.MGet(ctx, keys...)
+	fields, err := rgm.redisService.HGetAll(ctx, gameStatsKey)
 	if err != nil {
-		rgm.logger.Error("Failed to mget active game data for mode stats", zap.Error(err))
 		return map[string]int{}
 	}
-
 	counts := make(map[string]int)
-	for _, raw := range values {
-		if raw == "" {
+	for field, val := range fields {
+		if !strings.HasPrefix(field, "mode:") {
 			continue
 		}
-		var partial struct {
-			Mode string `json:"mode"`
-		}
-		if err := json.Unmarshal([]byte(raw), &partial); err != nil || partial.Mode == "" {
+		n, err := strconv.Atoi(val)
+		if err != nil || n <= 0 {
 			continue
 		}
-		counts[partial.Mode]++
+		counts[strings.TrimPrefix(field, "mode:")] = n
 	}
 	return counts
 }
