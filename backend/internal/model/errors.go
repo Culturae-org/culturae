@@ -7,6 +7,21 @@ var (
 	ErrGameFull         = errors.New("game is full")
 	ErrAlreadyInGame    = errors.New("you are already in this game")
 	ErrGameNotCompleted = errors.New("game is not completed")
+	ErrGameAlreadyExists         = errors.New("game already exists")
+	ErrGameBusy                  = errors.New("game is busy, please retry")
+	ErrGameCannotStart           = errors.New("game cannot start")
+	ErrGameHasNoQuestions        = errors.New("game has no questions")
+	ErrGameNotInProgress         = errors.New("game is not in progress")
+	ErrCannotCancelCompletedGame = errors.New("cannot cancel completed game")
+
+	ErrPlayerNotFound  = errors.New("player not found")
+	ErrPlayerLeft      = errors.New("player has left the game")
+	ErrNoMoreQuestions = errors.New("no more questions")
+	ErrNotCurrentQuestion = errors.New("answer is not for current question")
+	ErrAlreadyAnswered    = errors.New("already answered this question")
+
+	ErrAlreadyInQueue       = errors.New("already in queue for this game mode")
+	ErrInviteAlreadyPending = errors.New("invite already pending for this user")
 
 	ErrInviteNotFound  = errors.New("invite not found")
 	ErrInviteNotPending = errors.New("invite is not pending")

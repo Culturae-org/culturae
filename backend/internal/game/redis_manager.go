@@ -136,7 +136,7 @@ func (rgm *RedisGameManager) withGameLock(gameID uuid.UUID, fn func() error) err
 		RetryStrategy: redislock.LimitRetry(redislock.LinearBackoff(100*time.Millisecond), 3),
 	})
 	if errors.Is(err, redislock.ErrNotObtained) {
-		return errors.New("game is busy, please retry")
+		return model.ErrGameBusy
 	}
 	if err != nil {
 		return fmt.Errorf("lock acquisition error: %w", err)
@@ -258,7 +258,7 @@ func (rgm *RedisGameManager) LoadGame(gameID uuid.UUID) (GameEngine, error) {
 	defer cancel()
 	var state GameStateData
 	if err := rgm.redisService.GetJSON(ctx, key, &state); err != nil {
-		return nil, fmt.Errorf("game not found: %w", err)
+		return nil, fmt.Errorf("%w: %w", model.ErrGameNotFound, err)
 	}
 
 	var game GameEngine
@@ -266,7 +266,7 @@ func (rgm *RedisGameManager) LoadGame(gameID uuid.UUID) (GameEngine, error) {
 	case model.GameModeSolo, model.GameMode1v1, model.GameModeMulti:
 		game = rgm.reconstructVersusGame(state)
 	default:
-		return nil, errors.New("invalid game mode")
+		return nil, model.ErrInvalidGameMode
 	}
 
 	return game, nil
@@ -342,7 +342,7 @@ func (rgm *RedisGameManager) CreateGame(
 		return nil, fmt.Errorf("failed to check game existence: %w", err)
 	}
 	if exists {
-		return nil, errors.New("game already exists")
+		return nil, model.ErrGameAlreadyExists
 	}
 
 	var gameEngine GameEngine
@@ -361,7 +361,7 @@ func (rgm *RedisGameManager) CreateGame(
 			&countdownCfg,
 		)
 	default:
-		return nil, errors.New("invalid game mode")
+		return nil, model.ErrInvalidGameMode
 	}
 
 	if err := rgm.SaveGame(gameEngine); err != nil {
@@ -845,7 +845,7 @@ func (rgm *RedisGameManager) StartGame(gameID uuid.UUID) error {
 		}
 
 		if !game.CanStart() {
-			return errors.New("game cannot start")
+			return model.ErrGameCannotStart
 		}
 
 		isMultiplayer := game.GetMode() != model.GameModeSolo

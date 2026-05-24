@@ -134,7 +134,7 @@ func (g *BaseGame) GetPlayer(userID uuid.UUID) (*Player, error) {
 
 	player, exists := g.players[userID]
 	if !exists {
-		return nil, errors.New("player not found")
+		return nil, model.ErrPlayerNotFound
 	}
 
 	playerCopy := *player
@@ -146,7 +146,7 @@ func (g *BaseGame) GetCurrentQuestion() (*model.Question, error) {
 	defer g.mutex.RUnlock()
 
 	if g.currentQ >= len(g.questions) {
-		return nil, errors.New("no more questions")
+		return nil, model.ErrNoMoreQuestions
 	}
 
 	return g.questions[g.currentQ], nil
@@ -272,11 +272,11 @@ func (g *BaseGame) AddPlayer(userID uuid.UUID) error {
 	}
 
 	if len(g.players) >= g.hooks.MaxPlayers() {
-		return errors.New("game is full")
+		return model.ErrGameFull
 	}
 
 	if _, exists := g.players[userID]; exists {
-		return errors.New("player already in game")
+		return model.ErrAlreadyInGame
 	}
 
 	g.players[userID] = &Player{
@@ -302,7 +302,7 @@ func (g *BaseGame) RemovePlayer(userID uuid.UUID) error {
 
 	player, exists := g.players[userID]
 	if !exists {
-		return errors.New("player not in game")
+		return model.ErrNotInGame
 	}
 
 	player.Status = model.PlayerStatusLeft
@@ -344,7 +344,7 @@ func (g *BaseGame) SetPlayerReady(userID uuid.UUID, ready bool) error {
 
 	player, exists := g.players[userID]
 	if !exists {
-		return errors.New("player not in game")
+		return model.ErrNotInGame
 	}
 
 	player.IsReady = ready
@@ -357,7 +357,7 @@ func (g *BaseGame) SetPlayerPublicID(userID uuid.UUID, publicID string) error {
 
 	player, exists := g.players[userID]
 	if !exists {
-		return errors.New("player not in game")
+		return model.ErrNotInGame
 	}
 
 	player.PublicID = publicID
@@ -370,7 +370,7 @@ func (g *BaseGame) SetPlayerUsername(userID uuid.UUID, username string) error {
 
 	player, exists := g.players[userID]
 	if !exists {
-		return errors.New("player not in game")
+		return model.ErrNotInGame
 	}
 
 	player.Username = username
@@ -383,7 +383,7 @@ func (g *BaseGame) DisconnectPlayer(userID uuid.UUID) error {
 
 	player, exists := g.players[userID]
 	if !exists {
-		return errors.New("player not in game")
+		return model.ErrNotInGame
 	}
 	if player.Status != model.PlayerStatusActive {
 		return nil
@@ -398,7 +398,7 @@ func (g *BaseGame) ReconnectPlayer(userID uuid.UUID) error {
 
 	player, exists := g.players[userID]
 	if !exists {
-		return errors.New("player not in game")
+		return model.ErrNotInGame
 	}
 	if player.Status != model.PlayerStatusDisconnected {
 		return nil
@@ -433,7 +433,7 @@ func (g *BaseGame) Start() error {
 	}
 
 	if len(g.questions) == 0 {
-		return errors.New("game has no questions")
+		return model.ErrGameHasNoQuestions
 	}
 
 	activeCount := 0
@@ -460,7 +460,7 @@ func (g *BaseGame) End(winnerID *uuid.UUID) error {
 	defer g.mutex.Unlock()
 
 	if g.status != model.GameStatusInProgress {
-		return errors.New("game is not in progress")
+		return model.ErrGameNotInProgress
 	}
 
 	g.endLocked(winnerID)
@@ -479,7 +479,7 @@ func (g *BaseGame) Cancel() error {
 	defer g.mutex.Unlock()
 
 	if g.status == model.GameStatusCompleted {
-		return errors.New("cannot cancel completed game")
+		return model.ErrCannotCancelCompletedGame
 	}
 
 	g.status = model.GameStatusCancelled
@@ -524,21 +524,21 @@ func (g *BaseGame) SubmitAnswer(userID uuid.UUID, answer Answer) error {
 	defer g.mutex.Unlock()
 
 	if g.status != model.GameStatusInProgress {
-		return errors.New("game is not in progress")
+		return model.ErrGameNotInProgress
 	}
 
 	if g.currentQ >= len(g.questions) {
-		return errors.New("no more questions")
+		return model.ErrNoMoreQuestions
 	}
 
 	player, exists := g.players[userID]
 	if !exists {
-		return errors.New("player not in game")
+		return model.ErrNotInGame
 	}
 
 	currentQuestion := g.questions[g.currentQ]
 	if answer.QuestionID != currentQuestion.ID {
-		return errors.New("answer is not for current question")
+		return model.ErrNotCurrentQuestion
 	}
 
 	hasAlreadyAnswered := len(player.Answers) > g.currentQ
@@ -558,10 +558,10 @@ func (g *BaseGame) SubmitAnswer(userID uuid.UUID, answer Answer) error {
 	answer.ReceivedAt = serverReceivedAt
 
 	if hasAlreadyAnswered {
-		return errors.New("already answered this question")
+		return model.ErrAlreadyAnswered
 	}
 	if playerHasLeft {
-		return errors.New("player has left the game")
+		return model.ErrPlayerLeft
 	}
 
 	v := validator.GetValidator(currentQuestion.QType)

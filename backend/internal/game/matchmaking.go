@@ -131,7 +131,7 @@ func (s *MatchmakingService) JoinQueue(userID uuid.UUID, mode model.GameMode, ga
 		return fmt.Errorf("failed to join queue: %w", err)
 	}
 	if !inserted {
-		return fmt.Errorf("user already in queue for mode %s", mode)
+		return model.ErrAlreadyInQueue
 	}
 
 	queueKey := s.queueKeyForParams(mode, gameParams)

@@ -3,7 +3,6 @@
 package repository
 
 import (
-	"errors"
 	"time"
 
 	"github.com/Culturae-org/culturae/internal/model"
@@ -374,7 +373,7 @@ func (r *GameRepository) AddPlayerToGame(gamePlayer *model.GamePlayer) error {
 		Count(&count)
 
 	if count > 0 {
-		return errors.New("player already in game")
+		return model.ErrAlreadyInGame
 	}
 
 	return r.DB.Create(gamePlayer).Error
@@ -439,7 +438,7 @@ func (r *GameRepository) CreateGameInvite(invite *model.GameInvite) error {
 		Count(&count)
 
 	if count > 0 {
-		return errors.New("invite already pending for this user")
+		return model.ErrInviteAlreadyPending
 	}
 
 	return r.DB.Create(invite).Error
