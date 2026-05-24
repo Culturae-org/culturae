@@ -454,25 +454,6 @@ func (gc *AdminGeographyHandler) ListCountries(c *gin.Context) {
 	httputil.SuccessList(c, countries, httputil.ParamsToPagination(pageParams.TotalCount, pageParams.Limit, pageParams.Offset))
 }
 
-func (gc *AdminGeographyHandler) GetCountry(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid dataset ID")
-		return
-	}
-
-	slug := c.Param(keySlug)
-
-	country, err := gc.GeographyUsecase.GetCountryBySlug(slug, id)
-	if err != nil {
-		gc.logger.Error("Failed to get country", zap.String(keySlug, slug), zap.Error(err))
-		httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, "Country not found")
-		return
-	}
-
-	httputil.Success(c, http.StatusOK, country)
-}
-
 func (gc *AdminGeographyHandler) UpdateCountry(c *gin.Context) {
 	datasetID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -595,25 +576,6 @@ func (gc *AdminGeographyHandler) ListContinents(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, continents)
 }
 
-func (gc *AdminGeographyHandler) GetContinent(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid dataset ID")
-		return
-	}
-
-	slug := c.Param(keySlug)
-
-	continent, err := gc.GeographyUsecase.GetContinentBySlug(slug, id)
-	if err != nil {
-		gc.logger.Error("Failed to get continent", zap.String(keySlug, slug), zap.Error(err))
-		httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, "Continent not found")
-		return
-	}
-
-	httputil.Success(c, http.StatusOK, continent)
-}
-
 func (gc *AdminGeographyHandler) UpdateContinent(c *gin.Context) {
 	datasetID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -667,44 +629,6 @@ func (gc *AdminGeographyHandler) ListRegions(c *gin.Context) {
 	}
 
 	httputil.Success(c, http.StatusOK, regions)
-}
-
-func (gc *AdminGeographyHandler) ListRegionsByContinent(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid dataset ID")
-		return
-	}
-
-	continent := c.Param("continent")
-
-	regions, err := gc.GeographyUsecase.ListRegionsByContinent(id, continent)
-	if err != nil {
-		gc.logger.Error("Failed to list regions by continent", zap.String("continent", continent), zap.Error(err))
-		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
-		return
-	}
-
-	httputil.Success(c, http.StatusOK, regions)
-}
-
-func (gc *AdminGeographyHandler) GetRegion(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeInvalidFormat, "Invalid dataset ID")
-		return
-	}
-
-	slug := c.Param(keySlug)
-
-	region, err := gc.GeographyUsecase.GetRegionBySlug(slug, id)
-	if err != nil {
-		gc.logger.Error("Failed to get region", zap.String(keySlug, slug), zap.Error(err))
-		httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, "Region not found")
-		return
-	}
-
-	httputil.Success(c, http.StatusOK, region)
 }
 
 func (gc *AdminGeographyHandler) UpdateRegion(c *gin.Context) {
@@ -762,24 +686,4 @@ func (gc *AdminGeographyHandler) GetFlag(c *gin.Context) {
 	c.Header("Content-Type", contentType)
 	c.Header("Cache-Control", "public, max-age=86400")
 	c.Data(http.StatusOK, contentType, content)
-}
-
-func (gc *AdminGeographyHandler) GetFlagURL(c *gin.Context) {
-	countryCode := c.Param("country_code")
-	if countryCode == "" {
-		httputil.Error(c, http.StatusBadRequest, httputil.ErrCodeMissingField, "Country code is required")
-		return
-	}
-
-	url, err := gc.GeographyUsecase.GetFlagURL(countryCode)
-	if err != nil {
-		gc.logger.Debug("Flag URL not found", zap.String("country", countryCode), zap.Error(err))
-		httputil.Error(c, http.StatusNotFound, httputil.ErrCodeNotFound, "Flag not found")
-		return
-	}
-
-	httputil.SuccessRaw(c, http.StatusOK, gin.H{
-		"country_code": countryCode,
-		"url":          url,
-	})
 }

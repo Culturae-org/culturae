@@ -366,22 +366,17 @@ func registerAdminRoutes(r *gin.Engine, deps Dependencies) {
 
 			geography.GET("/:id/countries", deps.GetAdminGeographyHandler().ListCountries)
 			geography.GET("/:id/countries/search", deps.GetAdminGeographyHandler().SearchCountries)
-			geography.GET("/:id/countries/:slug", deps.GetAdminGeographyHandler().GetCountry)
 			geography.PATCH("/:id/countries/:slug", deps.GetAdminGeographyHandler().UpdateCountry)
 			geography.GET("/:id/countries/continent/:continent", deps.GetAdminGeographyHandler().ListCountriesByContinent)
 			geography.GET("/:id/countries/region/:region", deps.GetAdminGeographyHandler().ListCountriesByRegion)
 
 			geography.GET("/:id/continents", deps.GetAdminGeographyHandler().ListContinents)
-			geography.GET("/:id/continents/:slug", deps.GetAdminGeographyHandler().GetContinent)
 			geography.PATCH("/:id/continents/:slug", deps.GetAdminGeographyHandler().UpdateContinent)
 
 			geography.GET("/:id/regions", deps.GetAdminGeographyHandler().ListRegions)
-			geography.GET("/:id/regions/:slug", deps.GetAdminGeographyHandler().GetRegion)
 			geography.PATCH("/:id/regions/:slug", deps.GetAdminGeographyHandler().UpdateRegion)
-			geography.GET("/:id/regions/continent/:continent", deps.GetAdminGeographyHandler().ListRegionsByContinent)
 
 			geography.GET("/:id/flags/:country_code", deps.GetAdminGeographyHandler().GetFlag)
-			geography.GET("/:id/flags/:country_code/url", deps.GetAdminGeographyHandler().GetFlagURL)
 		}
 
 		games := adminGrp.Group("/games")
