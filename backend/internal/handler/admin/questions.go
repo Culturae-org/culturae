@@ -199,7 +199,7 @@ func (qc *AdminQuestionHandler) DeleteQuestion(c *gin.Context) {
 }
 
 func (qc *AdminQuestionHandler) ListQuestions(c *gin.Context) {
-	pagination := pagination.Parse(c, pagination.AdminConfig())
+	pag := pagination.Parse(c, pagination.AdminConfig())
 
 	datasetIDStr := c.Query("dataset_id")
 	themeStr := c.Query(keyTheme)
@@ -260,9 +260,9 @@ func (qc *AdminQuestionHandler) ListQuestions(c *gin.Context) {
 	var err error
 
 	if searchQuery != "" && len(filters.Tags) == 0 && filters.Theme == nil && filters.Subtheme == nil && filters.Difficulty == nil && filters.QType == nil {
-		questions, total, err = qc.Usecase.SearchQuestions(searchQuery, filters.DatasetID, pagination.Limit, pagination.Offset)
+		questions, total, err = qc.Usecase.SearchQuestions(searchQuery, filters.DatasetID, pag.Limit, pag.Offset)
 	} else {
-		questions, total, err = qc.Usecase.ListQuestionsWithFilters(filters, pagination.Limit, pagination.Offset)
+		questions, total, err = qc.Usecase.ListQuestionsWithFilters(filters, pag.Limit, pag.Offset)
 	}
 
 	if err != nil {
@@ -271,8 +271,8 @@ func (qc *AdminQuestionHandler) ListQuestions(c *gin.Context) {
 		return
 	}
 
-	pagination.WithTotal(total)
-	httputil.SuccessList(c, questions, httputil.ParamsToPagination(pagination.TotalCount, pagination.Limit, pagination.Offset))
+	pag.WithTotal(total)
+	httputil.SuccessList(c, questions, &pag)
 }
 
 func (qc *AdminQuestionHandler) BackupQuestions(c *gin.Context) {

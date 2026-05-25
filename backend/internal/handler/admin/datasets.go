@@ -221,7 +221,7 @@ func (dc *AdminDatasetsHandler) ListDatasets(c *gin.Context) {
 	}
 
 	pag.WithTotal(int64(total))
-	httputil.SuccessList(c, paginatedDatasets, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
+	httputil.SuccessList(c, paginatedDatasets, &pag)
 }
 
 func (dc *AdminDatasetsHandler) GetDataset(c *gin.Context) {
@@ -673,7 +673,7 @@ func (dc *AdminDatasetsHandler) GetDatasetQuestions(c *gin.Context) {
 	}
 
 	pag.WithTotal(total)
-	httputil.SuccessList(c, questions, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
+	httputil.SuccessList(c, questions, &pag)
 }
 
 func (dc *AdminDatasetsHandler) GetHistory(c *gin.Context) {
@@ -696,5 +696,5 @@ func (dc *AdminDatasetsHandler) GetHistory(c *gin.Context) {
 	}
 
 	pag.WithTotal(total)
-	httputil.SuccessList(c, events, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
+	httputil.SuccessList(c, events, &pag)
 }

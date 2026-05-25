@@ -43,22 +43,22 @@ func NewAdminReportsHandler(
 // -----------------------------------------------------
 
 func (arc *AdminReportsHandler) ListReports(c *gin.Context) {
-	pagination := pagination.Parse(c, pagination.Config{
+	pag := pagination.Parse(c, pagination.Config{
 		DefaultLimit: 50,
 		MaxLimit:     100,
 	})
 
 	status := c.Query("status")
 
-	reports, total, err := arc.reportUsecase.ListReports(pagination.Limit, pagination.Offset, status)
+	reports, total, err := arc.reportUsecase.ListReports(pag.Limit, pag.Offset, status)
 	if err != nil {
 		arc.logger.Error("Failed to list reports", zap.Error(err))
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to list reports")
 		return
 	}
 
-	pagination.WithTotal(total)
-	httputil.SuccessList(c, reports, httputil.ParamsToPagination(pagination.TotalCount, pagination.Limit, pagination.Offset))
+	pag.WithTotal(total)
+	httputil.SuccessList(c, reports, &pag)
 }
 
 func (arc *AdminReportsHandler) UpdateReportStatus(c *gin.Context) {

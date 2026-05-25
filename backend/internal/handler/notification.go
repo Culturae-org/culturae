@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/Culturae-org/culturae/internal/pkg/httputil"
+	"github.com/Culturae-org/culturae/internal/pkg/pagination"
 	"github.com/Culturae-org/culturae/internal/repository"
 
 	"github.com/gin-gonic/gin"
@@ -41,10 +42,10 @@ func (h *NotificationHandler) GetNotifications(c *gin.Context) {
 		return
 	}
 
-	limit, offset := httputil.ParsePagination(c, 20, 100)
+	pag := pagination.Parse(c)
 	unreadOnly := c.Query("unread_only") == "true"
 
-	notifs, err := h.notifRepo.GetByUserID(userID, limit, offset, unreadOnly)
+	notifs, err := h.notifRepo.GetByUserID(userID, pag.Limit, pag.Offset, unreadOnly)
 	if err != nil {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to fetch notifications")
 		return
@@ -56,7 +57,7 @@ func (h *NotificationHandler) GetNotifications(c *gin.Context) {
 		return
 	}
 
-	httputil.SuccessList(c, notifs, httputil.ParamsToPagination(total, limit, offset))
+	httputil.SuccessList(c, notifs, pag.WithTotal(total))
 }
 
 func (h *NotificationHandler) MarkAsRead(c *gin.Context) {

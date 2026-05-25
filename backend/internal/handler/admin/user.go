@@ -92,7 +92,7 @@ func (ac *AdminUserHandler) GetAllUsers(c *gin.Context) {
 	}
 
 	pag.WithTotal(int64(totalCount))
-	httputil.SuccessList(c, users, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
+	httputil.SuccessList(c, users, &pag)
 }
 
 func (ac *AdminUserHandler) GetUserCount(c *gin.Context) {
@@ -162,7 +162,7 @@ func (ac *AdminUserHandler) SearchUsers(c *gin.Context) {
 	}
 
 	pag.WithTotal(int64(totalCount))
-	httputil.SuccessList(c, users, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
+	httputil.SuccessList(c, users, &pag)
 }
 
 func (ac *AdminUserHandler) GetCurrentUser(c *gin.Context) {

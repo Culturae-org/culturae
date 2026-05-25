@@ -371,7 +371,7 @@ func (ac *AdminUserHandler) GetUserConnectionLogs(c *gin.Context) {
 		return
 	}
 	pag.WithTotal(total)
-	httputil.SuccessList(c, logs, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
+	httputil.SuccessList(c, logs, &pag)
 }
 
 func (ac *AdminUserHandler) GetUserActiveSessions(c *gin.Context) {

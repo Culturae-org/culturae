@@ -39,7 +39,7 @@ func NewAdminImportsHandler(
 // -----------------------------------------------------
 
 func (ic *AdminImportsHandler) ListImportJobs(c *gin.Context) {
-	pagination := pagination.Parse(c, pagination.Config{
+	pag := pagination.Parse(c, pagination.Config{
 		DefaultLimit: 20,
 		MaxLimit:     100,
 	})
@@ -59,15 +59,15 @@ func (ic *AdminImportsHandler) ListImportJobs(c *gin.Context) {
 		successPtr = &v
 	}
 
-	jobs, total, err := ic.AdminImportsUsecase.ListImportJobs(pagination.Limit, pagination.Offset, datasetTypePtr, successPtr)
+	jobs, total, err := ic.AdminImportsUsecase.ListImportJobs(pag.Limit, pag.Offset, datasetTypePtr, successPtr)
 	if err != nil {
 		ic.logger.Error("Failed to list import jobs", zap.Error(err))
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to list import jobs")
 		return
 	}
 
-	pagination.WithTotal(total)
-	httputil.SuccessList(c, jobs, httputil.ParamsToPagination(pagination.TotalCount, pagination.Limit, pagination.Offset))
+	pag.WithTotal(total)
+	httputil.SuccessList(c, jobs, &pag)
 }
 
 func (ic *AdminImportsHandler) GetImportJob(c *gin.Context) {
@@ -101,7 +101,7 @@ func (ic *AdminImportsHandler) GetImportJobLogs(c *gin.Context) {
 		return
 	}
 
-	pagination := pagination.Parse(c, pagination.Config{
+	pag := pagination.Parse(c, pagination.Config{
 		DefaultLimit: 50,
 		MaxLimit:     500,
 	})
@@ -111,7 +111,7 @@ func (ic *AdminImportsHandler) GetImportJobLogs(c *gin.Context) {
 	var total int64
 
 	if action != "" {
-		logResults, count, err := ic.AdminImportsUsecase.GetImportJobLogsByAction(id, action, pagination.Limit, pagination.Offset)
+		logResults, count, err := ic.AdminImportsUsecase.GetImportJobLogsByAction(id, action, pag.Limit, pag.Offset)
 		if err != nil {
 			ic.logger.Error("Failed to get import logs by action",
 				zap.String("id", idParam),
@@ -126,7 +126,7 @@ func (ic *AdminImportsHandler) GetImportJobLogs(c *gin.Context) {
 		}
 		total = count
 	} else {
-		logResults, count, err := ic.AdminImportsUsecase.GetImportJobLogs(id, pagination.Limit, pagination.Offset)
+		logResults, count, err := ic.AdminImportsUsecase.GetImportJobLogs(id, pag.Limit, pag.Offset)
 		if err != nil {
 			ic.logger.Error("Failed to get import logs", zap.String("id", idParam), zap.Error(err))
 			httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to get import logs")
@@ -138,8 +138,8 @@ func (ic *AdminImportsHandler) GetImportJobLogs(c *gin.Context) {
 		total = count
 	}
 
-	pagination.WithTotal(total)
-	httputil.SuccessList(c, logs, httputil.ParamsToPagination(pagination.TotalCount, pagination.Limit, pagination.Offset))
+	pag.WithTotal(total)
+	httputil.SuccessList(c, logs, &pag)
 }
 
 func (ic *AdminImportsHandler) GetImportStats(c *gin.Context) {

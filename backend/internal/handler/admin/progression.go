@@ -39,5 +39,5 @@ func (h *AdminProgressionHandler) GetUserProgression(c *gin.Context) {
 	}
 
 	pag.WithTotal(total)
-	httputil.SuccessList(c, snaps, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
+	httputil.SuccessList(c, snaps, &pag)
 }

@@ -50,7 +50,7 @@ func (afc *AdminFriendsHandler) ListFriendRequestsForUser(c *gin.Context) {
 	}
 
 	pag.WithTotal(total)
-	httputil.SuccessList(c, requests, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
+	httputil.SuccessList(c, requests, &pag)
 }
 
 func (afc *AdminFriendsHandler) ListFriendsForUser(c *gin.Context) {
@@ -69,5 +69,5 @@ func (afc *AdminFriendsHandler) ListFriendsForUser(c *gin.Context) {
 	}
 
 	pag.WithTotal(total)
-	httputil.SuccessList(c, friendships, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
+	httputil.SuccessList(c, friendships, &pag)
 }

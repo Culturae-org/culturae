@@ -8,6 +8,7 @@ import (
 
 	"github.com/Culturae-org/culturae/internal/model"
 	"github.com/Culturae-org/culturae/internal/pkg/httputil"
+	"github.com/Culturae-org/culturae/internal/pkg/pagination"
 	"github.com/Culturae-org/culturae/internal/pkg/validation"
 	"github.com/Culturae-org/culturae/internal/usecase"
 
@@ -377,7 +378,7 @@ func (gc *GamesHandler) GetGameHistory(c *gin.Context) {
 		return
 	}
 
-	limit, offset := httputil.ParsePagination(c, 20, 100)
+	pag := pagination.Parse(c)
 
 	total, err := gc.Usecase.CountGameHistory(userID, "", "")
 	if err != nil {
@@ -385,13 +386,13 @@ func (gc *GamesHandler) GetGameHistory(c *gin.Context) {
 		return
 	}
 
-	history, err := gc.Usecase.GetGameHistory(userID, limit, offset, "", "")
+	history, err := gc.Usecase.GetGameHistory(userID, pag.Limit, pag.Offset, "", "")
 	if err != nil {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
 		return
 	}
 
-	httputil.SuccessList(c, history, httputil.ParamsToPagination(total, limit, offset))
+	httputil.SuccessList(c, history, pag.WithTotal(total))
 }
 
 func (gc *GamesHandler) GetUserGameInvites(c *gin.Context) {

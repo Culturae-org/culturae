@@ -17,8 +17,8 @@ type successEnvelope struct {
 }
 
 type paginatedEnvelope struct {
-	Data       interface{} `json:"data"`
-	Pagination Pagination  `json:"pagination"`
+	Data       interface{}    `json:"data"`
+	Pagination pagination.Meta `json:"pagination"`
 }
 
 type errorBody struct {
@@ -39,12 +39,18 @@ func SuccessWithMessage(c *gin.Context, status int, message string, data interfa
 	c.JSON(status, successEnvelope{Message: message, Data: data})
 }
 
-func SuccessList(c *gin.Context, data interface{}, pagination Pagination) {
-	c.JSON(http.StatusOK, paginatedEnvelope{Data: data, Pagination: pagination})
-}
-
-func SuccessPaginated(c *gin.Context, data gin.H, pag pagination.Params) {
-	c.JSON(http.StatusOK, pag.MergeIntoGinH(data))
+func SuccessList(c *gin.Context, data interface{}, pag *pagination.Params) {
+	c.JSON(http.StatusOK, paginatedEnvelope{
+		Data: data,
+		Pagination: pagination.Meta{
+			Page:        pag.Page,
+			Limit:       pag.Limit,
+			TotalCount:  pag.TotalCount,
+			TotalPages:  pag.TotalPages,
+			HasNextPage: pag.HasNextPage(),
+			HasPrevPage: pag.HasPrevPage(),
+		},
+	})
 }
 
 func SuccessRaw(c *gin.Context, status int, data gin.H) {

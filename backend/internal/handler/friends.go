@@ -8,6 +8,7 @@ import (
 
 	"github.com/Culturae-org/culturae/internal/model"
 	"github.com/Culturae-org/culturae/internal/pkg/httputil"
+	"github.com/Culturae-org/culturae/internal/pkg/pagination"
 	"github.com/Culturae-org/culturae/internal/usecase"
 
 	"github.com/gin-gonic/gin"
@@ -161,9 +162,9 @@ func (ctrl *FriendsHandler) ListFriendRequests(c *gin.Context) {
 
 	status := c.DefaultQuery("status", "pending")
 	requestType := c.DefaultQuery("type", "incoming")
-	limit, offset := httputil.ParsePagination(c, 20, 100)
+	pag := pagination.Parse(c)
 
-	requests, total, err := ctrl.friendsUsecase.ListFriendRequests(c, userID, status, requestType, limit, offset)
+	requests, total, err := ctrl.friendsUsecase.ListFriendRequests(c, userID, status, requestType, pag.Limit, pag.Offset)
 	if err != nil {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to list requests")
 		return
@@ -173,7 +174,7 @@ func (ctrl *FriendsHandler) ListFriendRequests(c *gin.Context) {
 		requests = []model.FriendRequestWithUser{}
 	}
 
-	httputil.SuccessList(c, requests, httputil.ParamsToPagination(total, limit, offset))
+	httputil.SuccessList(c, requests, pag.WithTotal(total))
 }
 
 func (ctrl *FriendsHandler) ListFriends(c *gin.Context) {
@@ -183,9 +184,9 @@ func (ctrl *FriendsHandler) ListFriends(c *gin.Context) {
 		return
 	}
 
-	limit, offset := httputil.ParsePagination(c, 20, 100)
+	pag := pagination.Parse(c)
 
-	friends, total, err := ctrl.friendsUsecase.ListFriends(c, userID, limit, offset)
+	friends, total, err := ctrl.friendsUsecase.ListFriends(c, userID, pag.Limit, pag.Offset)
 	if err != nil {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to list friends")
 		return
@@ -195,7 +196,7 @@ func (ctrl *FriendsHandler) ListFriends(c *gin.Context) {
 		friends = []model.FriendUserResponse{}
 	}
 
-	httputil.SuccessList(c, friends, httputil.ParamsToPagination(total, limit, offset))
+	httputil.SuccessList(c, friends, pag.WithTotal(total))
 }
 
 func (ctrl *FriendsHandler) RemoveFriend(c *gin.Context) {

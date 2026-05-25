@@ -62,20 +62,20 @@ func NewAdminGamesHandler(
 // -----------------------------------------------------
 
 func (gc *AdminGamesHandler) ListGames(c *gin.Context) {
-	pagination := pagination.Parse(c, pagination.AdminConfig())
+	pag := pagination.Parse(c, pagination.AdminConfig())
 	status := c.Query("status")
 	mode := c.Query("mode")
 	search := c.Query("search")
 	archived := c.Query("archived")
 
-	games, total, err := gc.Usecase.ListGames(status, mode, search, archived, pagination.Limit, pagination.Offset)
+	games, total, err := gc.Usecase.ListGames(status, mode, search, archived, pag.Limit, pag.Offset)
 	if err != nil {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
 		return
 	}
 
-	pagination.WithTotal(total)
-	httputil.SuccessList(c, games, httputil.ParamsToPagination(pagination.TotalCount, pagination.Limit, pagination.Offset))
+	pag.WithTotal(total)
+	httputil.SuccessList(c, games, &pag)
 }
 
 func (gc *AdminGamesHandler) GetGameStats(c *gin.Context) {
@@ -275,30 +275,30 @@ func (gc *AdminGamesHandler) UnarchiveGame(c *gin.Context) {
 }
 
 func (gc *AdminGamesHandler) ListGameInvites(c *gin.Context) {
-	pagination := pagination.Parse(c, pagination.AdminConfig())
+	pag := pagination.Parse(c, pagination.AdminConfig())
 	status := c.Query("status")
 
-	invites, total, err := gc.Usecase.ListGameInvites(status, pagination.Limit, pagination.Offset)
+	invites, total, err := gc.Usecase.ListGameInvites(status, pag.Limit, pag.Offset)
 	if err != nil {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
 		return
 	}
 
-	pagination.WithTotal(total)
-	httputil.SuccessList(c, invites, httputil.ParamsToPagination(pagination.TotalCount, pagination.Limit, pagination.Offset))
+	pag.WithTotal(total)
+	httputil.SuccessList(c, invites, &pag)
 }
 
 func (gc *AdminGamesHandler) ListPendingInvites(c *gin.Context) {
-	pagination := pagination.Parse(c, pagination.AdminConfig())
+	pag := pagination.Parse(c, pagination.AdminConfig())
 
-	invites, total, err := gc.Usecase.ListPendingInvites(pagination.Limit, pagination.Offset)
+	invites, total, err := gc.Usecase.ListPendingInvites(pag.Limit, pag.Offset)
 	if err != nil {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, err.Error())
 		return
 	}
 
-	pagination.WithTotal(total)
-	httputil.SuccessList(c, invites, httputil.ParamsToPagination(pagination.TotalCount, pagination.Limit, pagination.Offset))
+	pag.WithTotal(total)
+	httputil.SuccessList(c, invites, &pag)
 }
 
 func (gc *AdminGamesHandler) DeleteGameInvite(c *gin.Context) {
@@ -484,7 +484,7 @@ func (gc *AdminGamesHandler) GetUserGameHistory(c *gin.Context) {
 	}
 
 	pag.WithTotal(total)
-	httputil.SuccessList(c, history, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
+	httputil.SuccessList(c, history, &pag)
 }
 
 func (h *AdminGamesHandler) GetGameEventLogs(c *gin.Context) {

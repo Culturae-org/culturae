@@ -59,7 +59,7 @@ func (lc *AdminLogsHandler) GetAdminActionLogs(c *gin.Context) {
 	}
 
 	pag.WithTotal(total)
-	httputil.SuccessList(c, logs, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
+	httputil.SuccessList(c, logs, &pag)
 }
 
 func (lc *AdminLogsHandler) GetUserActionLogs(c *gin.Context) {
@@ -79,7 +79,7 @@ func (lc *AdminLogsHandler) GetUserActionLogs(c *gin.Context) {
 	}
 
 	pag.WithTotal(total)
-	httputil.SuccessList(c, logs, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
+	httputil.SuccessList(c, logs, &pag)
 }
 
 func (lc *AdminLogsHandler) GetUserActionLogsByID(c *gin.Context) {
@@ -111,7 +111,7 @@ func (lc *AdminLogsHandler) GetUserActionLogsByID(c *gin.Context) {
 	}
 
 	pag.WithTotal(total)
-	httputil.SuccessList(c, logs, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
+	httputil.SuccessList(c, logs, &pag)
 }
 
 func (lc *AdminLogsHandler) GetAllUserActionLogs(c *gin.Context) {
@@ -131,7 +131,7 @@ func (lc *AdminLogsHandler) GetAllUserActionLogs(c *gin.Context) {
 	}
 
 	pag.WithTotal(total)
-	httputil.SuccessList(c, logs, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
+	httputil.SuccessList(c, logs, &pag)
 }
 
 func (lc *AdminLogsHandler) GetConnectionLogs(c *gin.Context) {
@@ -150,7 +150,7 @@ func (lc *AdminLogsHandler) GetConnectionLogs(c *gin.Context) {
 	}
 
 	pag.WithTotal(total)
-	httputil.SuccessList(c, logs, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
+	httputil.SuccessList(c, logs, &pag)
 }
 
 func (lc *AdminLogsHandler) GetAPIRequestStats(c *gin.Context) {

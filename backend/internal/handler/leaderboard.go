@@ -5,13 +5,14 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/Culturae-org/culturae/internal/infrastructure/cache"
 	"github.com/Culturae-org/culturae/internal/model"
 	"github.com/Culturae-org/culturae/internal/pkg/httputil"
+	"github.com/Culturae-org/culturae/internal/pkg/pagination"
 	"github.com/Culturae-org/culturae/internal/usecase"
 
 	"github.com/gin-gonic/gin"
@@ -44,7 +45,7 @@ func (lc *LeaderboardHandler) GetLeaderboard(c *gin.Context) {
 
 	lbType := c.DefaultQuery("type", "global")
 	mode := c.DefaultQuery("mode", "all")
-	limit, offset := httputil.ParsePagination(c, 20, 100)
+	pag := pagination.Parse(c)
 
 	type leaderboardCache struct {
 		Entries []model.LeaderboardEntry `json:"entries"`
@@ -55,7 +56,7 @@ func (lc *LeaderboardHandler) GetLeaderboard(c *gin.Context) {
 		return
 	}
 
-	cacheKey := "leaderboard:" + lbType + ":" + mode + ":" + strconv.Itoa(limit) + ":" + strconv.Itoa(offset)
+	cacheKey := fmt.Sprintf("leaderboard:%s:%s:%d:%d", lbType, mode, pag.Limit, pag.Offset)
 	if lc.redisService != nil {
 		cacheCtx, cacheCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cacheCancel()
@@ -68,18 +69,22 @@ func (lc *LeaderboardHandler) GetLeaderboard(c *gin.Context) {
 					userRank, _ = lc.usecase.GetUserRank(userID, lbType)
 				}
 				httputil.SuccessRaw(c, http.StatusOK, gin.H{
-					keyData:       cachedData.Entries,
-					"pagination": httputil.Pagination{Limit: limit, Offset: offset, HasMore: len(cachedData.Entries) == limit},
-					"type":       lbType,
-					"mode":       mode,
-					"user_rank":  userRank,
+					keyData: cachedData.Entries,
+					"pagination": pagination.Meta{
+						Page:        pag.Page,
+						Limit:       pag.Limit,
+						HasNextPage: len(cachedData.Entries) == pag.Limit,
+					},
+					"type":      lbType,
+					"mode":      mode,
+					"user_rank": userRank,
 				})
 				return
 			}
 		}
 	}
 
-	entries, err := lc.usecase.GetEntries(lbType, mode, limit, offset)
+	entries, err := lc.usecase.GetEntries(lbType, mode, pag.Limit, pag.Offset)
 	if err != nil {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to fetch leaderboard")
 		return
@@ -103,10 +108,14 @@ func (lc *LeaderboardHandler) GetLeaderboard(c *gin.Context) {
 	}
 
 	httputil.SuccessRaw(c, http.StatusOK, gin.H{
-		keyData:       entries,
-		"pagination": httputil.Pagination{Limit: limit, Offset: offset, HasMore: len(entries) == limit},
-		"type":       lbType,
-		"mode":       mode,
-		"user_rank":  userRank,
+		keyData: entries,
+		"pagination": pagination.Meta{
+			Page:        pag.Page,
+			Limit:       pag.Limit,
+			HasNextPage: len(entries) == pag.Limit,
+		},
+		"type":      lbType,
+		"mode":      mode,
+		"user_rank": userRank,
 	})
 }

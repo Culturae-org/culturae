@@ -72,7 +72,7 @@ func (h *AdminGameTemplatesHandler) ListGameTemplates(c *gin.Context) {
 	}
 
 	pag.WithTotal(total)
-	httputil.SuccessList(c, templates, httputil.ParamsToPagination(pag.TotalCount, pag.Limit, pag.Offset))
+	httputil.SuccessList(c, templates, &pag)
 }
 
 func (h *AdminGameTemplatesHandler) GetGameTemplate(c *gin.Context) {

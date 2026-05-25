@@ -451,7 +451,7 @@ func (gc *AdminGeographyHandler) ListCountries(c *gin.Context) {
 	}
 
 	pageParams.WithTotal(total)
-	httputil.SuccessList(c, countries, httputil.ParamsToPagination(pageParams.TotalCount, pageParams.Limit, pageParams.Offset))
+	httputil.SuccessList(c, countries, &pageParams)
 }
 
 func (gc *AdminGeographyHandler) UpdateCountry(c *gin.Context) {
@@ -556,7 +556,7 @@ func (gc *AdminGeographyHandler) SearchCountries(c *gin.Context) {
 	}
 
 	pageParams.WithTotal(total)
-	httputil.SuccessList(c, countries, httputil.ParamsToPagination(pageParams.TotalCount, pageParams.Limit, pageParams.Offset))
+	httputil.SuccessList(c, countries, &pageParams)
 }
 
 func (gc *AdminGeographyHandler) ListContinents(c *gin.Context) {
