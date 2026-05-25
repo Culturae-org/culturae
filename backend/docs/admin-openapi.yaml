@@ -292,31 +292,17 @@ components:
       schema:
         type: boolean
         default: false
-    date_from:
-      name: date_from
-      in: query
-      description: Start date (inclusive) for date range filters (ISO 8601)
-      schema:
-        type: string
-        format: date-time
-    date_to:
-      name: date_to
-      in: query
-      description: End date (inclusive) for date range filters (ISO 8601)
-      schema:
-        type: string
-        format: date-time
     start_date:
       name: start_date
       in: query
-      description: Start date (inclusive) for date range filters (ISO 8601) — alias used by some endpoints
+      description: Start date (inclusive) for date range filters (ISO 8601)
       schema:
         type: string
         format: date-time
     end_date:
       name: end_date
       in: query
-      description: End date (inclusive) for date range filters (ISO 8601) — alias used by some endpoints
+      description: End date (inclusive) for date range filters (ISO 8601)
       schema:
         type: string
         format: date-time
@@ -7958,8 +7944,6 @@ paths:
       parameters:
       - $ref: '#/components/parameters/limit'
       - $ref: '#/components/parameters/page'
-      - $ref: '#/components/parameters/date_from'
-      - $ref: '#/components/parameters/date_to'
       - $ref: '#/components/parameters/start_date'
       - $ref: '#/components/parameters/end_date'
       - $ref: '#/components/parameters/action'
@@ -8020,8 +8004,6 @@ paths:
       parameters:
       - $ref: '#/components/parameters/limit'
       - $ref: '#/components/parameters/page'
-      - $ref: '#/components/parameters/date_from'
-      - $ref: '#/components/parameters/date_to'
       - $ref: '#/components/parameters/start_date'
       - $ref: '#/components/parameters/end_date'
       - $ref: '#/components/parameters/action'
@@ -8092,8 +8074,6 @@ paths:
       parameters:
       - $ref: '#/components/parameters/limit'
       - $ref: '#/components/parameters/page'
-      - $ref: '#/components/parameters/date_from'
-      - $ref: '#/components/parameters/date_to'
       - $ref: '#/components/parameters/start_date'
       - $ref: '#/components/parameters/end_date'
       - name: user_id
@@ -8228,8 +8208,8 @@ paths:
       - BearerAuth: []
       parameters:
       - $ref: '#/components/parameters/limit'
-      - $ref: '#/components/parameters/date_from'
-      - $ref: '#/components/parameters/date_to'
+      - $ref: '#/components/parameters/start_date'
+      - $ref: '#/components/parameters/end_date'
       responses:
         200:
           description: Request timestamps
