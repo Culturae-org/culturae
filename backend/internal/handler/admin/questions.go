@@ -207,7 +207,7 @@ func (qc *AdminQuestionHandler) ListQuestions(c *gin.Context) {
 	difficultyStr := c.Query(keyDifficulty)
 	qtypeStr := c.Query("qtype")
 	tagsStr := c.Query("tags")
-	searchQuery := c.Query("search")
+	searchQuery := c.Query("q")
 
 	filters := model.QuestionFilters{}
 

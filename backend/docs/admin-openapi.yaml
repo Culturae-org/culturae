@@ -237,18 +237,6 @@ components:
         - suspended
         - banned
         - inactive
-    query:
-      name: query
-      in: query
-      description: Free-text search query
-      schema:
-        type: string
-    search:
-      name: search
-      in: query
-      description: Search text (for questions endpoint)
-      schema:
-        type: string
     dataset_id:
       name: dataset_id
       in: query
@@ -449,7 +437,7 @@ components:
     q:
       name: q
       in: query
-      description: Free-text query (short form)
+      description: Free-text search query
       schema:
         type: string
   schemas:
@@ -6870,7 +6858,7 @@ paths:
       - BearerAuth: []
       parameters:
       - in: query
-        name: query
+        name: q
         required: true
         schema:
           type: string
@@ -8359,7 +8347,7 @@ paths:
         description: Comma-separated list of tags
         schema:
           type: string
-      - $ref: '#/components/parameters/search'
+      - $ref: '#/components/parameters/q'
       responses:
         200:
           description: Paginated list of questions
@@ -11281,7 +11269,7 @@ paths:
         description: Dataset UUID
       - $ref: '#/components/parameters/limit'
       - $ref: '#/components/parameters/page'
-      - $ref: '#/components/parameters/search'
+      - $ref: '#/components/parameters/q'
       responses:
         '200':
           description: Dataset questions
@@ -11655,7 +11643,7 @@ paths:
           - 1v1
           - multi
       - in: query
-        name: search
+        name: q
         schema:
           type: string
         description: Free-text search (game ID, creator username)

@@ -147,7 +147,7 @@ func (ac *AdminUserHandler) GetDailyActiveUserStats(c *gin.Context) {
 
 func (ac *AdminUserHandler) SearchUsers(c *gin.Context) {
 	pag := pagination.Parse(c, pagination.AdminConfig())
-	query := c.Query("query")
+	query := c.Query("q")
 
 	users, err := ac.Usecase.SearchUsers(query, pag.Limit, pag.Offset)
 	if err != nil {

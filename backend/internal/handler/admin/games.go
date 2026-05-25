@@ -65,7 +65,7 @@ func (gc *AdminGamesHandler) ListGames(c *gin.Context) {
 	pag := pagination.Parse(c, pagination.AdminConfig())
 	status := c.Query("status")
 	mode := c.Query("mode")
-	search := c.Query("search")
+	search := c.Query("q")
 	archived := c.Query("archived")
 
 	games, total, err := gc.Usecase.ListGames(status, mode, search, archived, pag.Limit, pag.Offset)
