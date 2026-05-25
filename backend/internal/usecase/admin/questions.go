@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -430,6 +431,8 @@ func (u *AdminQuestionsUsecase) UpdateQuestion(id uuid.UUID, req model.QuestionU
 	}
 	if req.Version != nil {
 		question.Version = *req.Version
+	} else {
+		question.Version = bumpPatchVersion(question.Version)
 	}
 	if req.Kind != nil {
 		question.Kind = *req.Kind
@@ -516,6 +519,17 @@ func (u *AdminQuestionsUsecase) DeleteQuestion(id uuid.UUID) error {
 		return err
 	}
 	return u.adminQuestionRepo.Delete(id)
+}
+
+func bumpPatchVersion(v string) string {
+	parts := strings.Split(v, ".")
+	last := parts[len(parts)-1]
+	n, err := strconv.Atoi(last)
+	if err != nil {
+		return v + ".1"
+	}
+	parts[len(parts)-1] = strconv.Itoa(n + 1)
+	return strings.Join(parts, ".")
 }
 
 func (u *AdminQuestionsUsecase) ListQuestionsByDataset(datasetID *uuid.UUID, limit, offset int) ([]*model.Question, int64, error) {
