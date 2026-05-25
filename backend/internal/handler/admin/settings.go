@@ -656,14 +656,9 @@ func (sc *AdminSettingsHandler) GetVersionStatus(c *gin.Context) {
 	}
 
 	if err := sc.RedisService.GetJSON(ctx, "system:version:status", &status); err != nil {
-		httputil.SuccessRaw(c, http.StatusOK, gin.H{"is_up_to_date": true, "checked_at": nil})
+		httputil.Success(c, http.StatusOK, gin.H{"is_up_to_date": true, "checked_at": nil})
 		return
 	}
 
-	httputil.SuccessRaw(c, http.StatusOK, gin.H{
-		"current_version": status.CurrentVersion,
-		"latest_version":  status.LatestVersion,
-		"is_up_to_date":   status.IsUpToDate,
-		"checked_at":      status.CheckedAt,
-	})
+	httputil.Success(c, http.StatusOK, status)
 }

@@ -16,7 +16,6 @@ import (
 	"github.com/Culturae-org/culturae/internal/usecase"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type LeaderboardHandler struct {
@@ -41,8 +40,6 @@ func NewLeaderboardHandler(
 // -----------------------------------------------------
 
 func (lc *LeaderboardHandler) GetLeaderboard(c *gin.Context) {
-	userID := httputil.GetUserIDFromContext(c)
-
 	lbType := c.DefaultQuery("type", "global")
 	mode := c.DefaultQuery("mode", "all")
 	pag := pagination.Parse(c)
@@ -64,21 +61,13 @@ func (lc *LeaderboardHandler) GetLeaderboard(c *gin.Context) {
 		if err == nil && cached != "" {
 			var cachedData leaderboardCache
 			if json.Unmarshal([]byte(cached), &cachedData) == nil {
-				var userRank *model.LeaderboardEntry
-				if userID != uuid.Nil {
-					userRank, _ = lc.usecase.GetUserRank(userID, lbType)
+				entries := cachedData.Entries
+				if len(entries) == pag.Limit {
+					pag.WithTotal(int64(pag.Offset + len(entries) + 1))
+				} else {
+					pag.WithTotal(int64(pag.Offset + len(entries)))
 				}
-				httputil.SuccessRaw(c, http.StatusOK, gin.H{
-					keyData: cachedData.Entries,
-					"pagination": pagination.Meta{
-						Page:        pag.Page,
-						Limit:       pag.Limit,
-						HasNextPage: len(cachedData.Entries) == pag.Limit,
-					},
-					"type":      lbType,
-					"mode":      mode,
-					"user_rank": userRank,
-				})
+				httputil.SuccessList(c, entries, &pag)
 				return
 			}
 		}
@@ -102,20 +91,10 @@ func (lc *LeaderboardHandler) GetLeaderboard(c *gin.Context) {
 		}
 	}
 
-	var userRank *model.LeaderboardEntry
-	if userID != uuid.Nil {
-		userRank, _ = lc.usecase.GetUserRank(userID, lbType)
+	if len(entries) == pag.Limit {
+		pag.WithTotal(int64(pag.Offset + len(entries) + 1))
+	} else {
+		pag.WithTotal(int64(pag.Offset + len(entries)))
 	}
-
-	httputil.SuccessRaw(c, http.StatusOK, gin.H{
-		keyData: entries,
-		"pagination": pagination.Meta{
-			Page:        pag.Page,
-			Limit:       pag.Limit,
-			HasNextPage: len(entries) == pag.Limit,
-		},
-		"type":      lbType,
-		"mode":      mode,
-		"user_rank": userRank,
-	})
+	httputil.SuccessList(c, entries, &pag)
 }

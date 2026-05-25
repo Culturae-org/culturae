@@ -53,9 +53,6 @@ func SuccessList(c *gin.Context, data interface{}, pag *pagination.Params) {
 	})
 }
 
-func SuccessRaw(c *gin.Context, status int, data gin.H) {
-	c.JSON(status, data)
-}
 
 func Error(c *gin.Context, status int, code string, message string) {
 	c.JSON(status, errorEnvelope{Error: errorBody{Code: code, Message: message}})

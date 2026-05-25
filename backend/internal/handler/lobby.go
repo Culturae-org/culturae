@@ -44,7 +44,7 @@ func (h *LobbyHandler) GetLobbyStats(c *gin.Context) {
 		inQueue[mode] = int(count)
 	}
 
-	httputil.SuccessRaw(c, http.StatusOK, gin.H{
+	httputil.Success(c, http.StatusOK, gin.H{
 		"online_users": h.wsService.GetOnlineUsers(),
 		"active_games": activeGames,
 		"in_queue":     inQueue,

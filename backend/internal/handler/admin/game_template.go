@@ -173,5 +173,5 @@ func (h *AdminGameTemplatesHandler) SeedDefaultGameTemplates(c *gin.Context) {
 		return
 	}
 	httputil.LogAdminAction(h.LoggingService, adminUUID, c.GetString("username"), "game_template_seed_defaults", "game_template", nil, httputil.GetRealIP(c), httputil.GetUserAgent(c), map[string]interface{}{"created": count}, true, nil)
-	httputil.SuccessRaw(c, http.StatusOK, gin.H{"created": count})
+	httputil.Success(c, http.StatusOK, gin.H{"created": count})
 }

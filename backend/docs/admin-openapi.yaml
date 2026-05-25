@@ -2409,24 +2409,6 @@ components:
             $ref: '#/components/schemas/LeaderboardEntry'
         pagination:
           $ref: '#/components/schemas/Pagination'
-        type:
-          type: string
-          enum:
-          - global
-          - weekly
-          - monthly
-          - elo
-        mode:
-          type: string
-          enum:
-          - all
-          - solo
-          - 1v1
-        user_rank:
-          allOf:
-          - $ref: '#/components/schemas/LeaderboardEntry'
-          nullable: true
-          description: Current authenticated user's rank and score
     ErrorResponse:
       type: object
       properties:
@@ -4287,16 +4269,11 @@ paths:
                 type: object
                 properties:
                   data:
-                    type: object
-                    properties:
-                      profiles:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/PublicProfile'
-                      page:
-                        type: integer
-                      limit:
-                        type: integer
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PublicProfile'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
               example:
                 data:
                 - public_id: 40093-6544
@@ -4309,14 +4286,11 @@ paths:
                   elo_rating: 1000
                 pagination:
                   page: 1
-
                   limit: 20
-
                   total_count: 1
-
                   total_pages: 1
-
                   has_next_page: false
+                  has_prev_page: false
 
                   has_prev_page: false
         '401':
@@ -5056,8 +5030,7 @@ paths:
                 type: object
               example:
                 data:
-                  seeded: 5
-                  message: 5 default templates created
+                  created: 5
         401:
           $ref: '#/components/responses/Unauthorized'
         403:
@@ -6310,7 +6283,7 @@ paths:
       summary: Get leaderboard
       description: 'Returns player rankings. Supports multiple leaderboard types and game mode filters.
 
-        Results are cached for 5 minutes. If authenticated, includes the current user''s rank.
+        Results are cached for 5 minutes.
 
 
         **Leaderboard types:**
@@ -6335,6 +6308,7 @@ paths:
           type: string
           enum:
           - global
+          - daily
           - weekly
           - monthly
           - elo
@@ -6361,32 +6335,27 @@ paths:
                 $ref: '#/components/schemas/LeaderboardResponse'
               example:
                 data:
-                  entries:
-                  - rank: 1
-                    user_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
-                    username: top_player
-                    public_id: '#20483-18393'
-                    has_avatar: true
-                    score: 25000
-                    elo_rating: 1450
-                  - rank: 2
-                    user_id: b2c3d4e5-f6a7-8901-bcde-f12345678901
-                    username: challenger
-                    public_id: '#12345-67890'
-                    has_avatar: false
-                    score: 22000
-                    elo_rating: 1380
-                  user_rank:
-                    rank: 42
-                    user_id: c3d4e5f6-a7b8-9012-cdef-123456789012
-                    username: current_user
-                    public_id: '#11111-22222'
-                    has_avatar: true
-                    score: 8500
-                    elo_rating: 1100
-                  type: global
-                  mode: all
-                  total_users: 2
+                - rank: 1
+                  user_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+                  username: top_player
+                  public_id: '#20483-18393'
+                  has_avatar: true
+                  score: 25000
+                  elo_rating: 1450
+                - rank: 2
+                  user_id: b2c3d4e5-f6a7-8901-bcde-f12345678901
+                  username: challenger
+                  public_id: '#12345-67890'
+                  has_avatar: false
+                  score: 22000
+                  elo_rating: 1380
+                pagination:
+                  page: 1
+                  limit: 20
+                  total_count: 2
+                  total_pages: 1
+                  has_next_page: false
+                  has_prev_page: false
         '400':
           description: Invalid leaderboard type
           content:
@@ -8157,24 +8126,29 @@ paths:
             application/json:
               schema:
                 type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      services:
+                        type: array
+                        items:
+                          type: object
               example:
-                services:
-                - name: api
-                  status: healthy
-                  uptime: 864000
-                  last_check: '2025-04-03T10:00:00Z'
-                - name: database
-                  status: healthy
-                  uptime: 864000
-                  last_check: '2025-04-03T10:00:00Z'
-                - name: cache
-                  status: healthy
-                  uptime: 864000
-                  last_check: '2025-04-03T10:00:00Z'
-                - name: websocket
-                  status: healthy
-                  uptime: 864000
-                  last_check: '2025-04-03T10:00:00Z'
+                data:
+                  services:
+                  - name: api
+                    status: healthy
+                    uptime: 864000
+                    last_check: '2025-04-03T10:00:00Z'
+                  - name: database
+                    status: healthy
+                    uptime: 864000
+                    last_check: '2025-04-03T10:00:00Z'
+                  - name: cache
+                    status: healthy
+                    uptime: 864000
+                    last_check: '2025-04-03T10:00:00Z'
   /api/v1/admin/logs/api-requests/stats:
     get:
       operationId: adminGetApiRequestStats
@@ -10774,17 +10748,17 @@ paths:
                         type: string
                       latest_version:
                         type: string
-                      update_available:
+                      is_up_to_date:
                         type: boolean
-                      check_performed_at:
+                      checked_at:
                         type: string
                         format: date-time
               example:
                 data:
                   current_version: 1.0.0
                   latest_version: 1.0.1
-                  update_available: true
-                  check_performed_at: '2026-04-19T10:00:00Z'
+                  is_up_to_date: false
+                  checked_at: '2026-04-19T10:00:00Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':

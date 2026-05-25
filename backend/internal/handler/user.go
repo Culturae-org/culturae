@@ -5,10 +5,10 @@ package handler
 import (
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/Culturae-org/culturae/internal/model"
 	"github.com/Culturae-org/culturae/internal/pkg/httputil"
+	"github.com/Culturae-org/culturae/internal/pkg/pagination"
 	"github.com/Culturae-org/culturae/internal/usecase"
 
 	"github.com/gin-gonic/gin"
@@ -38,24 +38,7 @@ func NewUserHandler(
 // -----------------------------------------------------
 
 func (pc *UserHandler) SearchPublicProfiles(ctx *gin.Context) {
-	const defaultLimit = 20
-	const maxLimit = 100
-
-	limit := defaultLimit
-	if l, err := strconv.Atoi(ctx.Query(keyLimit)); err == nil {
-		if l < 1 {
-			l = 1
-		}
-		if l > maxLimit {
-			l = maxLimit
-		}
-		limit = l
-	}
-
-	page := 1
-	if p, err := strconv.Atoi(ctx.Query("page")); err == nil && p > 0 {
-		page = p
-	}
+	pag := pagination.Parse(ctx, pagination.Config{DefaultLimit: 20, MaxLimit: 100})
 
 	query := ctx.Query("q")
 
@@ -63,9 +46,9 @@ func (pc *UserHandler) SearchPublicProfiles(ctx *gin.Context) {
 	var err error
 
 	if query != "" {
-		cards, err = pc.Usecase.SearchPublicProfiles(query, page, limit)
+		cards, err = pc.Usecase.SearchPublicProfiles(query, pag.Page, pag.Limit)
 	} else {
-		cards, err = pc.Usecase.GetPublicProfiles(page, limit)
+		cards, err = pc.Usecase.GetPublicProfiles(pag.Page, pag.Limit)
 	}
 
 	if err != nil {
@@ -77,12 +60,12 @@ func (pc *UserHandler) SearchPublicProfiles(ctx *gin.Context) {
 		cards = []model.UserSearchCard{}
 	}
 
-	httputil.SuccessRaw(ctx, http.StatusOK, gin.H{
-		"profiles": cards,
-		"page":     page,
-		keyLimit:    limit,
-		keyHasMore: len(cards) == limit,
-	})
+	if len(cards) == pag.Limit {
+		pag.WithTotal(int64(pag.Offset + len(cards) + 1))
+	} else {
+		pag.WithTotal(int64(pag.Offset + len(cards)))
+	}
+	httputil.SuccessList(ctx, cards, &pag)
 }
 
 func (pc *UserHandler) GetUserProfileWithRelationship(ctx *gin.Context) {

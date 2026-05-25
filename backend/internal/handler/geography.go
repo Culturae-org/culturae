@@ -4,10 +4,10 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/Culturae-org/culturae/internal/model"
 	"github.com/Culturae-org/culturae/internal/pkg/httputil"
+	"github.com/Culturae-org/culturae/internal/pkg/pagination"
 	"github.com/Culturae-org/culturae/internal/usecase"
 
 	"github.com/gin-gonic/gin"
@@ -109,47 +109,28 @@ func (gc *GeographyHandler) GetCountries(c *gin.Context) {
 		return
 	}
 
-	limit := 50
-	if l, err := strconv.Atoi(c.DefaultQuery(keyLimit, "50")); err == nil && l > 0 && l <= 300 {
-		limit = l
-	}
-	offset := 0
-	if o, err := strconv.Atoi(c.DefaultQuery("offset", "0")); err == nil && o >= 0 {
-		offset = o
-	}
+	pag := pagination.Parse(c, pagination.Config{DefaultLimit: 50, MaxLimit: 300})
 
 	continent := c.Query("continent")
 	region := c.Query("region")
 
+	var countries []model.Country
+	var total int64
+
 	if continent != "" || region != "" {
 		filters := model.CountryFilters{Continent: continent, Region: region}
-		countries, total, err := gc.GeographyUsecase.ListCountriesWithFilters(ds.ID, filters, limit, offset)
-		if err != nil {
-			httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to fetch countries")
-			return
-		}
-		httputil.SuccessRaw(c, http.StatusOK, gin.H{
-			keyData:    countries,
-			"total":    total,
-			keyLimit:   limit,
-			"offset":   offset,
-			keyHasMore: offset+len(countries) < int(total),
-		})
-		return
+		countries, total, err = gc.GeographyUsecase.ListCountriesWithFilters(ds.ID, filters, pag.Limit, pag.Offset)
+	} else {
+		countries, total, err = gc.GeographyUsecase.ListCountries(ds.ID, pag.Limit, pag.Offset)
 	}
 
-	countries, total, err := gc.GeographyUsecase.ListCountries(ds.ID, limit, offset)
 	if err != nil {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to fetch countries")
 		return
 	}
-	httputil.SuccessRaw(c, http.StatusOK, gin.H{
-		keyData:    countries,
-		"total":    total,
-		keyLimit:   limit,
-		"offset":   offset,
-		keyHasMore: offset+len(countries) < int(total),
-	})
+
+	pag.WithTotal(total)
+	httputil.SuccessList(c, countries, &pag)
 }
 
 func (gc *GeographyHandler) GetContinents(c *gin.Context) {
@@ -163,5 +144,5 @@ func (gc *GeographyHandler) GetContinents(c *gin.Context) {
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to fetch continents")
 		return
 	}
-	httputil.SuccessRaw(c, http.StatusOK, gin.H{keyData: continents})
+	httputil.Success(c, http.StatusOK, continents)
 }
