@@ -92,23 +92,6 @@ func (rgm *RedisGameManager) decrementGameStats(mode model.GameMode) {
 	_, _ = rgm.redisService.HIncrBy(ctx, gameStatsKey, "mode:"+string(mode), -1)
 }
 
-func determineMultiplayerWinner(players []Player) *uuid.UUID {
-	bestScore := -1
-	var winnerID *uuid.UUID
-	for _, p := range players {
-		if p.Status == model.PlayerStatusLeft {
-			continue
-		}
-		if p.Score > bestScore {
-			bestScore = p.Score
-			id := p.UserID
-			winnerID = &id
-		} else if p.Score == bestScore {
-			winnerID = nil
-		}
-	}
-	return winnerID
-}
 
 func buildPlayersFinalPayload(players []Player) []map[string]interface{} {
 	result := make([]map[string]interface{}, 0, len(players))
@@ -1079,7 +1062,7 @@ func (rgm *RedisGameManager) doSubmitAnswer(gameID, userID uuid.UUID, answer Ans
 
 				var winnerID *uuid.UUID
 				if g.GetMode() != model.GameModeSolo {
-					winnerID = determineMultiplayerWinner(players)
+					winnerID = determineWinner(g.GetMode(), players)
 				}
 
 				_ = g.End(winnerID)
@@ -1404,7 +1387,7 @@ func (rgm *RedisGameManager) doHandleSingleGameTimeout(gameID uuid.UUID, now tim
 		players := game.GetPlayers()
 		var winnerID *uuid.UUID
 		if game.GetMode() != model.GameModeSolo {
-			winnerID = determineMultiplayerWinner(players)
+			winnerID = determineWinner(game.GetMode(), players)
 		}
 		_ = game.End(winnerID)
 	}

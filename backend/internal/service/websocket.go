@@ -976,31 +976,32 @@ func (ws *WebSocketService) addClientToGame(client *WSClient, gamePublicID strin
 			zap.String(keyUserID, client.UserID.String()),
 			zap.String(keyGamePublicID, gamePublicID),
 		)
-		gamePublicIDCopy := gamePublicID
-		userIDCopy := client.UserID
-		if ws.gameActionHandler != nil {
-			go func() {
-				ctx, cancel := context.WithTimeout(ws.ctx, 10*time.Second)
-				defer cancel()
-				done := make(chan error, 1)
-				go func() { done <- ws.gameActionHandler.MarkPlayerReconnected(userIDCopy, gamePublicIDCopy) }()
-				select {
-				case err := <-done:
-					if err != nil {
-						ws.logger.Warn("Failed to mark player reconnected",
-							zap.String(keyUserID, userIDCopy.String()),
-							zap.String(keyGamePublicID, gamePublicIDCopy),
-							zap.Error(err),
-						)
-					}
-				case <-ctx.Done():
-					ws.logger.Error("MarkPlayerReconnected timed out",
+	}
+
+	gamePublicIDCopy := gamePublicID
+	userIDCopy := client.UserID
+	if ws.gameActionHandler != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(ws.ctx, 10*time.Second)
+			defer cancel()
+			done := make(chan error, 1)
+			go func() { done <- ws.gameActionHandler.MarkPlayerReconnected(userIDCopy, gamePublicIDCopy) }()
+			select {
+			case err := <-done:
+				if err != nil {
+					ws.logger.Warn("Failed to mark player reconnected",
 						zap.String(keyUserID, userIDCopy.String()),
 						zap.String(keyGamePublicID, gamePublicIDCopy),
+						zap.Error(err),
 					)
 				}
-			}()
-		}
+			case <-ctx.Done():
+				ws.logger.Error("MarkPlayerReconnected timed out",
+					zap.String(keyUserID, userIDCopy.String()),
+					zap.String(keyGamePublicID, gamePublicIDCopy),
+				)
+			}
+		}()
 	}
 
 	ws.logger.Info("Client joined game room",

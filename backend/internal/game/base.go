@@ -210,8 +210,16 @@ func (g *BaseGame) determineWinner() *uuid.UUID {
 }
 
 func (g *BaseGame) determineWinnerLocked() *uuid.UUID {
-	if g.mode == model.GameModeSolo {
-		for _, p := range g.players {
+	players := make([]Player, 0, len(g.players))
+	for _, p := range g.players {
+		players = append(players, *p)
+	}
+	return determineWinner(g.mode, players)
+}
+
+func determineWinner(mode model.GameMode, players []Player) *uuid.UUID {
+	if mode == model.GameModeSolo {
+		for _, p := range players {
 			if p.Status != model.PlayerStatusLeft {
 				id := p.UserID
 				return &id
@@ -219,10 +227,10 @@ func (g *BaseGame) determineWinnerLocked() *uuid.UUID {
 		}
 		return nil
 	}
-	
+
 	bestScore := -1
 	var winnerID *uuid.UUID
-	for _, p := range g.players {
+	for _, p := range players {
 		if p.Status == model.PlayerStatusLeft {
 			continue
 		}
