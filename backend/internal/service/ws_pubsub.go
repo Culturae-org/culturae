@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 
 	"github.com/Culturae-org/culturae/internal/infrastructure/cache"
@@ -13,7 +14,14 @@ import (
 	"go.uber.org/zap"
 )
 
-const wsPodRelayChannel = "ws:pod:relay"
+const (
+	wsPodBroadcastChannel = "ws:pod:broadcast"
+	userPodMappingKey     = "ws:user:pods"
+)
+
+func podRelayChannel(podID string) string {
+	return fmt.Sprintf("ws:pod:%s:relay", podID)
+}
 
 type PubSubMessageType string
 
@@ -65,7 +73,8 @@ func (r *PubSubRelay) Start(parentCtx context.Context, handler func(msg PubSubRe
 	ctx, cancel := context.WithCancel(parentCtx)
 	r.subCancel = cancel
 
-	pubsub := r.redisService.Subscribe(ctx, wsPodRelayChannel)
+	myChannel := podRelayChannel(r.podID)
+	pubsub := r.redisService.Subscribe(ctx, myChannel, wsPodBroadcastChannel)
 	ch := pubsub.Channel()
 
 	go func() {
@@ -85,7 +94,11 @@ func (r *PubSubRelay) Start(parentCtx context.Context, handler func(msg PubSubRe
 		}
 	}()
 
-	r.logger.Info("Pub/Sub relay started", zap.String("channel", wsPodRelayChannel), zap.String("pod_id", r.podID))
+	r.logger.Info("Pub/Sub relay started",
+		zap.String("pod_channel", myChannel),
+		zap.String("broadcast_channel", wsPodBroadcastChannel),
+		zap.String("pod_id", r.podID),
+	)
 }
 
 func (r *PubSubRelay) Stop() {
@@ -104,21 +117,30 @@ func (r *PubSubRelay) Stop() {
 	r.logger.Info("Pub/Sub relay stopped")
 }
 
-func (r *PubSubRelay) publish(ctx context.Context, msg PubSubRelayMessage) error {
+func (r *PubSubRelay) publishTo(ctx context.Context, channel string, msg PubSubRelayMessage) error {
 	msg.SenderPodID = r.podID
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
-	return r.redisService.PublishRaw(ctx, wsPodRelayChannel, string(data))
+	return r.redisService.PublishRaw(ctx, channel, string(data))
 }
 
 func (r *PubSubRelay) PublishUserMessage(ctx context.Context, userID uuid.UUID, payload []byte) error {
-	return r.publish(ctx, PubSubRelayMessage{
+	msg := PubSubRelayMessage{
 		MessageType: PubSubMsgTypeUser,
 		TargetID:    userID.String(),
 		Payload:     payload,
-	})
+	}
+
+	if r.redisService != nil {
+		targetPod, err := r.redisService.HGet(ctx, userPodMappingKey, userID.String())
+		if err == nil && targetPod != "" && targetPod != r.podID {
+			return r.publishTo(ctx, podRelayChannel(targetPod), msg)
+		}
+	}
+
+	return r.publishTo(ctx, wsPodBroadcastChannel, msg)
 }
 
 func (r *PubSubRelay) PublishGameMessage(ctx context.Context, gamePublicID string, payload []byte, excludeUserID *uuid.UUID) error {
@@ -131,21 +153,41 @@ func (r *PubSubRelay) PublishGameMessage(ctx context.Context, gamePublicID strin
 		eid := excludeUserID.String()
 		msg.ExcludeUserID = &eid
 	}
-	return r.publish(ctx, msg)
+	return r.publishTo(ctx, wsPodBroadcastChannel, msg)
 }
 
 func (r *PubSubRelay) PublishAdminMessage(ctx context.Context, payload []byte) error {
-	return r.publish(ctx, PubSubRelayMessage{
+	return r.publishTo(ctx, wsPodBroadcastChannel, PubSubRelayMessage{
 		MessageType: PubSubMsgTypeAdmin,
 		Payload:     payload,
 	})
 }
 
 func (r *PubSubRelay) PublishBroadcastMessage(ctx context.Context, payload []byte) error {
-	return r.publish(ctx, PubSubRelayMessage{
+	return r.publishTo(ctx, wsPodBroadcastChannel, PubSubRelayMessage{
 		MessageType: PubSubMsgTypeBroadcast,
 		Payload:     payload,
 	})
+}
+
+func (r *PubSubRelay) RegisterUserPod(ctx context.Context, userID uuid.UUID) {
+	if r.redisService == nil {
+		return
+	}
+	if err := r.redisService.HSet(ctx, userPodMappingKey, userID.String(), r.podID); err != nil {
+		r.logger.Warn("Failed to register user pod mapping",
+			zap.String("user_id", userID.String()), zap.Error(err))
+	}
+}
+
+func (r *PubSubRelay) UnregisterUserPod(ctx context.Context, userID uuid.UUID) {
+	if r.redisService == nil {
+		return
+	}
+	if err := r.redisService.HDel(ctx, userPodMappingKey, userID.String()); err != nil {
+		r.logger.Warn("Failed to unregister user pod mapping",
+			zap.String("user_id", userID.String()), zap.Error(err))
+	}
 }
 
 func (r *PubSubRelay) handleMessage(payload string, handler func(msg PubSubRelayMessage)) {
