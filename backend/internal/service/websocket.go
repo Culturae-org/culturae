@@ -863,6 +863,9 @@ func (ws *WebSocketService) incrOnlineUser(userID uuid.UUID) {
 	}
 	if newCount == 1 {
 		ws.logger.Debug("User came online (Redis)", zap.String(keyUserID, userID.String()))
+		if ws.relay != nil {
+			ws.relay.RegisterUserPod(ctx, userID)
+		}
 	}
 }
 
@@ -880,6 +883,9 @@ func (ws *WebSocketService) decrOnlineUser(userID uuid.UUID) {
 	if newCount <= 0 {
 		_ = ws.redisService.HDel(ctx, onlineUsersRedisKey, userID.String())
 		ws.logger.Debug("User went offline (Redis)", zap.String(keyUserID, userID.String()))
+		if ws.relay != nil {
+			ws.relay.UnregisterUserPod(ctx, userID)
+		}
 	}
 }
 

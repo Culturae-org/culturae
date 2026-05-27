@@ -80,6 +80,9 @@ func (m *mockRedis) HSet(_ context.Context, _, _ string, _ interface{}) error   
 func (m *mockRedis) HGetAll(_ context.Context, _ string) (map[string]string, error)                         { return nil, nil }
 func (m *mockRedis) HGet(_ context.Context, _, _ string) (string, error)                                    { return "", nil }
 func (m *mockRedis) HDelete(_ context.Context, _ string, _ ...string) error                                 { return nil }
+func (m *mockRedis) SAdd(_ context.Context, _ string, _ ...string) error                                    { return nil }
+func (m *mockRedis) SRem(_ context.Context, _ string, _ ...string) error                                    { return nil }
+func (m *mockRedis) SMembers(_ context.Context, _ string) ([]string, error)                                 { return nil, nil }
 func (m *mockRedis) CheckRateLimit(_ context.Context, _ string, _ int64, _ time.Duration) (bool, int64, int64, error) {
 	return false, 0, 0, nil
 }
