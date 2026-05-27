@@ -897,7 +897,8 @@ func (ws *WebSocketService) SendToUser(userID uuid.UUID, message interface{}) er
 
 	ws.mutex.RLock()
 	src, exists := ws.userClients[userID]
-	if exists && len(src) > 0 {
+	foundLocally := exists && len(src) > 0
+	if foundLocally {
 		clients := make([]*WSClient, len(src))
 		copy(clients, src)
 		ws.mutex.RUnlock()
@@ -910,7 +911,7 @@ func (ws *WebSocketService) SendToUser(userID uuid.UUID, message interface{}) er
 		ws.mutex.RUnlock()
 	}
 
-	if ws.relay != nil {
+	if !foundLocally && ws.relay != nil {
 		pubCtx, pubCancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer pubCancel()
 		if err := ws.relay.PublishUserMessage(pubCtx, userID, data); err != nil {
