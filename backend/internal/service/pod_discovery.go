@@ -18,8 +18,9 @@ import (
 
 const (
 	podKeyPrefix      = "pod:"
-	podKeySuffix     = ":heartbeat"
-	heartbeatTTL     = 15 * time.Second
+	podKeySuffix      = ":heartbeat"
+	podsActiveKey     = "pods:active"
+	heartbeatTTL      = 15 * time.Second
 	heartbeatInterval = 5 * time.Second
 )
 
@@ -125,6 +126,9 @@ func (p *PodDiscoveryService) removePod() {
 	if err := p.redisService.Delete(ctx, key); err != nil {
 		p.logger.Warn("Failed to remove pod from Redis", zap.Error(err))
 	}
+	if err := p.redisService.SRem(ctx, podsActiveKey, p.podID); err != nil {
+		p.logger.Warn("Failed to remove pod from active set", zap.Error(err))
+	}
 }
 
 func (p *PodDiscoveryService) PublishHeartbeat() error {
@@ -162,17 +166,25 @@ func (p *PodDiscoveryService) PublishHeartbeat() error {
 	}
 
 	key := podKeyPrefix + p.podID + podKeySuffix
-	return p.redisService.Set(ctx, key, string(data), heartbeatTTL)
+	if err := p.redisService.Set(ctx, key, string(data), heartbeatTTL); err != nil {
+		return err
+	}
+	return p.redisService.SAdd(ctx, podsActiveKey, p.podID)
 }
 
 func (p *PodDiscoveryService) GetAllPods(ctx context.Context) ([]model.PodInfo, error) {
-	keys, err := p.redisService.Scan(ctx, podKeyPrefix+"*"+podKeySuffix)
+	podIDs, err := p.redisService.SMembers(ctx, podsActiveKey)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(keys) == 0 {
+	if len(podIDs) == 0 {
 		return []model.PodInfo{}, nil
+	}
+
+	keys := make([]string, len(podIDs))
+	for i, id := range podIDs {
+		keys[i] = podKeyPrefix + id + podKeySuffix
 	}
 
 	values, err := p.redisService.MGet(ctx, keys...)
@@ -181,8 +193,11 @@ func (p *PodDiscoveryService) GetAllPods(ctx context.Context) ([]model.PodInfo, 
 	}
 
 	var pods []model.PodInfo
+	var stale []string
 	for i, value := range values {
 		if value == "" {
+			// Pod ID in the active set but heartbeat key expired — mark for cleanup.
+			stale = append(stale, podIDs[i])
 			continue
 		}
 		var pod model.PodInfo
@@ -191,9 +206,16 @@ func (p *PodDiscoveryService) GetAllPods(ctx context.Context) ([]model.PodInfo, 
 				zap.String("key", keys[i]),
 				zap.Error(err),
 			)
+			stale = append(stale, podIDs[i])
 			continue
 		}
 		pods = append(pods, pod)
+	}
+
+	if len(stale) > 0 {
+		if err := p.redisService.SRem(ctx, podsActiveKey, stale...); err != nil {
+			p.logger.Warn("Failed to clean stale pods from active set", zap.Error(err))
+		}
 	}
 
 	return pods, nil

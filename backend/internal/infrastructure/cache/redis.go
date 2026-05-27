@@ -59,6 +59,10 @@ type RedisClientInterface interface {
 	HIncrBy(ctx context.Context, key, field string, incr int64) (int64, error)
 	HLen(ctx context.Context, key string) (int64, error)
 	HDel(ctx context.Context, key string, fields ...string) error
+
+	SAdd(ctx context.Context, key string, members ...string) error
+	SRem(ctx context.Context, key string, members ...string) error
+	SMembers(ctx context.Context, key string) ([]string, error)
 }
 
 type ZSetMember struct {
@@ -439,4 +443,30 @@ func (r *RedisClient) HDelete(ctx context.Context, key string, fields ...string)
 		return nil
 	}
 	return r.client.HDel(ctx, key, fields...).Err()
+}
+
+func (r *RedisClient) SAdd(ctx context.Context, key string, members ...string) error {
+	if len(members) == 0 {
+		return nil
+	}
+	iface := make([]interface{}, len(members))
+	for i, m := range members {
+		iface[i] = m
+	}
+	return r.client.SAdd(ctx, key, iface...).Err()
+}
+
+func (r *RedisClient) SRem(ctx context.Context, key string, members ...string) error {
+	if len(members) == 0 {
+		return nil
+	}
+	iface := make([]interface{}, len(members))
+	for i, m := range members {
+		iface[i] = m
+	}
+	return r.client.SRem(ctx, key, iface...).Err()
+}
+
+func (r *RedisClient) SMembers(ctx context.Context, key string) ([]string, error) {
+	return r.client.SMembers(ctx, key).Result()
 }
