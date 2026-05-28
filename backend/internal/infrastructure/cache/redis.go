@@ -63,6 +63,8 @@ type RedisClientInterface interface {
 	SAdd(ctx context.Context, key string, members ...string) error
 	SRem(ctx context.Context, key string, members ...string) error
 	SMembers(ctx context.Context, key string) ([]string, error)
+
+	BLPop(ctx context.Context, timeout time.Duration, keys ...string) (string, string, error)
 }
 
 type ZSetMember struct {
@@ -469,4 +471,15 @@ func (r *RedisClient) SRem(ctx context.Context, key string, members ...string) e
 
 func (r *RedisClient) SMembers(ctx context.Context, key string) ([]string, error) {
 	return r.client.SMembers(ctx, key).Result()
+}
+
+func (r *RedisClient) BLPop(ctx context.Context, timeout time.Duration, keys ...string) (string, string, error) {
+	result, err := r.client.BLPop(ctx, timeout, keys...).Result()
+	if err != nil {
+		return "", "", err
+	}
+	if len(result) < 2 {
+		return "", "", fmt.Errorf("unexpected BLPop result length: %d", len(result))
+	}
+	return result[0], result[1], nil
 }

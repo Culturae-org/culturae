@@ -83,6 +83,7 @@ func (m *mockRedis) HDelete(_ context.Context, _ string, _ ...string) error     
 func (m *mockRedis) SAdd(_ context.Context, _ string, _ ...string) error                                    { return nil }
 func (m *mockRedis) SRem(_ context.Context, _ string, _ ...string) error                                    { return nil }
 func (m *mockRedis) SMembers(_ context.Context, _ string) ([]string, error)                                 { return nil, nil }
+func (m *mockRedis) BLPop(_ context.Context, _ time.Duration, _ ...string) (string, string, error)         { return "", "", nil }
 func (m *mockRedis) CheckRateLimit(_ context.Context, _ string, _ int64, _ time.Duration) (bool, int64, int64, error) {
 	return false, 0, 0, nil
 }

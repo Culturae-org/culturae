@@ -433,59 +433,50 @@ func (s *MatchmakingService) Start(ctx context.Context) {
 	if s.podID == "" {
 		return
 	}
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
+	delegateKey := fmt.Sprintf("game:delegate:%s", s.podID)
 	for {
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			return
-		case <-ticker.C:
-			s.drainDelegateQueue(ctx)
 		}
+		_, delegateJSON, err := s.redisService.BLPop(ctx, time.Second, delegateKey)
+		if err != nil || delegateJSON == "" {
+			continue
+		}
+		s.processDelegateRequest(delegateJSON)
 	}
 }
 
-func (s *MatchmakingService) drainDelegateQueue(ctx context.Context) {
-	delegateKey := fmt.Sprintf("game:delegate:%s", s.podID)
-	for {
-		popCtx, popCancel := context.WithTimeout(ctx, 2*time.Second)
-		delegateJSON, err := s.redisService.LPop(popCtx, delegateKey)
-		popCancel()
-		if err != nil || delegateJSON == "" {
-			return
-		}
+func (s *MatchmakingService) processDelegateRequest(delegateJSON string) {
+	var req DelegateGameRequest
+	if err := json.Unmarshal([]byte(delegateJSON), &req); err != nil {
+		s.logger.Warn("Failed to unmarshal delegate request", zap.Error(err))
+		return
+	}
 
-		var req DelegateGameRequest
-		if err := json.Unmarshal([]byte(delegateJSON), &req); err != nil {
-			s.logger.Warn("Failed to unmarshal delegate request", zap.Error(err))
-			continue
-		}
+	s.logger.Info("Processing delegated game creation",
+		zap.String("user1", req.User1.String()),
+		zap.String("user2", req.User2.String()),
+		zap.String("mode", string(req.Mode)),
+	)
 
-		s.logger.Info("Processing delegated game creation",
-			zap.String("user1", req.User1.String()),
-			zap.String("user2", req.User2.String()),
-			zap.String("mode", string(req.Mode)),
-		)
+	if s.matchFoundCallback == nil {
+		s.logger.Error("matchFoundCallback not set for delegated game — dropping")
+		return
+	}
 
-		if s.matchFoundCallback == nil {
-			s.logger.Error("matchFoundCallback not set for delegated game — dropping")
-			continue
-		}
+	if err := s.matchFoundCallback(req.User1, req.User2, req.Mode, req.GameParams); err != nil {
+		s.logger.Error("Failed to create delegated game", zap.Error(err))
+		return
+	}
 
-		if err := s.matchFoundCallback(req.User1, req.User2, req.Mode, req.GameParams); err != nil {
-			s.logger.Error("Failed to create delegated game", zap.Error(err))
-			continue
+	if s.userNotifier != nil {
+		matchEvent := map[string]interface{}{
+			keyType: "match_found",
+			keyData: map[string]interface{}{
+				keyMode: string(req.Mode),
+			},
 		}
-
-		if s.userNotifier != nil {
-			matchEvent := map[string]interface{}{
-				keyType: "match_found",
-				keyData: map[string]interface{}{
-					keyMode: string(req.Mode),
-				},
-			}
-			_ = s.userNotifier.SendToUser(req.User1, matchEvent)
-			_ = s.userNotifier.SendToUser(req.User2, matchEvent)
-		}
+		_ = s.userNotifier.SendToUser(req.User1, matchEvent)
+		_ = s.userNotifier.SendToUser(req.User2, matchEvent)
 	}
 }
