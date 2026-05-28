@@ -58,4 +58,16 @@ var (
 	ErrCannotJoinGame        = errors.New("cannot join this game")
 
 	ErrAlreadyReported = errors.New("question already reported by this user")
+
+	ErrCannotDeleteOnlyDataset    = errors.New("cannot delete the only dataset of this type")
+	ErrCannotDeleteDefaultDataset = errors.New("cannot delete the default dataset")
+	ErrDatasetSlugExists          = errors.New("dataset with this slug already exists")
+	ErrNoActiveDatasets           = errors.New("no active datasets found")
+
+	ErrQuestionNotFound        = errors.New("question not found")
+	ErrExactlyOneCorrectAnswer = errors.New("exactly one answer must be correct")
+	ErrQuestionSlugExists      = errors.New("question with this slug already exists")
+
+	ErrDuplicateEmail        = errors.New("email already exists")
+	ErrPasswordVerification  = errors.New("failed to verify password")
 )

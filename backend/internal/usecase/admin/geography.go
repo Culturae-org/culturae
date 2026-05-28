@@ -103,11 +103,11 @@ func (u *AdminGeographyUsecase) DeleteGeographyDataset(id uuid.UUID, force bool)
 	}
 
 	if count == 0 {
-		return fmt.Errorf("cannot delete the only dataset of this type")
+		return model.ErrCannotDeleteOnlyDataset
 	}
 
 	if dataset.IsDefault {
-		return fmt.Errorf("cannot delete the default dataset")
+		return model.ErrCannotDeleteDefaultDataset
 	}
 
 	return u.repo.DeleteDataset(id)
@@ -210,7 +210,7 @@ func (u *AdminGeographyUsecase) ImportGeographyFromManifest(manifestURL string) 
 
 	_, err := u.repo.GetDatasetBySlug(datasetSlug)
 	if err == nil {
-		return nil, fmt.Errorf("dataset with slug '%s' already exists", datasetSlug)
+		return nil, model.ErrDatasetSlugExists
 	}
 
 	job := model.ImportJob{

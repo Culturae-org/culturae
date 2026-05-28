@@ -217,11 +217,11 @@ func (u *AdminDatasetsUsecase) DeleteDataset(datasetType string, id uuid.UUID, f
 		}
 
 		if count == 0 {
-			return fmt.Errorf("cannot delete the only dataset of this type")
+			return model.ErrCannotDeleteOnlyDataset
 		}
 
 		if dataset.IsDefault {
-			return fmt.Errorf("cannot delete the default dataset")
+			return model.ErrCannotDeleteDefaultDataset
 		}
 
 		questions, _, err := u.questionRepo.ListQuestionsByDataset(&id, 0, 0)
@@ -265,11 +265,11 @@ func (u *AdminDatasetsUsecase) DeleteDataset(datasetType string, id uuid.UUID, f
 		}
 
 		if count == 0 && false {
-			return fmt.Errorf("cannot delete the only dataset of this type")
+			return model.ErrCannotDeleteOnlyDataset
 		}
 
 		if dataset.IsDefault {
-			return fmt.Errorf("cannot delete the default dataset")
+			return model.ErrCannotDeleteDefaultDataset
 		}
 
 		if err := u.geographyRepo.DeleteCountriesByDataset(id); err != nil {
@@ -448,7 +448,7 @@ func (u *AdminDatasetsUsecase) CreateQuestionDataset(req *model.CreateDatasetReq
 		return nil, err
 	}
 	if exists {
-		return nil, fmt.Errorf("dataset with slug '%s' already exists", req.Slug)
+		return nil, model.ErrDatasetSlugExists
 	}
 
 	dataset := &model.QuestionDataset{

@@ -110,7 +110,7 @@ func (uc *UserUsecase) ChangePassword(userID, currentPassword, newPassword strin
 
 	ok, err := crypto.CheckPassword(currentPassword, user.Password)
 	if err != nil {
-		return errors.New("failed to verify password")
+		return model.ErrPasswordVerification
 	}
 	if !ok {
 		return model.ErrPasswordMismatch
@@ -137,7 +137,7 @@ func (uc *UserUsecase) SoftDeleteAccount(userID, password string) error {
 
 	ok, err := crypto.CheckPassword(password, user.Password)
 	if err != nil {
-		return errors.New("failed to verify password")
+		return model.ErrPasswordVerification
 	}
 	if !ok {
 		return model.ErrWrongPassword

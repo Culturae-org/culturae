@@ -105,7 +105,7 @@ func (r *QuestionDatasetRepository) GetDefaultDataset() (*model.QuestionDataset,
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			if err := r.DB.Where("is_active = ?", true).Order("created_at DESC").First(&dataset).Error; err != nil {
-				return nil, errors.New("no active datasets found")
+				return nil, model.ErrNoActiveDatasets
 			}
 			return &dataset, nil
 		}

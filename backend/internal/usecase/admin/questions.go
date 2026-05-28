@@ -309,11 +309,11 @@ func (u *AdminQuestionsUsecase) CreateQuestion(req model.QuestionCreateRequest) 
 		}
 	}
 	if correctCount != 1 {
-		return nil, errors.New("exactly one answer must be correct")
+		return nil, model.ErrExactlyOneCorrectAnswer
 	}
 
 	if u.questionRepo.Exists(req.Slug) {
-		return nil, errors.New("question with this slug already exists")
+		return nil, model.ErrQuestionSlugExists
 	}
 
 	theme, err := u.adminQuestionRepo.FindOrCreateTheme(req.Theme.Slug)
@@ -419,13 +419,13 @@ func (u *AdminQuestionsUsecase) UpdateQuestion(id uuid.UUID, req model.QuestionU
 			}
 		}
 		if correctCount != 1 {
-			return nil, errors.New("exactly one answer must be correct")
+			return nil, model.ErrExactlyOneCorrectAnswer
 		}
 	}
 
 	if req.Slug != nil {
 		if *req.Slug != question.Slug && u.questionRepo.Exists(*req.Slug) {
-			return nil, errors.New("question with this slug already exists")
+			return nil, model.ErrQuestionSlugExists
 		}
 		question.Slug = *req.Slug
 	}
