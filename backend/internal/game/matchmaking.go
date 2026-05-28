@@ -20,6 +20,11 @@ import (
 
 type MatchFoundCallback func(user1, user2 uuid.UUID, mode model.GameMode, gameParams map[string]interface{}) error
 
+type matchWorkItem struct {
+	mode       model.GameMode
+	gameParams map[string]interface{}
+}
+
 type MatchmakingService struct {
 	redisService       cache.RedisClientInterface
 	userRepo           repository.UserRepositoryInterface
@@ -29,7 +34,10 @@ type MatchmakingService struct {
 	userNotifier       UserNotifier
 	podDiscovery       service.PodDiscoveryServiceInterface
 	podID              string
+	matchWork          chan matchWorkItem
 }
+
+const matchWorkerPoolSize = 4
 
 func NewMatchmakingService(
 	appCtx context.Context,
@@ -37,11 +45,22 @@ func NewMatchmakingService(
 	userRepo repository.UserRepositoryInterface,
 	logger *zap.Logger,
 ) *MatchmakingService {
-	return &MatchmakingService{
+	s := &MatchmakingService{
 		redisService: redisService,
 		userRepo:     userRepo,
 		logger:       logger,
 		appCtx:       appCtx,
+		matchWork:    make(chan matchWorkItem, 64),
+	}
+	for range matchWorkerPoolSize {
+		go s.matchWorker()
+	}
+	return s
+}
+
+func (s *MatchmakingService) matchWorker() {
+	for item := range s.matchWork {
+		s.ProcessQueueForParams(item.mode, item.gameParams)
 	}
 }
 
@@ -171,7 +190,11 @@ func (s *MatchmakingService) JoinQueue(userID uuid.UUID, mode model.GameMode, ga
 			},
 		})
 	}
-	go s.ProcessQueueForParams(mode, gameParams)
+	select {
+	case s.matchWork <- matchWorkItem{mode: mode, gameParams: gameParams}:
+	default:
+		s.ProcessQueueForParams(mode, gameParams)
+	}
 
 	return nil
 }
