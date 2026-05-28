@@ -263,7 +263,21 @@ func (ws *WebSocketService) upgradeConnectionWithRole(c *gin.Context, userID uui
 	}
 
 	if !isAdmin && ws.gameActionHandler != nil {
-		go ws.gameActionHandler.OnUserConnected(userID)
+		go func() {
+			ctx, cancel := context.WithTimeout(ws.ctx, 10*time.Second)
+			defer cancel()
+			done := make(chan struct{}, 1)
+			go func() {
+				ws.gameActionHandler.OnUserConnected(userID)
+				done <- struct{}{}
+			}()
+			select {
+			case <-done:
+			case <-ctx.Done():
+				ws.logger.Error("OnUserConnected timed out",
+					zap.String(keyUserID, userID.String()))
+			}
+		}()
 	}
 
 	go ws.handleConnection(client, ctx, wsCfg)

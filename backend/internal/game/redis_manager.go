@@ -576,8 +576,13 @@ func (rgm *RedisGameManager) MarkPlayerDisconnected(gameID, userID uuid.UUID) er
 			Data:     map[string]interface{}{keyCountdownSecs: graceSecs},
 		})
 		go func() {
-			time.Sleep(time.Duration(graceSecs) * time.Second)
-			rgm.doHandleReconnectTimeout(gameID, userID)
+			timer := time.NewTimer(time.Duration(graceSecs) * time.Second)
+			defer timer.Stop()
+			select {
+			case <-timer.C:
+				rgm.doHandleReconnectTimeout(gameID, userID)
+			case <-rgm.ctx.Done():
+			}
 		}()
 	}
 
@@ -855,21 +860,26 @@ func (rgm *RedisGameManager) StartGame(gameID uuid.UUID) error {
 			})
 
 			go func() {
-				time.Sleep(time.Duration(countdownSecs) * time.Second)
-				if err := rgm.withGameLock(gameID, func() error {
-					freshGame, err := rgm.GetGame(gameID)
-					if err != nil {
-						return nil
+				timer := time.NewTimer(time.Duration(countdownSecs) * time.Second)
+				defer timer.Stop()
+				select {
+				case <-timer.C:
+					if err := rgm.withGameLock(gameID, func() error {
+						freshGame, err := rgm.GetGame(gameID)
+						if err != nil {
+							return nil
+						}
+						if freshGame.GetStatus() != model.GameStatusReady {
+							return nil
+						}
+						return rgm.doStartGame(gameID, freshGame)
+					}); err != nil {
+						rgm.logger.Error("Failed to start game after countdown",
+							zap.String(keyGameID, gameID.String()),
+							zap.Error(err),
+						)
 					}
-					if freshGame.GetStatus() != model.GameStatusReady {
-						return nil
-					}
-					return rgm.doStartGame(gameID, freshGame)
-				}); err != nil {
-					rgm.logger.Error("Failed to start game after countdown",
-						zap.String(keyGameID, gameID.String()),
-						zap.Error(err),
-					)
+				case <-rgm.ctx.Done():
 				}
 			}()
 			return nil
@@ -1093,18 +1103,23 @@ func (rgm *RedisGameManager) doSubmitAnswer(gameID, userID uuid.UUID, answer Ans
 
 		if interRoundDelay > 0 {
 			go func() {
-				time.Sleep(interRoundDelay)
-				_ = rgm.withGameLock(gameID, func() error {
-					freshGame, err := rgm.GetGame(gameID)
-					if err != nil {
+				timer := time.NewTimer(interRoundDelay)
+				defer timer.Stop()
+				select {
+				case <-timer.C:
+					_ = rgm.withGameLock(gameID, func() error {
+						freshGame, err := rgm.GetGame(gameID)
+						if err != nil {
+							return nil
+						}
+						if freshGame.GetQuestionNumber() != capturedNewQNumber {
+							return nil
+						}
+						doAdvance(freshGame)
 						return nil
-					}
-					if freshGame.GetQuestionNumber() != capturedNewQNumber {
-						return nil
-					}
-					doAdvance(freshGame)
-					return nil
-				})
+					})
+				case <-rgm.ctx.Done():
+				}
 			}()
 		} else {
 			doAdvance(game)
