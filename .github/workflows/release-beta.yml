@@ -26,6 +26,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6.0.2
+        with:
+          submodules: recursive
 
       - name: Validate beta version format
         run: |
