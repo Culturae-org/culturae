@@ -10,7 +10,7 @@ RUN pnpm install --frozen-lockfile
 COPY dashboard/ .
 RUN NODE_OPTIONS=--max-old-space-size=4096 pnpm build
 
-FROM golang:1.24-alpine AS go-builder
+FROM golang:1.26-alpine AS go-builder
 
 WORKDIR /app
 
