@@ -5,6 +5,7 @@ package game
 import (
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Culturae-org/culturae/internal/game/validator"
@@ -53,6 +54,8 @@ type BaseGame struct {
 	pausedQuestionIdx  int
 	reconnectTimer     *time.Timer
 	reconnectDeadline  *time.Time
+
+	droppedEvents atomic.Int64
 
 	logger *zap.Logger
 
@@ -676,6 +679,10 @@ func (g *BaseGame) Events() <-chan GameEvent {
 	g.mutex.RLock()
 	defer g.mutex.RUnlock()
 	return g.eventChan
+}
+
+func (g *BaseGame) DroppedEvents() int64 {
+	return g.droppedEvents.Load()
 }
 
 func (g *BaseGame) SetSaveCallback(callback func() error) {
@@ -1429,10 +1436,12 @@ func (g *BaseGame) emitEvent(event GameEvent) {
 	select {
 	case g.eventChan <- event:
 	case <-timer.C:
+		total := g.droppedEvents.Add(1)
 		if g.logger != nil {
 			g.logger.Error("Game event channel full, dropping event after retry",
 				zap.String("event_type", event.Type),
 				zap.String(keyGameID, g.id.String()),
+				zap.Int64("total_dropped", total),
 			)
 		}
 	}
