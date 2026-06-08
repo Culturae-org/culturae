@@ -71,7 +71,7 @@ func (uc *AvatarUsecase) UploadAvatar(userID string, file *multipart.FileHeader)
 	if err != nil {
 		return "", fmt.Errorf("open upload: %w", err)
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(file.Filename), "."))
 	var img image.Image
