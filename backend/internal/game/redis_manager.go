@@ -1089,10 +1089,7 @@ func (rgm *RedisGameManager) doSubmitAnswer(gameID, userID uuid.UUID, answer Ans
 			} else {
 				players := g.GetPlayers()
 
-				var winnerID *uuid.UUID
-				if g.GetMode() != model.GameModeSolo {
-					winnerID = determineWinner(g.GetMode(), players)
-				}
+				winnerID := determineWinner(g.GetMode(), players)
 
 				_ = g.End(winnerID)
 				if saveErr := rgm.SaveGame(g); saveErr != nil {
@@ -1419,10 +1416,7 @@ func (rgm *RedisGameManager) doHandleSingleGameTimeout(gameID uuid.UUID, now tim
 
 	if gameOver {
 		players := game.GetPlayers()
-		var winnerID *uuid.UUID
-		if game.GetMode() != model.GameModeSolo {
-			winnerID = determineWinner(game.GetMode(), players)
-		}
+		winnerID := determineWinner(game.GetMode(), players)
 		_ = game.End(winnerID)
 	}
 
