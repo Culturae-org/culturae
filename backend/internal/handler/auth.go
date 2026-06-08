@@ -311,7 +311,7 @@ func (ac *AuthHandler) Login(c *gin.Context) {
 	if err != nil {
 		ac.logger.Error("Failed to create session", zap.Error(err))
 		errorMsg := err.Error()
-		_ = ac.LoggingService.LogUserAction(user.ID, "login", httputil.GetRealIP(c), httputil.GetUserAgent(c), nil, false, &errorMsg)
+		_ = ac.LoggingService.LogUserAction(user.ID, "login_failed", httputil.GetRealIP(c), httputil.GetUserAgent(c), nil, false, &errorMsg)
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to create session")
 		return
 	}
@@ -320,7 +320,7 @@ func (ac *AuthHandler) Login(c *gin.Context) {
 	if err != nil {
 		ac.logger.Error("Failed to generate access token", zap.Error(err))
 		errorMsg := err.Error()
-		_ = ac.LoggingService.LogUserAction(user.ID, "login", httputil.GetRealIP(c), httputil.GetUserAgent(c), nil, false, &errorMsg)
+		_ = ac.LoggingService.LogUserAction(user.ID, "login_failed", httputil.GetRealIP(c), httputil.GetUserAgent(c), nil, false, &errorMsg)
 		httputil.Error(c, http.StatusInternalServerError, httputil.ErrCodeInternal, "Failed to generate access token")
 		return
 	}
