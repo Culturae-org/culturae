@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/Culturae-org/culturae/internal/infrastructure/cache"
@@ -20,6 +21,7 @@ const (
 	podKeyPrefix      = "pod:"
 	podKeySuffix      = ":heartbeat"
 	podsActiveKey     = "pods:active"
+	podLoadKey        = "pods:load"
 	heartbeatTTL      = 15 * time.Second
 	heartbeatInterval = 5 * time.Second
 )
@@ -34,6 +36,8 @@ type PodDiscoveryServiceInterface interface {
 	GetPodInfo(ctx context.Context, podID string) (*model.PodInfo, error)
 	GetBestPodForGame(mode model.GameMode, preferPodID string) (*model.PodInfo, error)
 	GetPodsByLoad() ([]model.PodInfo, error)
+	IncrPodLoad(ctx context.Context, podID string) error
+	DecrPodLoad(ctx context.Context, podID string) error
 }
 
 type GameCountProvider interface {
@@ -129,6 +133,31 @@ func (p *PodDiscoveryService) removePod() {
 	if err := p.redisService.SRem(ctx, podsActiveKey, p.podID); err != nil {
 		p.logger.Warn("Failed to remove pod from active set", zap.Error(err))
 	}
+	if err := p.redisService.HDel(ctx, podLoadKey, p.podID); err != nil {
+		p.logger.Warn("Failed to remove pod load counter", zap.Error(err))
+	}
+}
+
+func (p *PodDiscoveryService) IncrPodLoad(ctx context.Context, podID string) error {
+	_, err := p.redisService.HIncrBy(ctx, podLoadKey, podID, 1)
+	if err != nil {
+		p.logger.Warn("Failed to increment pod load counter",
+			zap.String("pod_id", podID),
+			zap.Error(err),
+		)
+	}
+	return err
+}
+
+func (p *PodDiscoveryService) DecrPodLoad(ctx context.Context, podID string) error {
+	_, err := p.redisService.HIncrBy(ctx, podLoadKey, podID, -1)
+	if err != nil {
+		p.logger.Warn("Failed to decrement pod load counter",
+			zap.String("pod_id", podID),
+			zap.Error(err),
+		)
+	}
+	return err
 }
 
 func (p *PodDiscoveryService) PublishHeartbeat() error {
@@ -249,6 +278,19 @@ func (p *PodDiscoveryService) GetBestPodForGame(mode model.GameMode, preferPodID
 		return nil, fmt.Errorf("no pods available")
 	}
 
+	liveLoad := map[string]int64{}
+	if counts, err := p.redisService.HGetAll(ctx, podLoadKey); err != nil {
+		p.logger.Warn("Failed to read live pod load counters, falling back to client count only",
+			zap.Error(err),
+		)
+	} else {
+		for podID, val := range counts {
+			if n, parseErr := strconv.ParseInt(val, 10, 64); parseErr == nil && n > 0 {
+				liveLoad[podID] = n
+			}
+		}
+	}
+
 	var availablePods []model.PodInfo
 	for _, pod := range pods {
 		if pod.Status != model.PodStatusHealthy {
@@ -272,11 +314,11 @@ func (p *PodDiscoveryService) GetBestPodForGame(mode model.GameMode, preferPodID
 		return nil, fmt.Errorf("no healthy pods available")
 	}
 
-	podLoad := func(p model.PodInfo) int64 {
-		return p.ConnectedClients + p.ActiveGames*2
+	podScore := func(pod model.PodInfo) int64 {
+		return pod.ConnectedClients + liveLoad[pod.PodID]*2
 	}
 	sort.Slice(availablePods, func(i, j int) bool {
-		return podLoad(availablePods[i]) < podLoad(availablePods[j])
+		return podScore(availablePods[i]) < podScore(availablePods[j])
 	})
 
 	bestPod := availablePods[0]
@@ -284,8 +326,8 @@ func (p *PodDiscoveryService) GetBestPodForGame(mode model.GameMode, preferPodID
 		zap.String("mode", string(mode)),
 		zap.String("pod_id", bestPod.PodID),
 		zap.Int64("clients", bestPod.ConnectedClients),
-		zap.Int64("games", bestPod.ActiveGames),
-		zap.Int64("load_score", podLoad(bestPod)),
+		zap.Int64("live_load", liveLoad[bestPod.PodID]),
+		zap.Int64("load_score", podScore(bestPod)),
 	)
 
 	return &bestPod, nil
@@ -300,6 +342,19 @@ func (p *PodDiscoveryService) GetPodsByLoad() ([]model.PodInfo, error) {
 		return nil, err
 	}
 
+	liveLoad := map[string]int64{}
+	if counts, err := p.redisService.HGetAll(ctx, podLoadKey); err != nil {
+		p.logger.Warn("Failed to read live pod load counters in GetPodsByLoad",
+			zap.Error(err),
+		)
+	} else {
+		for podID, val := range counts {
+			if n, parseErr := strconv.ParseInt(val, 10, 64); parseErr == nil && n > 0 {
+				liveLoad[podID] = n
+			}
+		}
+	}
+
 	var availablePods []model.PodInfo
 	for _, pod := range pods {
 		if pod.Status == model.PodStatusHealthy &&
@@ -309,9 +364,9 @@ func (p *PodDiscoveryService) GetPodsByLoad() ([]model.PodInfo, error) {
 	}
 
 	sort.Slice(availablePods, func(i, j int) bool {
-		loadI := availablePods[i].ConnectedClients + availablePods[i].ActiveGames*2
-		loadJ := availablePods[j].ConnectedClients + availablePods[j].ActiveGames*2
-		return loadI < loadJ
+		scoreI := availablePods[i].ConnectedClients + liveLoad[availablePods[i].PodID]*2
+		scoreJ := availablePods[j].ConnectedClients + liveLoad[availablePods[j].PodID]*2
+		return scoreI < scoreJ
 	})
 
 	return availablePods, nil

@@ -1348,6 +1348,9 @@ func setupHandlersAndMiddlewares(
 		deps.PodDiscoveryService = podDiscoveryService
 
 		components.MatchmakingService.SetPodDiscovery(podDiscoveryService, podDiscoveryService.PodID())
+		if rgm, ok := components.GameManager.(*game.RedisGameManager); ok {
+			rgm.SetPodDiscovery(podDiscoveryService, podDiscoveryService.PodID())
+		}
 	}
 
 	components.Handlers.Pods = admin.NewPodsHandler(

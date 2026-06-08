@@ -16,6 +16,7 @@ import (
 	"github.com/Culturae-org/culturae/internal/infrastructure/cache"
 	"github.com/Culturae-org/culturae/internal/model"
 	"github.com/Culturae-org/culturae/internal/repository"
+	"github.com/Culturae-org/culturae/internal/service"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -32,6 +33,8 @@ type RedisGameManager struct {
 	logger       *zap.Logger
 	eventChan    chan GameEvent
 	ctx          context.Context
+	podID        string
+	podDiscovery service.PodDiscoveryServiceInterface
 
 	archiveQueue chan GameEngine
 	stopWorkers  chan struct{}
@@ -70,6 +73,11 @@ func (rgm *RedisGameManager) scanCtx() (context.Context, context.CancelFunc) {
 
 func (rgm *RedisGameManager) SetUserNotifier(n UserNotifier) {
 	rgm.userNotifier = n
+}
+
+func (rgm *RedisGameManager) SetPodDiscovery(svc service.PodDiscoveryServiceInterface, podID string) {
+	rgm.podDiscovery = svc
+	rgm.podID = podID
 }
 
 func (rgm *RedisGameManager) gameKey(gameID uuid.UUID) string {
@@ -416,6 +424,17 @@ func (rgm *RedisGameManager) RemoveGame(gameID uuid.UUID) error {
 
 	if mode != "" {
 		rgm.decrementGameStats(mode)
+	}
+
+	if rgm.podDiscovery != nil && rgm.podID != "" && mode != "" {
+		decrCtx, decrCancel := rgm.opCtx()
+		defer decrCancel()
+		if err := rgm.podDiscovery.DecrPodLoad(decrCtx, rgm.podID); err != nil {
+			rgm.logger.Warn("Failed to decrement pod load counter on game removal",
+				zap.String(keyGameID, gameID.String()),
+				zap.Error(err),
+			)
+		}
 	}
 
 	rgm.logger.Info("Game removed from Redis",

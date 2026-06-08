@@ -338,6 +338,18 @@ func (s *MatchmakingService) createMatchWithParams(user1, user2 uuid.UUID, mode 
 		_ = s.redisService.RPush(ctx, delegateKey, string(delegateJSON))
 		_ = s.redisService.Expire(ctx, delegateKey, 30*time.Second)
 		cancel()
+		if s.podDiscovery != nil {
+			func() {
+				incrCtx, incrCancel := context.WithTimeout(s.appCtx, 2*time.Second)
+				defer incrCancel()
+				if err := s.podDiscovery.IncrPodLoad(incrCtx, bestPodID); err != nil {
+					s.logger.Warn("Failed to increment pod load after delegation",
+						zap.String("pod_id", bestPodID),
+						zap.Error(err),
+					)
+				}
+			}()
+		}
 		return
 	}
 
@@ -355,6 +367,19 @@ func (s *MatchmakingService) createMatchWithParams(user1, user2 uuid.UUID, mode 
 		return
 	}
 
+	if s.podDiscovery != nil && s.podID != "" {
+		func() {
+			incrCtx, incrCancel := context.WithTimeout(s.appCtx, 2*time.Second)
+			defer incrCancel()
+			if err := s.podDiscovery.IncrPodLoad(incrCtx, s.podID); err != nil {
+				s.logger.Warn("Failed to increment local pod load after game creation",
+					zap.String("pod_id", s.podID),
+					zap.Error(err),
+				)
+			}
+		}()
+	}
+
 	if s.userNotifier != nil {
 		matchEvent := map[string]interface{}{
 			keyType: "match_found",
@@ -366,7 +391,7 @@ func (s *MatchmakingService) createMatchWithParams(user1, user2 uuid.UUID, mode 
 		_ = s.userNotifier.SendToUser(user2, matchEvent)
 	}
 
-	s.logger.Info("Match created and delegated",
+	s.logger.Info("Match created locally",
 		zap.String("u1", user1.String()),
 		zap.String("u2", user2.String()),
 		zap.String("mode", string(mode)),
@@ -489,6 +514,16 @@ func (s *MatchmakingService) processDelegateRequest(delegateJSON string) {
 
 	if err := s.matchFoundCallback(req.User1, req.User2, req.Mode, req.GameParams); err != nil {
 		s.logger.Error("Failed to create delegated game", zap.Error(err))
+		if s.podDiscovery != nil && s.podID != "" {
+			decrCtx, decrCancel := context.WithTimeout(s.appCtx, 2*time.Second)
+			defer decrCancel()
+			if decrErr := s.podDiscovery.DecrPodLoad(decrCtx, s.podID); decrErr != nil {
+				s.logger.Warn("Failed to decrement pod load after delegation failure",
+					zap.String("pod_id", s.podID),
+					zap.Error(decrErr),
+				)
+			}
+		}
 		return
 	}
 
