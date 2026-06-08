@@ -5,7 +5,6 @@ package repository
 import (
 	"context"
 	"io"
-	"mime/multipart"
 	"time"
 
 	"github.com/Culturae-org/culturae/internal/infrastructure/cache"
@@ -15,7 +14,7 @@ import (
 )
 
 type AvatarStorageRepositoryInterface interface {
-	UploadAvatar(userID string, file *multipart.FileHeader) (string, error)
+	UploadAvatar(userID string, r io.Reader, size int64, contentType string) (string, error)
 	DeleteAvatar(userID string) error
 	GetAvatarBytes(userID string) (contentType string, data []byte, err error)
 }
@@ -28,8 +27,8 @@ func NewAvatarStorageAdapter(minioClient storage.MinIOClientInterface) *AvatarSt
 	return &AvatarStorageAdapter{minioClient: minioClient}
 }
 
-func (a *AvatarStorageAdapter) UploadAvatar(userID string, file *multipart.FileHeader) (string, error) {
-	return a.minioClient.UploadAvatar(userID, file)
+func (a *AvatarStorageAdapter) UploadAvatar(userID string, r io.Reader, size int64, contentType string) (string, error) {
+	return a.minioClient.UploadAvatar(userID, r, size, contentType)
 }
 
 func (a *AvatarStorageAdapter) DeleteAvatar(userID string) error {

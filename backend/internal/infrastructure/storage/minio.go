@@ -7,9 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -37,7 +35,7 @@ func (c *cancelReadCloser) Close() error {
 }
 
 type MinIOClientInterface interface {
-	UploadAvatar(userID string, file *multipart.FileHeader) (string, error)
+	UploadAvatar(userID string, r io.Reader, size int64, contentType string) (string, error)
 	DeleteAvatar(fileName string) error
 	GetAvatarURL(fileName string) (string, error)
 	GetAvatarFile(fileName string) (io.ReadCloser, error)
@@ -112,27 +110,13 @@ func (s *MinIOClient) createBucketIfNotExists() error {
 	return nil
 }
 
-func (s *MinIOClient) UploadAvatar(userID string, file *multipart.FileHeader) (string, error) {
-	ext := strings.ToLower(filepath.Ext(file.Filename))
-
+func (s *MinIOClient) UploadAvatar(userID string, r io.Reader, size int64, contentType string) (string, error) {
 	fileName := fmt.Sprintf("avatar/%s", userID)
-
-	src, err := file.Open()
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		if err := src.Close(); err != nil {
-			s.logger.Error("Error closing file", zap.Error(err))
-		}
-	}()
-
-	contentType := getContentType(ext)
 
 	ctx, cancel := opCtx()
 	defer cancel()
 
-	_, err = s.client.PutObject(ctx, s.bucketName, fileName, src, file.Size, minio.PutObjectOptions{
+	_, err := s.client.PutObject(ctx, s.bucketName, fileName, r, size, minio.PutObjectOptions{
 		ContentType: contentType,
 	})
 	if err != nil {
@@ -266,20 +250,6 @@ func formatBytes(b int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
-func getContentType(ext string) string {
-	switch ext {
-	case ".jpg", ".jpeg":
-		return "image/jpeg"
-	case ".png":
-		return "image/png"
-	case ".gif":
-		return "image/gif"
-	case ".svg":
-		return "image/svg+xml"
-	default:
-		return "application/octet-stream"
-	}
-}
 
 func (s *MinIOClient) getFlagPath(countryCode string) string {
 	return fmt.Sprintf("flags-svg/%s.svg", strings.ToLower(countryCode))

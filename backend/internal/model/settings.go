@@ -38,6 +38,7 @@ type AvatarConfig struct {
 	MaxFileSizeMB     int      `json:"max_file_size_mb"`
 	AllowedMimeTypes  []string `json:"allowed_mime_types"`
 	AllowedExtensions []string `json:"allowed_extensions"`
+	MaxWidth          int      `json:"max_width"`
 }
 
 func DefaultAvatarConfig() AvatarConfig {
@@ -45,6 +46,7 @@ func DefaultAvatarConfig() AvatarConfig {
 		MaxFileSizeMB:     5,
 		AllowedMimeTypes:  []string{"image/jpeg", "image/png"},
 		AllowedExtensions: []string{".png", ".jpeg", ".jpg"},
+		MaxWidth:          200,
 	}
 }
 

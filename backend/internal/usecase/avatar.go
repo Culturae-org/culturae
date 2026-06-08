@@ -3,8 +3,17 @@
 package usecase
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"image"
+	"image/jpeg"
+	"image/png"
 	"mime/multipart"
+	"path/filepath"
+	"strings"
+
+	"golang.org/x/image/draw"
 
 	"github.com/Culturae-org/culturae/internal/model"
 	"github.com/Culturae-org/culturae/internal/repository"
@@ -52,7 +61,41 @@ func (uc *AvatarUsecase) GetAvatarBytes(userID string) (contentType string, data
 }
 
 func (uc *AvatarUsecase) UploadAvatar(userID string, file *multipart.FileHeader) (string, error) {
-	fileName, err := uc.AvatarStorage.UploadAvatar(userID, file)
+	cfg := uc.GetAvatarConfig(context.Background())
+	maxWidth := cfg.MaxWidth
+	if maxWidth <= 0 {
+		maxWidth = 200
+	}
+
+	src, err := file.Open()
+	if err != nil {
+		return "", fmt.Errorf("open upload: %w", err)
+	}
+	defer src.Close()
+
+	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(file.Filename), "."))
+	var img image.Image
+	switch ext {
+	case "jpg", "jpeg":
+		img, err = jpeg.Decode(src)
+	case "png":
+		img, err = png.Decode(src)
+	default:
+		img, _, err = image.Decode(src)
+	}
+	if err != nil {
+		return "", fmt.Errorf("decode image: %w", err)
+	}
+
+	dst := image.NewNRGBA(image.Rect(0, 0, maxWidth, maxWidth))
+	draw.BiLinear.Scale(dst, dst.Rect, img, img.Bounds(), draw.Src, nil)
+
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, dst); err != nil {
+		return "", fmt.Errorf("encode avatar: %w", err)
+	}
+
+	fileName, err := uc.AvatarStorage.UploadAvatar(userID, &buf, int64(buf.Len()), "image/png")
 	if err != nil {
 		return "", err
 	}
