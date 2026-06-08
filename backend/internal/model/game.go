@@ -67,7 +67,6 @@ type Game struct {
 	Category     string     `gorm:"type:varchar(50);default:'general'" json:"category,omitempty"`
 	FlagVariant  string     `gorm:"type:varchar(50)" json:"flag_variant,omitempty"`
 	QuestionType string     `gorm:"type:varchar(50)" json:"question_type,omitempty"`
-	Language     string     `gorm:"type:varchar(10);default:'en'" json:"language,omitempty"`
 	Continent    string     `gorm:"type:varchar(100);default:''" json:"continent,omitempty"`
 
 	WinnerID *uuid.UUID `gorm:"type:uuid;index" json:"winner_id,omitempty"`
@@ -156,7 +155,6 @@ type CreateGameRequest struct {
 	PointsPerCorrect   *int       `json:"points_per_correct,omitempty"`
 	TimeBonus          *bool      `json:"time_bonus,omitempty"`
 	DatasetID          *uuid.UUID `json:"dataset_id,omitempty"`
-	Language           string     `json:"language,omitempty"`
 	TemplateID         *uuid.UUID `json:"template_id,omitempty"`
 	TemplateSnapshot   string     `json:"-"`
 }

@@ -71,7 +71,6 @@ type GameTemplate struct {
 	FlagVariant        string     `gorm:"type:varchar(50)" json:"flag_variant"`
 	Continent          string     `gorm:"type:varchar(100)" json:"continent"`
 	IncludeTerritories bool       `gorm:"default:false" json:"include_territories"`
-	Language           string     `gorm:"type:varchar(10);default:'en'" json:"language"`
 
 	PointsPerCorrect int    `gorm:"not null;default:100" json:"points_per_correct"`
 	TimeBonus        bool   `gorm:"default:true" json:"time_bonus"`
@@ -102,7 +101,6 @@ type CreateGameTemplateRequest struct {
 	FlagVariant        string      `json:"flag_variant"`
 	Continent          string      `json:"continent"`
 	IncludeTerritories bool        `json:"include_territories"`
-	Language           string      `json:"language"`
 	PointsPerCorrect   int         `json:"points_per_correct" binding:"min=0"`
 	TimeBonus          bool        `json:"time_bonus"`
 	ScoreMode          string      `json:"score_mode" binding:"oneof=classic time_bonus fastest_wins ''"`
@@ -126,7 +124,6 @@ type UpdateGameTemplateRequest struct {
 	FlagVariant        *string      `json:"flag_variant,omitempty"`
 	Continent          *string      `json:"continent,omitempty"`
 	IncludeTerritories *bool        `json:"include_territories,omitempty"`
-	Language           *string      `json:"language,omitempty"`
 	PointsPerCorrect   *int         `json:"points_per_correct,omitempty" binding:"omitempty,min=0"`
 	TimeBonus          *bool        `json:"time_bonus,omitempty"`
 	ScoreMode          *string      `json:"score_mode,omitempty" binding:"omitempty,oneof=classic time_bonus fastest_wins"`

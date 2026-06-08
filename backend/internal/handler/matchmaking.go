@@ -47,7 +47,6 @@ func (mc *MatchmakingHandler) JoinQueue(c *gin.Context) {
 		Mode          model.GameMode `json:"mode" binding:"required"`
 		Category      string         `json:"category"`
 		FlagVariant   string         `json:"flag_variant"`
-		Language      string         `json:"language"`
 		QuestionCount int            `json:"question_count"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -63,7 +62,6 @@ func (mc *MatchmakingHandler) JoinQueue(c *gin.Context) {
 	gameParams := map[string]interface{}{
 		"category":       req.Category,
 		"flag_variant":   req.FlagVariant,
-		"language":       req.Language,
 		"question_count": req.QuestionCount,
 	}
 

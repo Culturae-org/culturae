@@ -89,7 +89,6 @@ func (u *AdminGameTemplatesUsecase) CreateGameTemplate(req *model.CreateGameTemp
 		FlagVariant:        req.FlagVariant,
 		Continent:          req.Continent,
 		IncludeTerritories: req.IncludeTerritories,
-		Language:           req.Language,
 		PointsPerCorrect:   pointsPerCorrect,
 		TimeBonus:          req.TimeBonus,
 		ScoreMode:          scoreMode,
@@ -151,9 +150,6 @@ func (u *AdminGameTemplatesUsecase) UpdateGameTemplate(id uuid.UUID, req *model.
 	}
 	if req.IncludeTerritories != nil {
 		t.IncludeTerritories = *req.IncludeTerritories
-	}
-	if req.Language != nil {
-		t.Language = *req.Language
 	}
 	if req.PointsPerCorrect != nil {
 		t.PointsPerCorrect = *req.PointsPerCorrect
@@ -365,7 +361,6 @@ func (u *AdminGameTemplatesUsecase) SeedDefaultGameTemplates() (int, error) {
 			PointsPerCorrect: d.points,
 			TimeBonus:        d.timeBonus,
 			ScoreMode:        d.scoreMode,
-			Language:         "en",
 			IsActive:         true,
 			NameI18n:         d.nameI18n,
 			DescI18n:         d.descI18n,

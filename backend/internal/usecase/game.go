@@ -124,11 +124,6 @@ func (u *GameUsecase) CreateMatchmakedGame(user1, user2 uuid.UUID, mode model.Ga
 		flagVariant = fv
 	}
 
-	language := ""
-	if lang, ok := gameParams["language"].(string); ok {
-		language = lang
-	}
-
 	questionType := ""
 	if qt, ok := gameParams[keyQuestionType].(string); ok {
 		questionType = qt
@@ -177,7 +172,6 @@ func (u *GameUsecase) CreateMatchmakedGame(user1, user2 uuid.UUID, mode model.Ga
 		Mode:             mode,
 		Category:         category,
 		FlagVariant:      flagVariant,
-		Language:         language,
 		DatasetID:        datasetID,
 		Status:           model.GameStatusWaiting,
 		CreatorID:        user1,
@@ -344,9 +338,6 @@ func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.
 		if tmpl.IncludeTerritories && !req.IncludeTerritories {
 			req.IncludeTerritories = tmpl.IncludeTerritories
 		}
-		if tmpl.Language != "" && req.Language == "" {
-			req.Language = tmpl.Language
-		}
 		templateID = &tmpl.ID
 
 		if snapshot, err := json.Marshal(map[string]interface{}{
@@ -355,7 +346,6 @@ func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.
 			"category":           tmpl.Category,
 			"flag_variant":       tmpl.FlagVariant,
 			keyQuestionType:      tmpl.QuestionType,
-			"language":           tmpl.Language,
 			"continent":          tmpl.Continent,
 			"question_count":     tmpl.QuestionCount,
 			"points_per_correct": tmpl.PointsPerCorrect,
@@ -424,7 +414,6 @@ func (u *GameUsecase) CreateGame(c *gin.Context, creatorID uuid.UUID, req model.
 		Category:         category,
 		FlagVariant:      flagVariant,
 		QuestionType:     req.QuestionType,
-		Language:         req.Language,
 		CreatedAt:        time.Now(),
 		UpdatedAt:        time.Now(),
 	}

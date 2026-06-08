@@ -118,7 +118,6 @@ type GameSettings struct {
 	FlagVariant        string
 	Continent          string
 	IncludeTerritories bool
-	Language           string
 	InterRoundDelayMs  int
 
 	MaxPlayers int
