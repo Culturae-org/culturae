@@ -13,6 +13,8 @@ const (
 	msgLeaveGame     = "leave_game"
 	msgSubmitAnswer  = "submit_answer"
 	msgPing             = "ping"
+	msgPlayerReady      = "player_ready"
+	msgStartGame        = "start_game"
 	answerTypeMCQ       = "mcq"
 	keyUserID           = "user_id"
 	keyClientID         = "client_id"

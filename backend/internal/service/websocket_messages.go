@@ -54,7 +54,8 @@ type AckMessage struct {
 }
 
 type PongMessage struct {
-	Type string `json:"type"`
+	Type          string  `json:"type"`
+	CorrelationID *string `json:"correlation_id,omitempty"`
 }
 
 type HelloMessage struct {

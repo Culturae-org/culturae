@@ -360,12 +360,10 @@ func (ws *WebSocketService) handleMessage(client *WSClient, message []byte) {
 
 		if limited {
 			ws.logger.Warn("Client rate limited", zap.String(keyClientID, client.ID.String()))
-			errMsg := "rate limit exceeded"
-			data, _ := json.Marshal(AckMessage{
-				Type:    msgAck,
-				Action:  "message",
-				Success: false,
-				Error:   &errMsg,
+			data, _ := json.Marshal(map[string]interface{}{
+				keyType: "error",
+				"error": "rate limit exceeded",
+				"code":  "rate_limit_exceeded",
 			})
 			ws.trySend(client, data)
 			return
@@ -486,23 +484,27 @@ func (ws *WebSocketService) handleMessage(client *WSClient, message []byte) {
 	case msgSubmitAnswer:
 		ws.handleSubmitAnswer(client, message, correlationID)
 
-	case "player_ready":
+	case msgPlayerReady:
 		var readyMsg PlayerReadyMessage
 		if err := ws.unmarshalMessage(message, &readyMsg); err != nil {
-			ws.sendAck(client, "player_ready", false, "invalid message format", correlationID)
+			ws.sendAck(client, msgPlayerReady, false, "invalid message format", correlationID)
 			return
 		}
-		ws.handleGameAction(client, msg, "player_ready", correlationID, func(gamePublicID string) error {
+		ws.handleGameAction(client, msg, msgPlayerReady, correlationID, func(gamePublicID string) error {
 			return ws.gameActionHandler.HandlePlayerReady(client.UserID, gamePublicID, readyMsg.Ready)
 		})
 
-	case "start_game":
-		ws.handleGameAction(client, msg, "start_game", correlationID, func(gamePublicID string) error {
+	case msgStartGame:
+		ws.handleGameAction(client, msg, msgStartGame, correlationID, func(gamePublicID string) error {
 			return ws.gameActionHandler.HandleStartGame(client.UserID, gamePublicID)
 		})
 
 	case msgPing:
-		ws.sendPong(client)
+		var pingCorrelation *string
+		if cid, ok := msg[keyCorrelationID].(string); ok && cid != "" {
+			pingCorrelation = &cid
+		}
+		ws.sendPong(client, pingCorrelation)
 
 	default:
 		ws.logger.Debug("Unknown message type", zap.String("type", msgType))
@@ -514,8 +516,7 @@ func (ws *WebSocketService) extractCorrelationID(msg map[string]interface{}) *st
 	if correlationID, ok := msg[keyCorrelationID].(string); ok && correlationID != "" {
 		return &correlationID
 	}
-	generatedID := uuid.New().String()
-	return &generatedID
+	return nil
 }
 
 func (ws *WebSocketService) unmarshalMessage(data []byte, v interface{}) error {
@@ -613,8 +614,8 @@ func (ws *WebSocketService) sendAck(client *WSClient, action string, success boo
 	ws.trySend(client, data)
 }
 
-func (ws *WebSocketService) sendPong(client *WSClient) {
-	data, _ := json.Marshal(PongMessage{Type: "pong"})
+func (ws *WebSocketService) sendPong(client *WSClient, correlationID *string) {
+	data, _ := json.Marshal(PongMessage{Type: "pong", CorrelationID: correlationID})
 	ws.trySend(client, data)
 }
 
