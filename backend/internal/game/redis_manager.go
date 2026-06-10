@@ -1033,18 +1033,6 @@ func (rgm *RedisGameManager) doSubmitAnswer(gameID, userID uuid.UUID, answer Ans
 		Data:     answerReceivedData,
 	})
 
-	if playerErr == nil {
-		rgm.EmitEvent(GameEvent{
-			Type:     EventScoreUpdated,
-			GameID:   gameID,
-			PublicID: game.GetPublicID(),
-			Data: map[string]interface{}{
-				keyUserPublicID: userPublicID,
-				keyScore:          player.Score,
-			},
-		})
-	}
-
 	if willAdvance {
 		_ = rgm.RemoveQuestionTimeout(gameID)
 
