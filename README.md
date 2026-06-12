@@ -32,7 +32,7 @@ To add or fix questions in `Cultpedia`, go directly to the [Repository](https://
 
 ## Support
 
-For questions or support, open an issue on GitHub or contact the Culturae maintainers.
+For questions or support, open an [issue](https://github.com/Culturae-org/culturae/issues) on GitHub or contact the Culturae maintainers.
 
 ## License
 
