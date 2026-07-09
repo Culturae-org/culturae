@@ -265,23 +265,23 @@ type FlagStorageRepositoryInterface interface {
 }
 
 type FlagStorageAdapter struct {
-	minioClient storage.MinIOClientInterface
+	s3Client storage.S3ClientInterface
 	logger      *zap.Logger
 }
 
-func NewFlagStorageAdapter(minioClient storage.MinIOClientInterface, logger *zap.Logger) *FlagStorageAdapter {
+func NewFlagStorageAdapter(s3Client storage.S3ClientInterface, logger *zap.Logger) *FlagStorageAdapter {
 	return &FlagStorageAdapter{
-		minioClient: minioClient,
+		s3Client: s3Client,
 		logger:      logger,
 	}
 }
 
 func (f *FlagStorageAdapter) GetFlagURL(countryCode string) (string, error) {
-	return f.minioClient.GetFlagURL(countryCode)
+	return f.s3Client.GetFlagURL(countryCode)
 }
 
 func (f *FlagStorageAdapter) GetFlagFile(countryCode string) ([]byte, string, error) {
-	reader, err := f.minioClient.GetFlagFile(countryCode)
+	reader, err := f.s3Client.GetFlagFile(countryCode)
 	if err != nil {
 		return nil, "", err
 	}
@@ -298,7 +298,7 @@ func (f *FlagStorageAdapter) GetFlagFile(countryCode string) ([]byte, string, er
 }
 
 func (f *FlagStorageAdapter) GetFlagFilePNGNative(countryCode string, format string) ([]byte, error) {
-	reader, err := f.minioClient.GetFlagPNGFile(countryCode, format)
+	reader, err := f.s3Client.GetFlagPNGFile(countryCode, format)
 	if err != nil {
 		return nil, err
 	}
@@ -311,21 +311,21 @@ func (f *FlagStorageAdapter) GetFlagFilePNGNative(countryCode string, format str
 }
 
 func (f *FlagStorageAdapter) UploadFlag(countryCode string, svgContent []byte) (string, error) {
-	return f.minioClient.UploadFlag(countryCode, svgContent)
+	return f.s3Client.UploadFlag(countryCode, svgContent)
 }
 
 func (f *FlagStorageAdapter) UploadFlagFromURL(countryCode string, url string) (string, error) {
-	return f.minioClient.UploadFlagFromURL(countryCode, url)
+	return f.s3Client.UploadFlagFromURL(countryCode, url)
 }
 
 func (f *FlagStorageAdapter) UploadFlagPNGFromURL(countryCode string, format string, url string) (string, error) {
-	return f.minioClient.UploadFlagPNGFromURL(countryCode, format, url)
+	return f.s3Client.UploadFlagPNGFromURL(countryCode, format, url)
 }
 
 func (f *FlagStorageAdapter) DeleteFlag(countryCode string) error {
-	return f.minioClient.DeleteFlag(countryCode)
+	return f.s3Client.DeleteFlag(countryCode)
 }
 
 func (f *FlagStorageAdapter) FlagExists(countryCode string) (bool, error) {
-	return f.minioClient.FlagExists(countryCode)
+	return f.s3Client.FlagExists(countryCode)
 }

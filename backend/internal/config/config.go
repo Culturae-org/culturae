@@ -59,11 +59,12 @@ type Config struct {
 	PostgresPassword string
 	PostgresDBName   string
 
-	MinIOEndpoint   string
-	MinIOAccessKey  string
-	MinIOSecretKey  string
-	MinIOBucketName string
-	MinIOUseSSL     bool
+	S3Endpoint   string
+	S3AccessKey  string
+	S3SecretKey  string
+	S3BucketName string
+	S3UseSSL     bool
+	S3Region     string
 
 	RedisHost     string
 	RedisPort     string
@@ -92,7 +93,7 @@ func Load() (*Config, error) {
 		_ = godotenv.Load()
 	}
 
-	useSSL := os.Getenv("MINIO_USE_SSL") == envTrue
+	useSSL := getEnvOrDefault("S3_USE_SSL", os.Getenv("MINIO_USE_SSL")) == envTrue
 
 	redisDB := 0
 	if redisDBStr := os.Getenv("REDIS_DB"); redisDBStr != "" {
@@ -134,11 +135,12 @@ func Load() (*Config, error) {
 		IdleTimeout:    idleTimeout,
 		AllowedOrigins: allowedOrigins,
 
-		MinIOEndpoint:   getEnvOrDefault("MINIO_ENDPOINT", "localhost:9000"),
-		MinIOAccessKey:  getEnvOrDefault("MINIO_ROOT_USER", "minioadmin"),
-		MinIOSecretKey:  getEnvOrDefault("MINIO_ROOT_PASSWORD", "minioadmin"),
-		MinIOBucketName: getEnvOrDefault("MINIO_BUCKET_NAME", "culturae"),
-		MinIOUseSSL:     useSSL,
+		S3Endpoint:   getEnvWithFallback("S3_ENDPOINT", "MINIO_ENDPOINT", "localhost:9000"),
+		S3AccessKey:  getEnvWithFallback("S3_ACCESS_KEY", "MINIO_ROOT_USER", "minioadmin"),
+		S3SecretKey:  getEnvWithFallback("S3_SECRET_KEY", "MINIO_ROOT_PASSWORD", "minioadmin"),
+		S3BucketName: getEnvWithFallback("S3_BUCKET_NAME", "MINIO_BUCKET_NAME", "culturae"),
+		S3UseSSL:     useSSL,
+		S3Region:     getEnvOrDefault("S3_REGION", ""),
 
 		RedisHost:     getEnvOrDefault("REDIS_HOST", "localhost"),
 		RedisPort:     getEnvOrDefault("REDIS_PORT", "6379"),
@@ -179,6 +181,16 @@ func (c *Config) GetRedisAddr() string {
 
 func getEnvOrDefault(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func getEnvWithFallback(primary, fallback, defaultValue string) string {
+	if value := os.Getenv(primary); value != "" {
+		return value
+	}
+	if value := os.Getenv(fallback); value != "" {
 		return value
 	}
 	return defaultValue
@@ -316,11 +328,11 @@ func (c *Config) Validate() error {
 			})
 		}
 
-		if c.MinIOEndpoint != "" {
-			if c.MinIOAccessKey == "" || c.MinIOSecretKey == "" {
+		if c.S3Endpoint != "" {
+			if c.S3AccessKey == "" || c.S3SecretKey == "" {
 				errs = append(errs, &ConfigError{
-					Field:   "MINIO",
-					Message: "MinIO credentials are required when endpoint is configured",
+					Field:   "S3",
+					Message: "S3 credentials are required when endpoint is configured",
 				})
 			}
 		}

@@ -15,7 +15,7 @@ For the api you have the [OpenAPI file](./backend/docs/admin-openapi.yaml) and f
 
 ## Infrastructure Setup
 
-The first step is to start the required services: PostgreSQL, Redis, and MinIO.
+The first step is to start the required services: PostgreSQL, Redis, and an S3-compatible object storage.
 
 ```bash
 cd backend
@@ -39,7 +39,7 @@ See `.env.example` for all available options.
 task --list  # See all available tasks
 
 # Infrastructure
-task dev:infra      # Start postgres, redis, minio
+task dev:infra      # Start postgres, redis, s3 (minio)
 task docker:down    # Stop all services
 task docker:logs    # Follow backend logs
 

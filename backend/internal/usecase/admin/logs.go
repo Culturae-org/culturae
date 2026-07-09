@@ -87,7 +87,7 @@ func (uc *AdminLogsUsecase) GetAPIRequestTimestamps(method *string, statusCode *
 }
 
 func (uc *AdminLogsUsecase) CheckServiceStatus() ([]model.ServiceStatus, error) {
-	services := []string{"postgres", "redis", "minio"}
+	services := []string{"postgres", "redis", "s3"}
 	var statuses []model.ServiceStatus
 
 	for _, service := range services {
@@ -114,8 +114,8 @@ func (uc *AdminLogsUsecase) CheckServiceStatus() ([]model.ServiceStatus, error) 
 				defer redisInfoCancel()
 				details, _ = uc.cacheHealth.GetInfo(redisInfoCtx)
 			}
-		case "minio":
-			err = uc.checkMinIOHealth()
+		case "s3":
+			err = uc.checkS3Health()
 			if err == nil {
 				details, _ = uc.storageHealth.GetBucketInfo()
 			}
@@ -148,6 +148,6 @@ func (uc *AdminLogsUsecase) checkRedisHealth() error {
 	return uc.cacheHealth.Ping(ctx)
 }
 
-func (uc *AdminLogsUsecase) checkMinIOHealth() error {
+func (uc *AdminLogsUsecase) checkS3Health() error {
 	return uc.storageHealth.CheckBucketExists()
 }

@@ -20,29 +20,29 @@ type AvatarStorageRepositoryInterface interface {
 }
 
 type AvatarStorageAdapter struct {
-	minioClient storage.MinIOClientInterface
+	s3Client storage.S3ClientInterface
 }
 
-func NewAvatarStorageAdapter(minioClient storage.MinIOClientInterface) *AvatarStorageAdapter {
-	return &AvatarStorageAdapter{minioClient: minioClient}
+func NewAvatarStorageAdapter(s3Client storage.S3ClientInterface) *AvatarStorageAdapter {
+	return &AvatarStorageAdapter{s3Client: s3Client}
 }
 
 func (a *AvatarStorageAdapter) UploadAvatar(userID string, r io.Reader, size int64, contentType string) (string, error) {
-	return a.minioClient.UploadAvatar(userID, r, size, contentType)
+	return a.s3Client.UploadAvatar(userID, r, size, contentType)
 }
 
 func (a *AvatarStorageAdapter) DeleteAvatar(userID string) error {
 	avatarPath := fileutil.FormatAvatarURL(userID)
-	return a.minioClient.DeleteAvatar(avatarPath)
+	return a.s3Client.DeleteAvatar(avatarPath)
 }
 
 func (a *AvatarStorageAdapter) GetAvatarBytes(userID string) (contentType string, data []byte, err error) {
 	avatarPath := fileutil.FormatAvatarURL(userID)
-	objInfo, err := a.minioClient.GetAvatarObjectInfo(avatarPath)
+	objInfo, err := a.s3Client.GetAvatarObjectInfo(avatarPath)
 	if err != nil {
 		return "", nil, err
 	}
-	rc, err := a.minioClient.GetAvatarFile(avatarPath)
+	rc, err := a.s3Client.GetAvatarFile(avatarPath)
 	if err != nil {
 		return "", nil, err
 	}

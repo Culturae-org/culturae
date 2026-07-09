@@ -377,7 +377,7 @@ func (u *AdminGeographyUsecase) ImportGeographyFromManifest(manifestURL string) 
 	)
 
 	if u.flagStorage == nil {
-		u.logger.Warn("MinIO service not configured, skipping flag import")
+		u.logger.Warn("S3 storage service not configured, skipping flag import")
 	} else if flagsBaseURL == "" && flagsPNG512BaseURL == "" && flagsPNG1024BaseURL == "" {
 		u.logger.Warn("No flags base URLs configured, skipping flag import")
 	} else {

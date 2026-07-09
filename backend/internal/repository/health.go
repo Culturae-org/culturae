@@ -48,17 +48,17 @@ type StorageHealthRepositoryInterface interface {
 }
 
 type StorageHealthAdapter struct {
-	minioClient storage.MinIOClientInterface
+	s3Client storage.S3ClientInterface
 }
 
-func NewStorageHealthAdapter(minioClient storage.MinIOClientInterface) *StorageHealthAdapter {
-	return &StorageHealthAdapter{minioClient: minioClient}
+func NewStorageHealthAdapter(s3Client storage.S3ClientInterface) *StorageHealthAdapter {
+	return &StorageHealthAdapter{s3Client: s3Client}
 }
 
 func (s *StorageHealthAdapter) CheckBucketExists() error {
-	return s.minioClient.CheckBucketExists()
+	return s.s3Client.CheckBucketExists()
 }
 
 func (s *StorageHealthAdapter) GetBucketInfo() (map[string]interface{}, error) {
-	return s.minioClient.GetBucketInfo()
+	return s.s3Client.GetBucketInfo()
 }

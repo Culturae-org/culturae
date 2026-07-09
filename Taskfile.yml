@@ -8,7 +8,7 @@ tasks:
       - go run ./cmd/main.go
 
   dev:infra:
-    desc: "Start only infrastructure (postgres, redis, minio)"
+    desc: "Start only infrastructure (postgres, redis, s3)"
     dir : backend
     cmds:
       - docker compose up -d

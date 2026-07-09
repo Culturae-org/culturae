@@ -678,10 +678,10 @@ func TestRateLimit_BlocksAfterLimit(t *testing.T) {
 		switch msg[keyType] {
 		case "pong":
 			pongs++
-		case msgAck:
+		case "error":
 			limited++
-			assert.Equal(t, false, msg["success"])
-			assert.Contains(t, msg["error"], "rate limit exceeded")
+			assert.Equal(t, "rate limit exceeded", msg["error"])
+			assert.Equal(t, "rate_limit_exceeded", msg["code"])
 		}
 	}
 
@@ -708,8 +708,8 @@ func TestRateLimit_WindowReset_AllowsAgain(t *testing.T) {
 	// 3rd message within the window must be rate-limited.
 	send(t, conn, map[string]string{keyType: msgPing})
 	msg := readMsg(t, conn)
-	assert.Equal(t, msgAck, msg[keyType])
-	assert.Equal(t, false, msg["success"])
+	assert.Equal(t, "error", msg[keyType])
+	assert.Equal(t, "rate limit exceeded", msg["error"])
 
 	// Wait for the 1-second window to expire.
 	time.Sleep(1100 * time.Millisecond)

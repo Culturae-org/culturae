@@ -47,7 +47,7 @@ import (
 
 type Deps struct {
 	RedisService        cache.RedisClientInterface
-	MinIOService        storage.MinIOClientInterface
+	S3Service           storage.S3ClientInterface
 	UserCacheService    service.UserCacheServiceInterface
 	SessionService      service.SessionServiceInterface
 	WebSocketService    service.WebSocketServiceInterface
@@ -632,7 +632,7 @@ func setupDependencies(cfg *config.Config, db *gorm.DB, logger *zap.Logger) (*De
 
 	deps := &Deps{
 		RedisService:     services.RedisService,
-		MinIOService:     services.MinIOService,
+		S3Service:        services.S3Service,
 		UserCacheService: services.UserCacheService,
 		SessionService:   services.SessionService,
 		WebSocketService: services.WebSocketService,
@@ -645,7 +645,7 @@ func setupDependencies(cfg *config.Config, db *gorm.DB, logger *zap.Logger) (*De
 
 type AppServices struct {
 	RedisService     cache.RedisClientInterface
-	MinIOService     storage.MinIOClientInterface
+	S3Service        storage.S3ClientInterface
 	UserCacheService service.UserCacheServiceInterface
 	SessionService   service.SessionServiceInterface
 	WebSocketService service.WebSocketServiceInterface
@@ -660,16 +660,16 @@ func setupServices(cfg *config.Config, db *gorm.DB, logger *zap.Logger) (*AppSer
 		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
-	minioService, err := storage.NewMinIOClient(
-		cfg.MinIOEndpoint,
-		cfg.MinIOAccessKey,
-		cfg.MinIOSecretKey,
-		cfg.MinIOBucketName,
-		cfg.MinIOUseSSL,
+	s3Service, err := storage.NewS3Client(
+		cfg.S3Endpoint,
+		cfg.S3AccessKey,
+		cfg.S3SecretKey,
+		cfg.S3BucketName,
+		cfg.S3UseSSL,
 		logger,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize MinIO service: %w", err)
+		return nil, fmt.Errorf("failed to initialize S3 storage service: %w", err)
 	}
 
 	userCacheService := service.NewUserCacheService(
@@ -708,7 +708,7 @@ func setupServices(cfg *config.Config, db *gorm.DB, logger *zap.Logger) (*AppSer
 
 	return &AppServices{
 		RedisService:     redisService,
-		MinIOService:     minioService,
+		S3Service:        s3Service,
 		UserCacheService: userCacheService,
 		SessionService:   sessionService,
 		WebSocketService: webSocketService,
@@ -821,7 +821,7 @@ type AppComponents struct {
 func buildApp(appCtx context.Context, cfg *config.Config, db *gorm.DB, deps *Deps, logger *zap.Logger) (*App, error) {
 
 	loggingRepo := adminRepo.NewServiceLoggingRepository(db)
-	loggingService := service.NewLoggingService(loggingRepo, deps.RedisService, deps.MinIOService, logger)
+	loggingService := service.NewLoggingService(loggingRepo, deps.RedisService, deps.S3Service, logger)
 
 	components := &AppComponents{LoggingService: loggingService}
 
@@ -829,7 +829,7 @@ func buildApp(appCtx context.Context, cfg *config.Config, db *gorm.DB, deps *Dep
 		return nil, fmt.Errorf("failed to setup repositories: %w", err)
 	}
 
-	setupUseCasesInComponents(components, db, deps.RedisService, deps.MinIOService, deps.WebSocketService, logger)
+	setupUseCasesInComponents(components, db, deps.RedisService, deps.S3Service, deps.WebSocketService, logger)
 
 	setupHandlersAndMiddlewares(cfg, deps, components, logger)
 
@@ -1003,7 +1003,7 @@ func setupUseCasesInComponents(
 	components *AppComponents,
 	db *gorm.DB,
 	redisService cache.RedisClientInterface,
-	minioService storage.MinIOClientInterface,
+	s3Service storage.S3ClientInterface,
 	wsService service.WebSocketServiceInterface,
 	logger *zap.Logger,
 ) {
@@ -1013,7 +1013,7 @@ func setupUseCasesInComponents(
 		components.Repositories.Session,
 	)
 
-	components.Repositories.AvatarStorage = repository.NewAvatarStorageAdapter(minioService)
+	components.Repositories.AvatarStorage = repository.NewAvatarStorageAdapter(s3Service)
 	components.Repositories.AvatarCache = repository.NewAvatarCacheAdapter(redisService)
 
 	components.UseCases.Avatar = usecase.NewAvatarUsecase(
@@ -1031,9 +1031,9 @@ func setupUseCasesInComponents(
 
 	components.Repositories.Imports = adminRepo.NewImportJobRepository(db)
 	components.Repositories.Metrics = adminRepo.NewMetricsRepository(db)
-	components.Repositories.FlagStorage = repository.NewFlagStorageAdapter(minioService, logger)
+	components.Repositories.FlagStorage = repository.NewFlagStorageAdapter(s3Service, logger)
 	components.Repositories.CacheHealth = repository.NewCacheHealthAdapter(redisService)
-	components.Repositories.StorageHealth = repository.NewStorageHealthAdapter(minioService)
+	components.Repositories.StorageHealth = repository.NewStorageHealthAdapter(s3Service)
 
 	components.UseCases.AdminLogs = adminUsecase.NewAdminLogsUsecase(
 		components.Repositories.Logs,

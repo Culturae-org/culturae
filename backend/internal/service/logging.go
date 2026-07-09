@@ -41,15 +41,15 @@ type LoggingServiceInterface interface {
 type LoggingService struct {
 	repo        LoggingRepositoryInterface
 	RedisClient cache.RedisClientInterface
-	MinIOClient storage.MinIOClientInterface
+	S3Client storage.S3ClientInterface
 	logger      *zap.Logger
 }
 
-func NewLoggingService(repo LoggingRepositoryInterface, redisClient cache.RedisClientInterface, minioClient storage.MinIOClientInterface, logger *zap.Logger) *LoggingService {
+func NewLoggingService(repo LoggingRepositoryInterface, redisClient cache.RedisClientInterface, s3Client storage.S3ClientInterface, logger *zap.Logger) *LoggingService {
 	return &LoggingService{
 		repo:        repo,
 		RedisClient: redisClient,
-		MinIOClient: minioClient,
+		S3Client: s3Client,
 		logger:      logger,
 	}
 }
@@ -146,7 +146,7 @@ func (ls *LoggingService) LogConnectionAttempt(userID *uuid.UUID, sessionID *uui
 }
 
 func (ls *LoggingService) CheckServiceStatus() ([]model.ServiceStatus, error) {
-	services := []string{"postgres", "redis", "minio"}
+	services := []string{"postgres", "redis", "s3"}
 	var statuses []model.ServiceStatus
 
 	for _, service := range services {
@@ -163,8 +163,8 @@ func (ls *LoggingService) CheckServiceStatus() ([]model.ServiceStatus, error) {
 			err = ls.repo.CheckDatabaseHealth()
 		case "redis":
 			err = ls.checkRedisHealth()
-		case "minio":
-			err = ls.checkMinIOHealth()
+		case "s3":
+			err = ls.checkS3Health()
 		}
 
 		status.ResponseTime = time.Since(start).Milliseconds()
@@ -189,8 +189,8 @@ func (ls *LoggingService) checkRedisHealth() error {
 	return ls.RedisClient.Ping(ctx)
 }
 
-func (ls *LoggingService) checkMinIOHealth() error {
-	return ls.MinIOClient.CheckBucketExists()
+func (ls *LoggingService) checkS3Health() error {
+	return ls.S3Client.CheckBucketExists()
 }
 
 func (ls *LoggingService) APILoggingMiddleware() gin.HandlerFunc {

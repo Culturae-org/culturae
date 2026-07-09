@@ -1,4 +1,4 @@
-// backend/internal/infrastructure/storage/minio.go
+// backend/internal/infrastructure/storage/s3.go
 
 package storage
 
@@ -34,7 +34,7 @@ func (c *cancelReadCloser) Close() error {
 	return c.ReadCloser.Close()
 }
 
-type MinIOClientInterface interface {
+type S3ClientInterface interface {
 	UploadAvatar(userID string, r io.Reader, size int64, contentType string) (string, error)
 	DeleteAvatar(fileName string) error
 	GetAvatarURL(fileName string) (string, error)
@@ -55,13 +55,13 @@ type MinIOClientInterface interface {
 	GetFlagPNGFile(countryCode string, format string) (io.ReadCloser, error)
 }
 
-type MinIOClient struct {
+type S3Client struct {
 	client     *minio.Client
 	bucketName string
 	logger     *zap.Logger
 }
 
-func NewMinIOClient(endpoint, accessKey, secretKey, bucketName string, useSSL bool, logger *zap.Logger) (*MinIOClient, error) {
+func NewS3Client(endpoint, accessKey, secretKey, bucketName string, useSSL bool, logger *zap.Logger) (*S3Client, error) {
 	client, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
 		Secure: useSSL,
@@ -70,7 +70,7 @@ func NewMinIOClient(endpoint, accessKey, secretKey, bucketName string, useSSL bo
 		return nil, err
 	}
 
-	service := &MinIOClient{
+	service := &S3Client{
 		client:     client,
 		bucketName: bucketName,
 		logger:     logger,
@@ -83,15 +83,15 @@ func NewMinIOClient(endpoint, accessKey, secretKey, bucketName string, useSSL bo
 	return service, nil
 }
 
-func (s *MinIOClient) Client() *minio.Client {
+func (s *S3Client) Client() *minio.Client {
 	return s.client
 }
 
-func (s *MinIOClient) BucketName() string {
+func (s *S3Client) BucketName() string {
 	return s.bucketName
 }
 
-func (s *MinIOClient) createBucketIfNotExists() error {
+func (s *S3Client) createBucketIfNotExists() error {
 	ctx, cancel := opCtx()
 	defer cancel()
 
@@ -110,7 +110,7 @@ func (s *MinIOClient) createBucketIfNotExists() error {
 	return nil
 }
 
-func (s *MinIOClient) UploadAvatar(userID string, r io.Reader, size int64, contentType string) (string, error) {
+func (s *S3Client) UploadAvatar(userID string, r io.Reader, size int64, contentType string) (string, error) {
 	fileName := fmt.Sprintf("avatar/%s", userID)
 
 	ctx, cancel := opCtx()
@@ -126,7 +126,7 @@ func (s *MinIOClient) UploadAvatar(userID string, r io.Reader, size int64, conte
 	return fileName, nil
 }
 
-func (s *MinIOClient) DeleteAvatar(fileName string) error {
+func (s *S3Client) DeleteAvatar(fileName string) error {
 	if fileName == "" {
 		return nil
 	}
@@ -137,7 +137,7 @@ func (s *MinIOClient) DeleteAvatar(fileName string) error {
 	return s.client.RemoveObject(ctx, s.bucketName, fileName, minio.RemoveObjectOptions{})
 }
 
-func (s *MinIOClient) GetAvatarURL(fileName string) (string, error) {
+func (s *S3Client) GetAvatarURL(fileName string) (string, error) {
 	if fileName == "" {
 		return "", nil
 	}
@@ -153,7 +153,7 @@ func (s *MinIOClient) GetAvatarURL(fileName string) (string, error) {
 	return presignedURL.String(), nil
 }
 
-func (s *MinIOClient) GetAvatarFile(fileName string) (io.ReadCloser, error) {
+func (s *S3Client) GetAvatarFile(fileName string) (io.ReadCloser, error) {
 	ctx, cancel := opCtx()
 	obj, err := s.client.GetObject(ctx, s.bucketName, fileName, minio.GetObjectOptions{})
 	if err != nil {
@@ -163,7 +163,7 @@ func (s *MinIOClient) GetAvatarFile(fileName string) (io.ReadCloser, error) {
 	return &cancelReadCloser{ReadCloser: obj, cancel: cancel}, nil
 }
 
-func (s *MinIOClient) GetAvatarContentType(fileName string) (string, error) {
+func (s *S3Client) GetAvatarContentType(fileName string) (string, error) {
 	ctx, cancel := opCtx()
 	defer cancel()
 
@@ -174,7 +174,7 @@ func (s *MinIOClient) GetAvatarContentType(fileName string) (string, error) {
 	return objInfo.ContentType, nil
 }
 
-func (s *MinIOClient) GetAvatarObjectInfo(fileName string) (minio.ObjectInfo, error) {
+func (s *S3Client) GetAvatarObjectInfo(fileName string) (minio.ObjectInfo, error) {
 	ctx, cancel := opCtx()
 	defer cancel()
 
@@ -185,7 +185,7 @@ func (s *MinIOClient) GetAvatarObjectInfo(fileName string) (minio.ObjectInfo, er
 	return objInfo, nil
 }
 
-func (s *MinIOClient) CheckBucketExists() error {
+func (s *S3Client) CheckBucketExists() error {
 	ctx, cancel := opCtx()
 	defer cancel()
 
@@ -199,7 +199,7 @@ func (s *MinIOClient) CheckBucketExists() error {
 	return nil
 }
 
-func (s *MinIOClient) GetBucketInfo() (map[string]interface{}, error) {
+func (s *S3Client) GetBucketInfo() (map[string]interface{}, error) {
 	ctx := context.Background()
 	details := make(map[string]interface{})
 
@@ -251,11 +251,11 @@ func formatBytes(b int64) string {
 }
 
 
-func (s *MinIOClient) getFlagPath(countryCode string) string {
+func (s *S3Client) getFlagPath(countryCode string) string {
 	return fmt.Sprintf("flags-svg/%s.svg", strings.ToLower(countryCode))
 }
 
-func (s *MinIOClient) UploadFlag(countryCode string, svgContent []byte) (string, error) {
+func (s *S3Client) UploadFlag(countryCode string, svgContent []byte) (string, error) {
 	if len(svgContent) == 0 {
 		return "", fmt.Errorf("empty SVG content for country: %s", countryCode)
 	}
@@ -280,7 +280,7 @@ func (s *MinIOClient) UploadFlag(countryCode string, svgContent []byte) (string,
 	return flagPath, nil
 }
 
-func (s *MinIOClient) UploadFlagFromURL(countryCode string, url string) (string, error) {
+func (s *S3Client) UploadFlagFromURL(countryCode string, url string) (string, error) {
 	flagPath := s.getFlagPath(countryCode)
 
 	existCtx, existCancel := opCtx()
@@ -314,7 +314,7 @@ func (s *MinIOClient) UploadFlagFromURL(countryCode string, url string) (string,
 	return s.UploadFlag(countryCode, content)
 }
 
-func (s *MinIOClient) GetFlagFile(countryCode string) (io.ReadCloser, error) {
+func (s *S3Client) GetFlagFile(countryCode string) (io.ReadCloser, error) {
 	flagPath := s.getFlagPath(countryCode)
 	ctx, cancel := opCtx()
 	obj, err := s.client.GetObject(ctx, s.bucketName, flagPath, minio.GetObjectOptions{})
@@ -325,7 +325,7 @@ func (s *MinIOClient) GetFlagFile(countryCode string) (io.ReadCloser, error) {
 	return &cancelReadCloser{ReadCloser: obj, cancel: cancel}, nil
 }
 
-func (s *MinIOClient) GetFlagURL(countryCode string) (string, error) {
+func (s *S3Client) GetFlagURL(countryCode string) (string, error) {
 	flagPath := s.getFlagPath(countryCode)
 
 	ctx, cancel := opCtx()
@@ -339,7 +339,7 @@ func (s *MinIOClient) GetFlagURL(countryCode string) (string, error) {
 	return presignedURL.String(), nil
 }
 
-func (s *MinIOClient) DeleteFlag(countryCode string) error {
+func (s *S3Client) DeleteFlag(countryCode string) error {
 	flagPath := s.getFlagPath(countryCode)
 
 	ctx, cancel := opCtx()
@@ -348,7 +348,7 @@ func (s *MinIOClient) DeleteFlag(countryCode string) error {
 	return s.client.RemoveObject(ctx, s.bucketName, flagPath, minio.RemoveObjectOptions{})
 }
 
-func (s *MinIOClient) FlagExists(countryCode string) (bool, error) {
+func (s *S3Client) FlagExists(countryCode string) (bool, error) {
 	flagPath := s.getFlagPath(countryCode)
 
 	ctx, cancel := opCtx()
@@ -365,11 +365,11 @@ func (s *MinIOClient) FlagExists(countryCode string) (bool, error) {
 	return true, nil
 }
 
-func (s *MinIOClient) getFlagPNGPath(countryCode string, format string) string {
+func (s *S3Client) getFlagPNGPath(countryCode string, format string) string {
 	return fmt.Sprintf("flags-png-%s/%s.png", format, strings.ToLower(countryCode))
 }
 
-func (s *MinIOClient) GetFlagPNGFile(countryCode string, format string) (io.ReadCloser, error) {
+func (s *S3Client) GetFlagPNGFile(countryCode string, format string) (io.ReadCloser, error) {
 	flagPath := s.getFlagPNGPath(countryCode, format)
 	ctx, cancel := opCtx()
 	obj, err := s.client.GetObject(ctx, s.bucketName, flagPath, minio.GetObjectOptions{})
@@ -380,7 +380,7 @@ func (s *MinIOClient) GetFlagPNGFile(countryCode string, format string) (io.Read
 	return &cancelReadCloser{ReadCloser: obj, cancel: cancel}, nil
 }
 
-func (s *MinIOClient) UploadFlagPNGFromURL(countryCode string, format string, url string) (string, error) {
+func (s *S3Client) UploadFlagPNGFromURL(countryCode string, format string, url string) (string, error) {
 	flagPath := s.getFlagPNGPath(countryCode, format)
 
 	existCtx, existCancel := opCtx()
